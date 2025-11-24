@@ -228,6 +228,23 @@ class AuthService extends ChangeNotifier {
   Future<void> signOut() async {
     _isLoading = true;
     notifyListeners();
+
+    // Resetear el rol a 'cliente' en Firestore antes de hacer logout
+    // Esto asegura que cuando el usuario vuelva a iniciar sesión,
+    // siempre vea la pantalla de selección de rol
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .update({'role': 'cliente', 'status': 'cliente'});
+      } catch (e) {
+        // Si hay error al actualizar Firestore, continuar con el logout
+        print('Error resetting role on logout: $e');
+      }
+    }
+
     await _googleSignIn.signOut();
     await _auth.signOut();
     _userRole = null; // Limpiar rol al salir

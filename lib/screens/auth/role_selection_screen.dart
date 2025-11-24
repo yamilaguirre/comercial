@@ -8,8 +8,9 @@ import '../../providers/auth_provider.dart';
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
 
-  // Función para actualizar el rol en Firestore y redirigir explícitamente
+  // Función para actualizar el rol en Firestore y redirigir
   void _updateRoleAndNavigate(BuildContext context, String newRole) async {
+    // Usamos read para acceder al provider sin escuchar
     final authService = context.read<AuthService>();
     final user = authService.currentUser;
 
@@ -21,26 +22,33 @@ class RoleSelectionScreen extends StatelessWidget {
     try {
       // 1. Actualizar 'role' y 'status' en Firestore
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {'role': newRole, 'status': newRole},
+        {
+          'role': newRole,
+          'status': newRole, // Se establece el status igual al rol
+        },
       );
 
-      // 2. Notificar listeners (opcional en este punto, pero buena práctica)
-      await user.reload();
-      authService.notifyListeners();
+      // 2. Determinar la ruta según el rol seleccionado
+      final targetRoute = newRole == 'trabajo' ? '/work-home' : '/home';
 
-      // 3. REDIRECCIÓN EXPLÍCITA
+      // 3. Mostrar mensaje de éxito
       if (context.mounted) {
-        if (newRole == 'inmobiliaria') {
-          context.go('/property-home'); // Redirige a PropertyListScreen
-        } else {
-          context.go('/work-home'); // Redirige a WorkListScreen
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rol actualizado a $newRole.'),
+            backgroundColor: Styles.successColor,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+
+        // 4. Navegar manualmente a la ruta correcta
+        context.go(targetRoute);
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al guardar el rol y estado: $e'),
+            content: Text('Error al guardar el rol: $e'),
             backgroundColor: Styles.errorColor,
           ),
         );
@@ -55,12 +63,14 @@ class RoleSelectionScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      // Se eliminó el AppBar para que coincida con el diseño de la imagen
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(Styles.spacingLarge),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Logo superior (Simulando el logo COMERCIAL)
               Center(
                 child: Image.asset(
                   'assets/images/logoColor.png',
@@ -71,6 +81,7 @@ class RoleSelectionScreen extends StatelessWidget {
 
               SizedBox(height: Styles.spacingXLarge),
 
+              // Título "¿Con qué quieres empezar?"
               Text(
                 '¿Con qué quieres empezar?',
                 style: TextStyles.title.copyWith(
@@ -82,6 +93,7 @@ class RoleSelectionScreen extends StatelessWidget {
               ),
               SizedBox(height: Styles.spacingMedium),
 
+              // Subtítulo descriptivo
               Text(
                 'Puedes explorar inmuebles o freelancers cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
                 style: TextStyles.body.copyWith(color: Styles.textSecondary),
@@ -90,20 +102,20 @@ class RoleSelectionScreen extends StatelessWidget {
 
               SizedBox(height: Styles.spacingXLarge),
 
+              // Imagen central conQueQuieresEmpesar.png
               Center(
                 child: Image.asset(
                   'assets/images/conQueQuieresEmpesar.png',
-                  height: 250,
+                  height: 250, // Ajuste de altura para que se vea bien
                   fit: BoxFit.contain,
                 ),
               ),
 
-              const Spacer(),
-
-              // Botones de Selección
+              const Spacer(), // Empuja los botones hacia abajo
+              // Contenedor de botones en la parte inferior
               Row(
                 children: [
-                  // Botón 1: Inmobiliaria -> /property-home
+                  // Botón 1: Inmobiliaria (Principal Color)
                   Expanded(
                     child: SizedBox(
                       height: 56,
@@ -117,7 +129,7 @@ class RoleSelectionScreen extends StatelessWidget {
                         icon: const Icon(Icons.home_work, size: 24),
                         label: const Text('Inmobiliaria'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Styles.primaryColor,
+                          backgroundColor: Styles.primaryColor, // Azul fuerte
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -129,7 +141,7 @@ class RoleSelectionScreen extends StatelessWidget {
                   ),
                   SizedBox(width: Styles.spacingMedium),
 
-                  // Botón 2: Trabajo -> /work-home
+                  // Botón 2: Trabajo (Fondo Oscuro)
                   Expanded(
                     child: SizedBox(
                       height: 56,
@@ -140,7 +152,7 @@ class RoleSelectionScreen extends StatelessWidget {
                         icon: const Icon(Icons.work_outline, size: 24),
                         label: const Text('Trabajo'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Styles.textPrimary,
+                          backgroundColor: Styles.textPrimary, // Negro/Oscuro
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
