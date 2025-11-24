@@ -163,7 +163,25 @@ class AppRouter {
         ShellRoute(
           navigatorKey: _shellNavigatorKey,
           builder: (context, state, child) {
-            return LayoutSelector(child: child);
+            // Usar Consumer para escuchar cambios en el rol y forzar rebuild
+            return Consumer<AuthService>(
+              builder: (context, authService, _) {
+                final userRole = authService.userRole;
+
+                // Usar layout según el rol
+                if (userRole == 'trabajo') {
+                  return WorkerLayout(
+                    key: ValueKey('worker-$userRole'),
+                    child: child,
+                  );
+                }
+                // MainLayout para 'inmobiliaria' y otros
+                return MainLayout(
+                  key: ValueKey('main-$userRole'),
+                  child: child,
+                );
+              },
+            );
           },
           routes: [
             // HOME INMOBILIARIA/CLIENTE (Lista de propiedades)
@@ -372,22 +390,4 @@ extension AppRouterExtension on BuildContext {
 
   void goToLogin() => go('/login');
   void goToRegister() => go('/register');
-}
-
-class LayoutSelector extends StatelessWidget {
-  final Widget child;
-  const LayoutSelector({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    final userRole = authService.userRole;
-
-    print('LayoutSelector building. Role: $userRole');
-
-    if (userRole == 'trabajo') {
-      return WorkerLayout(key: const ValueKey('worker'), child: child);
-    }
-    return MainLayout(key: const ValueKey('main'), child: child);
-  }
 }
