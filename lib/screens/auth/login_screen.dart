@@ -25,8 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null && mounted) {
-        // El router automáticamente redirigirá a /home debido al redirect guard
-        context.go('/home');
+        // El router automáticamente redirigirá a /select-role debido al redirect guard
+        context.go('/select-role');
       }
     } catch (e) {
       if (mounted) {
