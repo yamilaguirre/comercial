@@ -17,6 +17,8 @@ import '../../screens/property/my_properties_screen.dart';
 import '../../screens/property/property_form_screen.dart';
 import '../../screens/property_detail_screen.dart';
 import '../../screens/map_picker_screen.dart';
+import '../../screens/profile/owner_profile_screen.dart'; // NUEVA
+import '../../screens/profile/user_profile_screen.dart'; // NUEVA
 import '../../providers/auth_provider.dart';
 import '../layouts/main_layout.dart';
 import '../../models/property.dart';
@@ -43,15 +45,28 @@ class AppRouter {
           (route) => location == route || location.startsWith('$route?'),
         );
 
+        final authRoutesToBlock = [
+          '/',
+          '/login',
+          '/register',
+          '/register-form',
+        ];
+        final isAuthRouteToBlock = authRoutesToBlock.any(
+          (route) => location == route || location.startsWith('$route?'),
+        );
+
+        // 2. Si NO está logueado
         if (!isLoggedIn) {
           if (!isPublicRoute) return '/';
           return null;
         }
 
+        // 3. Si SÍ está logueado
         if (isLoggedIn) {
-          if (isPublicRoute) {
+          if (isAuthRouteToBlock) {
             return '/select-role';
           }
+
           return null;
         }
 
@@ -132,7 +147,17 @@ class AppRouter {
           ],
         ),
 
-        // Rutas secundarias
+        // Rutas secundarias de Perfiles y Publicaciones
+        GoRoute(
+          path: '/profile/owner',
+          name: 'profile-owner',
+          builder: (context, state) => const OwnerProfileScreen(),
+        ),
+        GoRoute(
+          path: '/profile/user',
+          name: 'profile-user',
+          builder: (context, state) => const UserProfileScreen(),
+        ),
         GoRoute(
           path: '/edit-profile',
           name: 'edit-profile',
@@ -170,15 +195,11 @@ class AppRouter {
           },
         ),
 
-        // --- CORRECCIÓN AQUÍ ---
         GoRoute(
           path: '/map-picker',
           name: 'map-picker',
           builder: (context, state) {
-            // Usamos dynamic para evitar errores de casteo si viene como Map<dynamic, dynamic>
             final extras = state.extra as Map<String, dynamic>?;
-
-            // Convertimos explícitamente a double, manejando nulls y tipos numéricos (int/double)
             final lat = (extras?['lat'] as num?)?.toDouble();
             final lng = (extras?['lng'] as num?)?.toDouble();
 
