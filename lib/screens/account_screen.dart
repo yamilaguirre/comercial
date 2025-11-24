@@ -260,7 +260,7 @@ class _AccountScreenState extends State<AccountScreen> {
                         ),
                       ),
 
-                      // BOTÓN PARA CAMBIAR DE ROL
+                      // BOTÓN PARA CAMBIAR DE ROL (ESTILOS MEJORADOS)
                       if (canToggleRole)
                         Padding(
                           padding: EdgeInsets.fromLTRB(
@@ -269,21 +269,41 @@ class _AccountScreenState extends State<AccountScreen> {
                             Styles.spacingMedium,
                             Styles.spacingXSmall,
                           ),
-                          child: SizedBox(
+                          child: Container(
                             width: double.infinity,
+                            decoration: BoxDecoration(
+                              // Degradado de colores vibrantes
+                              gradient: const LinearGradient(
+                                colors: [Styles.infoColor, Color(0xFF14B8A6)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              // Sombra de botón
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Styles.infoColor.withOpacity(0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
                             child: ElevatedButton.icon(
                               onPressed: () => _toggleRole(userRole),
                               icon: const Icon(
                                 Icons.swap_horiz,
+                                size: 24,
                               ), // Icono de cambio
                               label: Text(
-                                'Cambiar a modo ${targetRole.toUpperCase()}',
+                                'Cambiar a modo ${targetRoleDisplay.toUpperCase()}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Styles.infoColor,
+                                backgroundColor: Colors
+                                    .transparent, // Fondo transparente para mostrar el degradado
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
@@ -291,13 +311,13 @@ class _AccountScreenState extends State<AccountScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                elevation: 2,
+                                elevation: 0, // Quitamos la elevación base
                               ),
                             ),
                           ),
                         ),
 
-                      // Opciones de Gestión (dinámicas según rol)
+                      // SECCIÓN DE BOTONES DE PERFIL DE ACTIVIDAD
                       Container(
                         margin: EdgeInsets.all(Styles.spacingMedium),
                         decoration: BoxDecoration(
@@ -322,7 +342,7 @@ class _AccountScreenState extends State<AccountScreen> {
                                 Styles.spacingXSmall,
                               ),
                               child: Text(
-                                'Gestión de Publicaciones',
+                                'Perfiles de Actividad',
                                 style: TextStyles.subtitle.copyWith(
                                   color: Styles.textPrimary,
                                   fontWeight: FontWeight.bold,
@@ -330,67 +350,29 @@ class _AccountScreenState extends State<AccountScreen> {
                               ),
                             ),
 
-                            // Si es INMOBILIARIA o CLIENTE (defecto)
-                            if (userRole == 'inmobiliaria' ||
-                                userRole == 'cliente') ...[
-                              _buildMenuItem(
-                                icon: Icons.add_home_work,
-                                iconColor: Styles.primaryColor,
-                                iconBgColor: Styles.primaryColor.withOpacity(
-                                  0.1,
-                                ),
-                                title: 'Publicar nueva propiedad',
-                                subtitle: 'Crea un anuncio de venta/alquiler',
-                                onTap: () => context.push('/property/new'),
-                              ),
-                              _buildDivider(),
-                              _buildMenuItem(
-                                icon: Icons.edit_note,
-                                iconColor: Colors.blue,
-                                iconBgColor: Colors.blue.withOpacity(0.1),
-                                title: 'Mis Publicaciones',
-                                subtitle: 'Edita o elimina tus anuncios',
-                                onTap: () => context.push('/property/my'),
-                              ),
-                            ]
-                            // Si es TRABAJADOR
-                            else if (userRole == 'trabajo') ...[
-                              _buildMenuItem(
-                                icon: Icons.add_task,
-                                iconColor: Styles.infoColor,
-                                iconBgColor: Styles.infoColor.withOpacity(0.1),
-                                title: 'Publicar nuevo servicio',
-                                subtitle: 'Ofrece tus servicios profesionales',
-                                onTap: () {
-                                  // context.push('/work/new'); // Pendiente
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Próximamente: Publicar Servicio',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildDivider(),
-                              _buildMenuItem(
-                                icon: Icons.handyman,
-                                iconColor: Colors.deepOrange,
-                                iconBgColor: Colors.deepOrange.withOpacity(0.1),
-                                title: 'Mis Servicios',
-                                subtitle: 'Gestiona tus ofertas laborales',
-                                onTap: () {
-                                  // Pendiente
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Próximamente: Mis Servicios',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
+                            // Botón 1: Perfil de Propietario (Estadísticas Inmobiliarias)
+                            _buildMenuItem(
+                              icon: Icons.bar_chart,
+                              iconColor: Styles.primaryColor,
+                              iconBgColor: Styles.primaryColor.withOpacity(0.1),
+                              title: 'Perfil de Propietario',
+                              subtitle: 'Estadísticas de tus publicaciones',
+                              onTap: () => context.push('/profile/owner'),
+                            ),
+                            _buildDivider(),
+
+                            // Botón 2: Perfil de Usuario (Estadísticas de Consumo)
+                            _buildMenuItem(
+                              icon: Icons.person_search,
+                              iconColor: Colors.blue,
+                              iconBgColor: Colors.blue.withOpacity(0.1),
+                              title: 'Perfil de Usuario',
+                              subtitle:
+                                  'Tus preferencias y actividad de búsqueda',
+                              onTap: () => context.push('/profile/user'),
+                            ),
+
+                            // No incluimos 'Ver Mis Publicaciones' y 'Historial de Pagos' aquí.
                           ],
                         ),
                       ),

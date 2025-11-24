@@ -22,6 +22,8 @@ import '../../screens/property/my_properties_screen.dart';
 import '../../screens/property/property_form_screen.dart';
 import '../../screens/property_detail_screen.dart';
 import '../../screens/map_picker_screen.dart';
+import '../../screens/profile/owner_profile_screen.dart'; // NUEVA
+import '../../screens/profile/user_profile_screen.dart'; // NUEVA
 import '../../providers/auth_provider.dart';
 import '../layouts/main_layout.dart';
 import '../layouts/worker_layout.dart';
@@ -45,7 +47,17 @@ class AppRouter {
         // Rutas públicas
         final publicRoutes = ['/', '/login', '/register', '/register-form'];
 
-        // Si NO está logueado
+        final authRoutesToBlock = [
+          '/',
+          '/login',
+          '/register',
+          '/register-form',
+        ];
+        final isAuthRouteToBlock = authRoutesToBlock.any(
+          (route) =>
+              location == route || (location?.startsWith('$route?') ?? false),
+        );
+
         if (!isLoggedIn) {
           if (publicRoutes.contains(location)) return null;
           return '/';
@@ -96,11 +108,13 @@ class AppRouter {
           return null;
         }
 
-        // Si está en el home incorrecto, redirigir al correcto
-        if (location == '/home' || location == '/work-home') {
-          if (location != expectedHome) {
-            return expectedHome;
+        // 3. Si SÍ está logueado
+        if (isLoggedIn) {
+          if (isAuthRouteToBlock) {
+            return '/select-role';
           }
+
+          return null;
         }
 
         // Si no está en ninguna ruta protegida, redirigir al home correcto
@@ -257,7 +271,17 @@ class AppRouter {
           ],
         ),
 
-        // Rutas secundarias (FUERA DEL SHELL)
+        // Rutas secundarias de Perfiles y Publicaciones
+        GoRoute(
+          path: '/profile/owner',
+          name: 'profile-owner',
+          builder: (context, state) => const OwnerProfileScreen(),
+        ),
+        GoRoute(
+          path: '/profile/user',
+          name: 'profile-user',
+          builder: (context, state) => const UserProfileScreen(),
+        ),
         GoRoute(
           path: '/edit-profile',
           name: 'edit-profile',
@@ -306,11 +330,11 @@ class AppRouter {
           path: '/map-picker',
           name: 'map-picker',
           builder: (context, state) {
-            final extras = state.extra as Map<String, double>?;
-            return MapPickerScreen(
-              initialLat: extras?['lat'],
-              initialLng: extras?['lng'],
-            );
+            final extras = state.extra as Map<String, dynamic>?;
+            final lat = (extras?['lat'] as num?)?.toDouble();
+            final lng = (extras?['lng'] as num?)?.toDouble();
+
+            return MapPickerScreen(initialLat: lat, initialLng: lng);
           },
         ),
       ],
