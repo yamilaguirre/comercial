@@ -24,6 +24,7 @@ import '../../screens/property_detail_screen.dart';
 import '../../screens/map_picker_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../layouts/main_layout.dart';
+import '../layouts/worker_layout.dart';
 import '../../models/property.dart';
 
 class AppRouter {
@@ -147,7 +148,9 @@ class AppRouter {
         // PRIVADAS (SHELL - NAVEGACIÓN PRINCIPAL)
         ShellRoute(
           navigatorKey: _shellNavigatorKey,
-          builder: (context, state, child) => MainLayout(child: child),
+          builder: (context, state, child) {
+            return LayoutSelector(child: child);
+          },
           routes: [
             // HOME INMOBILIARIA/CLIENTE (Lista de propiedades)
             GoRoute(
@@ -246,6 +249,11 @@ class AppRouter {
                 );
               },
             ),
+            GoRoute(
+              path: '/freelance-work',
+              name: 'freelance-work',
+              builder: (context, state) => const FreelanceWorkScreen(),
+            ),
           ],
         ),
 
@@ -257,13 +265,6 @@ class AppRouter {
             final userData = state.extra as Map<String, dynamic>?;
             return EditProfileScreen(userData: userData);
           },
-        ),
-
-        // Ruta para crear perfil de trabajador
-        GoRoute(
-          path: '/freelance-work',
-          name: 'freelance-work',
-          builder: (context, state) => const FreelanceWorkScreen(),
         ),
 
         GoRoute(
@@ -347,4 +348,22 @@ extension AppRouterExtension on BuildContext {
 
   void goToLogin() => go('/login');
   void goToRegister() => go('/register');
+}
+
+class LayoutSelector extends StatelessWidget {
+  final Widget child;
+  const LayoutSelector({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final userRole = authService.userRole;
+
+    print('LayoutSelector building. Role: $userRole');
+
+    if (userRole == 'trabajo') {
+      return WorkerLayout(key: const ValueKey('worker'), child: child);
+    }
+    return MainLayout(key: const ValueKey('main'), child: child);
+  }
 }

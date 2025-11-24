@@ -61,6 +61,36 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // --- ACTUALIZAR ROL ---
+  Future<void> updateUserRole(String newRole) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        // 1. Actualizar en Firestore
+        await _firestore.collection('users').doc(user.uid).update({
+          'role': newRole,
+          'status': newRole,
+        });
+
+        // 2. Actualizar estado local
+        _userRole = newRole;
+
+        // 3. Notificar a los listeners (Router)
+        notifyListeners();
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+      print("Error updating role: $e");
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // --- ACTUALIZAR PERFIL ---
   Future<bool> updateUserProfile({
     required String name,

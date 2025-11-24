@@ -25,8 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null && mounted) {
-        // El router automáticamente redirigirá a /home debido al redirect guard
-        context.go('/home');
+        // Redirigir explícitamente a la selección de rol
+        context.go('/select-role');
       }
     } catch (e) {
       if (mounted) {
@@ -223,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               content: Text('Bienvenido ${user.displayName}'),
                             ),
                           );
-                          context.go('/home');
+                          context.go('/select-role');
                         }
                       } catch (e) {
                         if (mounted) {

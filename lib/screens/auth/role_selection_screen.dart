@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 
@@ -20,13 +20,8 @@ class RoleSelectionScreen extends StatelessWidget {
     }
 
     try {
-      // 1. Actualizar 'role' y 'status' en Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {
-          'role': newRole,
-          'status': newRole, // Se establece el status igual al rol
-        },
-      );
+      // 1. Actualizar rol usando el servicio (actualiza Firestore + Estado Local)
+      await authService.updateUserRole(newRole);
 
       // 2. Determinar la ruta según el rol seleccionado
       final targetRoute = newRole == 'trabajo' ? '/work-home' : '/home';
