@@ -1,59 +1,43 @@
+// filepath: lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_modular/flutter_modular.dart'; // Reemplaza go_router y provider
 import 'package:firebase_core/firebase_core.dart';
-import 'package:go_router/go_router.dart';
 
-import 'providers/auth_provider.dart';
-import 'providers/mobiliaria_provider.dart';
-import 'core/navigation/app_router.dart';
+// Importaciones específicas del proyecto
+import 'core/modules/app_module.dart';
 import 'theme/theme.dart';
+import 'firebase_options.dart'; // Para una correcta inicialización de Firebase
 
 void main() async {
   // Asegura que el motor de Flutter esté listo antes de llamar a código nativo (Firebase)
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa Firebase (requiere google-services.json en android/app)
-  await Firebase.initializeApp();
+  // Inicializa Firebase usando las opciones por defecto para la plataforma actual
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // === CAMBIO CLAVE: Usa ModularApp como widget raíz ===
+  // ModularApp inyecta el módulo principal (AppModule) y gestiona el ruteo y las dependencias.
   runApp(
-    MultiProvider(
-      providers: [
-        // AuthProvider maneja la sesión
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        // MobiliariaProvider maneja las propiedades
-        ChangeNotifierProvider(create: (_) => MobiliariaProvider()),
-      ],
-      child: const MyApp(),
+    ModularApp(
+      module: AppModule(),
+      child: const MyAppWidget(), // El widget que contiene MaterialApp.router
     ),
   );
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  late final GoRouter _router;
-
-  @override
-  void initState() {
-    super.initState();
-    // Obtenemos la instancia de AuthService creada arriba
-    final authService = context.read<AuthService>();
-    // Creamos el router pasándole el servicio de autenticación para que escuche cambios
-    _router = AppRouter.createRouter(authService);
-  }
+// Widget principal que usa la configuración de Modular
+class MyAppWidget extends StatelessWidget {
+  const MyAppWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Comercial',
       debugShowCheckedModeBanner: false,
+      // Obtenemos el tema globalmente
       theme: AppTheme.themeData(),
-      routerConfig: _router,
+      // La configuración de rutas (routerConfig) se obtiene directamente de Modular
+      routerConfig: Modular.routerConfig,
     );
   }
 }

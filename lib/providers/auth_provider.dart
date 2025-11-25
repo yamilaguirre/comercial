@@ -1,3 +1,4 @@
+// filepath: lib/providers/auth_provider.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,10 +14,8 @@ class AuthService extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   bool _isAuthReady = false;
-
-  // --- CACHE DE DATOS DE USUARIO (OPTIMIZACIÓN DE VELOCIDAD) ---
-  String?
-  _userRole; // Guardamos el rol aquí para no pedirlo siempre a Firestore
+  // Rol por defecto. Usamos 'indefinido' para forzar la selección.
+  String _userRole = 'indefinido';
 
   // --- GETTERS ---
   bool get isAuthenticated => _isAuthenticated;
@@ -24,66 +23,65 @@ class AuthService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   User? get currentUser => _auth.currentUser;
   bool get isAuthReady => _isAuthReady;
-  String? get userRole => _userRole; // Getter para el router
+  String get userRole => _userRole;
 
-  // --- CONSTRUCTOR ---
+  // --- CONSTANTE DEL ROL DE SELECCIÓN PENDIENTE ---
+  static const String ROLE_PENDING = 'indefinido';
+
+  // --- CONSTRUCTOR: ESCUCHA DE SESIÓN ---
   AuthService() {
-    _auth.authStateChanges().listen((User? user) {
+    // Escucha cambios de sesión de Firebase
+    _auth.authStateChanges().listen((User? user) async {
       _isAuthenticated = (user != null);
+      _isLoading = false;
+      _isAuthReady = true;
       if (user != null) {
-        // Si hay usuario, cargamos su rol inmediatamente en memoria
-        _fetchUserRole(user.uid);
+        // Al detectar sesión activa, forzamos el rol a 'indefinido'
+        // Esto garantiza que el AuthGuard siempre redirija a /select-role
+        await _resetRoleToIndefinido(user);
+        await _fetchUserRole(user.uid);
       } else {
-        _userRole = null;
-        _isLoading = false;
-        _isAuthReady = true;
-        notifyListeners();
+        _userRole = ROLE_PENDING;
       }
+      notifyListeners();
     });
   }
 
-  // --- CARGAR ROL EN MEMORIA (OPTIMIZACIÓN) ---
-  Future<void> _fetchUserRole(String uid) async {
+  // --- FUNCIÓN HELPER: FUERZA EL ROL A 'indefinido' EN FIRESTORE ---
+  Future<void> _resetRoleToIndefinido(User user) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (doc.exists) {
-        _userRole = doc.data()?['role'] ?? 'cliente';
-      } else {
-        _userRole = 'cliente';
-      }
+      await _firestore.collection('users').doc(user.uid).set({
+        'role': ROLE_PENDING,
+        'status': ROLE_PENDING,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (e) {
-      print("Error cargando rol: $e");
-      _userRole = 'cliente';
-    } finally {
-      _isLoading = false;
-      _isAuthReady = true;
-      notifyListeners(); // Notificamos al Router que ya tenemos el rol
+      if (kDebugMode) print("Error al resetear rol a indefinido: $e");
     }
   }
 
-  // --- ACTUALIZAR ROL ---
+  // --- FUNCIÓN CENTRAL: ACTUALIZAR ROL (USADO EN RoleSelectionScreen) ---
   Future<void> updateUserRole(String newRole) async {
+    final user = currentUser;
+    if (user == null) {
+      _errorMessage = 'Usuario no autenticado para actualizar el rol.';
+      throw Exception(_errorMessage);
+    }
+
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        // 1. Actualizar en Firestore
-        await _firestore.collection('users').doc(user.uid).update({
-          'role': newRole,
-          'status': newRole,
-        });
+      await _firestore.collection('users').doc(user.uid).update({
+        'role': newRole,
+        'status': newRole,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
-        // 2. Actualizar estado local
-        _userRole = newRole;
-
-        // 3. Notificar a los listeners (Router)
-        notifyListeners();
-      }
+      _userRole = newRole;
     } catch (e) {
-      _errorMessage = e.toString();
-      print("Error updating role: $e");
+      _errorMessage = 'Error al actualizar el rol en Firestore: $e';
       rethrow;
     } finally {
       _isLoading = false;
@@ -91,36 +89,46 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // --- ACTUALIZAR PERFIL ---
+  // --- FUNCIÓN DE EDICIÓN DE PERFIL (SOLICITADA) ---
   Future<bool> updateUserProfile({
-    required String name,
-    required String phone,
+    String? name,
+    String? phone,
     String? photoUrl,
   }) async {
+    final user = currentUser;
+    if (user == null) {
+      _errorMessage = 'Usuario no autenticado para actualizar el perfil.';
+      notifyListeners();
+      return false;
+    }
+
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        await user.updateDisplayName(name);
-        if (photoUrl != null) await user.updatePhotoURL(photoUrl);
+      // 1. Actualizar campos en Firebase Auth
+      if (name != null) await user.updateDisplayName(name);
+      if (photoUrl != null) await user.updatePhotoURL(photoUrl);
 
-        Map<String, dynamic> updateData = {
-          'displayName': name,
-          'phoneNumber': phone,
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
-        if (photoUrl != null) updateData['photoURL'] = photoUrl;
+      await user.reload(); // Recargar el objeto User
 
-        await _firestore.collection('users').doc(user.uid).update(updateData);
-        await user.reload();
-        notifyListeners();
-        return true;
-      }
-      return false;
+      // 2. Preparar datos para Firestore
+      Map<String, dynamic> updateData = {
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (name != null) updateData['displayName'] = name;
+      if (phone != null) updateData['phoneNumber'] = phone;
+      if (photoUrl != null) updateData['photoURL'] = photoUrl;
+
+      // 3. Actualizar campos en Firestore
+      await _firestore.collection('users').doc(user.uid).update(updateData);
+
+      return true;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'Error al actualizar el perfil: $e';
+      if (kDebugMode) print("Error en updateUserProfile: $e");
       return false;
     } finally {
       _isLoading = false;
@@ -128,7 +136,20 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // --- REGISTRO ---
+  // --- OTRAS FUNCIONES HELPER ---
+
+  Future<void> _fetchUserRole(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      // Si el rol ya está en la DB, lo usamos. Si no, o si está 'indefinido', usamos ROLE_PENDING.
+      _userRole = doc.data()?['role'] ?? ROLE_PENDING;
+    } catch (e) {
+      if (kDebugMode) print("Error fetching user role: $e");
+      _userRole = ROLE_PENDING;
+    }
+  }
+
+  // --- REGISTRO EMAIL ---
   Future<User?> registerWithEmailPassword({
     required String email,
     required String password,
@@ -155,20 +176,23 @@ class AuthService extends ChangeNotifier {
         await user.reload();
         user = _auth.currentUser;
 
-        // Establecer rol localmente para evitar esperas
-        _userRole = userRole;
-
-        // Guardar en Firestore
-        await _saveUserToFirestore(
-          user!,
-          extraData: {
-            'phoneNumber': phone,
-            'displayName': displayName,
-            'role': userRole,
-            'status': userRole,
-            if (photoUrl != null) 'photoURL': photoUrl,
-          },
-        );
+        // GUARDAR EN FIRESTORE
+        try {
+          await _saveUserToFirestore(
+            user!,
+            extraData: {
+              'phoneNumber': phone,
+              'displayName': displayName,
+              'role': ROLE_PENDING, // Siempre 'indefinido' al registrar
+              'status': ROLE_PENDING,
+              if (photoUrl != null) 'photoURL': photoUrl,
+            },
+          );
+          _userRole = ROLE_PENDING;
+        } catch (e) {
+          if (kDebugMode)
+            print("ADVERTENCIA: Falló Firestore al registrar: $e");
+        }
       }
       return user;
     } on FirebaseAuthException catch (e) {
@@ -178,10 +202,8 @@ class AuthService extends ChangeNotifier {
       _errorMessage = 'Error desconocido: $e';
       return null;
     } finally {
-      if (_auth.currentUser == null) {
-        _isLoading = false;
-        notifyListeners();
-      }
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -197,22 +219,34 @@ class AuthService extends ChangeNotifier {
         password: password,
       );
 
-      if (result.user != null) {
-        await _saveUserToFirestore(result.user!);
-        // Forzamos la carga del rol inmediatamente después del login
-        await _fetchUserRole(result.user!.uid);
+      User? user = result.user;
+
+      if (user != null) {
+        await user.reload();
+        user = _auth.currentUser;
+
+        // 1. Resetear el rol a 'indefinido' en DB
+        await _resetRoleToIndefinido(user!);
+
+        // 2. Notificación de éxito
+        try {
+          await _saveUserToFirestore(user);
+          await _fetchUserRole(user.uid);
+        } catch (e) {
+          if (kDebugMode)
+            print("ADVERTENCIA: Falló Firestore al iniciar sesión: $e");
+        }
       }
-      return result.user;
+      return user;
     } on FirebaseAuthException catch (e) {
       _errorMessage = _mapFirebaseError(e.code);
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
+      return null;
     } catch (e) {
       _errorMessage = e.toString();
+      return null;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      rethrow;
     }
   }
 
@@ -225,8 +259,6 @@ class AuthService extends ChangeNotifier {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        _isLoading = false;
-        notifyListeners();
         return null;
       }
 
@@ -240,17 +272,36 @@ class AuthService extends ChangeNotifier {
       final UserCredential result = await _auth.signInWithCredential(
         credential,
       );
-      if (result.user != null) {
-        await _saveUserToFirestore(result.user!);
-        await _fetchUserRole(result.user!.uid);
+
+      User? user = result.user;
+
+      if (user != null) {
+        await user.reload();
+        user = _auth.currentUser;
+
+        // 1. Resetear el rol a 'indefinido' en DB
+        await _resetRoleToIndefinido(user!);
+
+        // 2. Notificación de éxito
+        try {
+          await _saveUserToFirestore(user);
+          await _fetchUserRole(user.uid);
+        } catch (e) {
+          if (kDebugMode)
+            print("ADVERTENCIA: Falló Firestore con Google Login: $e");
+        }
       }
 
-      return result.user;
+      return user;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _mapFirebaseError(e.code);
+      return null;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'Error con Google Sign-In: $e';
+      return null;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return null;
     }
   }
 
@@ -259,33 +310,21 @@ class AuthService extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Resetear el rol a 'cliente' en Firestore antes de hacer logout
-    // Esto asegura que cuando el usuario vuelva a iniciar sesión,
-    // siempre vea la pantalla de selección de rol
-    final currentUser = _auth.currentUser;
-    if (currentUser != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(currentUser.uid)
-            .update({'role': 'cliente', 'status': 'cliente'});
-      } catch (e) {
-        // Si hay error al actualizar Firestore, continuar con el logout
-        print('Error resetting role on logout: $e');
-      }
-    }
-
     await _googleSignIn.signOut();
     await _auth.signOut();
-    _userRole = null; // Limpiar rol al salir
   }
 
-  // --- FIRESTORE HELPER ---
+  // --- FIRESTORE HELPER: CREAR/ACTUALIZAR USUARIO ---
   Future<void> _saveUserToFirestore(
     User user, {
     Map<String, dynamic>? extraData,
   }) async {
     try {
+      final docRef = _firestore.collection('users').doc(user.uid);
+      final docSnapshot = await docRef.get();
+
+      final isNewUser = !docSnapshot.exists;
+
       final data = {
         'uid': user.uid,
         'email': user.email,
@@ -295,17 +334,19 @@ class AuthService extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      if (extraData != null) {
-        data.addAll(extraData);
+      if (isNewUser) {
+        data['role'] = extraData?['role'] ?? ROLE_PENDING;
+        data['status'] = extraData?['status'] ?? ROLE_PENDING;
         data['createdAt'] = FieldValue.serverTimestamp();
       }
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .set(data, SetOptions(merge: true));
+      if (extraData != null) {
+        data.addAll(extraData);
+      }
+
+      await docRef.set(data, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) print("Error guardando usuario en Firestore: $e");
+      rethrow;
     }
   }
 
@@ -319,6 +360,10 @@ class AuthService extends ChangeNotifier {
         return 'Contraseña incorrecta.';
       case 'invalid-email':
         return 'Correo inválido.';
+      case 'weak-password':
+        return 'Contraseña muy débil (mínimo 6 caracteres).';
+      case 'network-request-failed':
+        return 'Error de red. Verifique su conexión.';
       default:
         return 'Error de autenticación ($code).';
     }

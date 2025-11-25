@@ -1,6 +1,6 @@
+// filepath: lib/screens/auth/register_form_screen.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 
@@ -22,9 +22,35 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _acceptedTerms = false;
 
+  // Obtenemos la instancia del AuthService
+  final AuthService _authService = Modular.get<AuthService>();
+
   // Título genérico ya que el rol se define después
   String get _userTypeTitle {
     return 'Registro';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _authService.addListener(_onAuthServiceChanged);
+  }
+
+  @override
+  void dispose() {
+    _authService.removeListener(_onAuthServiceChanged);
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _onAuthServiceChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _handleRegister() async {
@@ -40,45 +66,41 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
       return;
     }
 
-    // Obtenemos el servicio de autenticación
-    final authService = Provider.of<AuthService>(context, listen: false);
+    // El estado de loading se gestiona por _authService.isLoading
 
-    // Registramos al usuario.
-    // NOTA: Aunque pasemos 'cliente' (o lo que venga en userType),
-    // tu AuthService ya está configurado para forzar el rol y status a 'cliente'
-    // en la función _saveUserToFirestore, garantizando que vaya a la selección de rol.
-    final user = await authService.registerWithEmailPassword(
+    final user = await _authService.registerWithEmailPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
       displayName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
-      userRole: 'cliente',
+      userRole: 'cliente', // El rol inicial es 'cliente'
     );
 
     if (user != null && mounted) {
+      // 1. Mostrar mensaje de éxito (Cambio de "Registro exitoso!" a "Usuario registrado con exito!")
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('¡Registro exitoso!'),
+          content: Text('¡Usuario registrado con éxito!'),
           backgroundColor: Styles.successColor,
         ),
       );
-      // El AppRouter detectará el nuevo estado (logueado + rol cliente)
-      // y redirigirá automáticamente a /select-role.
+      // 2. Redirección al Login
+      Modular.to.navigate('/login');
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authService.errorMessage ?? 'Error al registrarse'),
+          content: Text(_authService.errorMessage ?? 'Error al registrarse'),
           backgroundColor: Styles.errorColor,
         ),
       );
     }
   }
 
+  // Se extrae la propiedad de loading para usarla en el build
+  bool get _isLoading => _authService.isLoading;
+
   @override
   Widget build(BuildContext context) {
-    // Escuchamos cambios para mostrar loading en el botón
-    final authService = context.watch<AuthService>();
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -86,8 +108,7 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/register'),
+          onPressed: () => Modular.to.pop(),
         ),
         title: Text(
           _userTypeTitle,
@@ -229,7 +250,7 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: authService.isLoading ? null : _handleRegister,
+                    onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Styles.primaryColor,
                       foregroundColor: Colors.white,
@@ -237,7 +258,7 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: authService.isLoading
+                    child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
                             'Registrarse',
@@ -259,7 +280,7 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => context.go('/login'),
+                      onTap: () => Modular.to.navigate('/login'),
                       child: Text(
                         'Inicia sesión',
                         style: TextStyles.body.copyWith(
@@ -309,15 +330,5 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
         vertical: Styles.spacingMedium,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
-    _phoneController.dispose();
-    super.dispose();
   }
 }

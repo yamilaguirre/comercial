@@ -1,156 +1,297 @@
-// services/auth_service.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'user_data_service.dart';
+import 'package:flutter/foundation.dart';
 
-class AuthService {
+class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final UserDataService _userDataService = UserDataService();
 
-  // Stream del usuario actual
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  // --- ESTADOS ---
+  bool _isAuthenticated = false;
+  bool _isLoading = false;
+  String? _errorMessage;
+  bool _isAuthReady = false;
+  String _userRole = 'cliente'; // Estado para rastrear el rol
 
-  // Usuario actual
+  // --- GETTERS ---
+  bool get isAuthenticated => _isAuthenticated;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
   User? get currentUser => _auth.currentUser;
+  bool get isAuthReady => _isAuthReady;
+  String get userRole => _userRole; // Nuevo getter
 
-  // Registro con email y password
+  // --- CONSTRUCTOR ---
+  AuthService() {
+    // Escucha cambios de sesión de Firebase
+    _auth.authStateChanges().listen((User? user) async {
+      _isAuthenticated = (user != null);
+      _isLoading = false;
+      _isAuthReady = true;
+      if (user != null) {
+        await _fetchUserRole(user.uid);
+      } else {
+        _userRole = 'cliente';
+      }
+      notifyListeners();
+    });
+  }
+
+  // --- FUNCIÓN CENTRAL: ACTUALIZAR ROL ---
+  Future<void> updateUserRole(String newRole) async {
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('No user authenticated.');
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'role': newRole,
+        'status': newRole,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Actualizar estado local
+      _userRole = newRole;
+      // La notificación aquí hará que el AppRouter se re-evalúe
+    } catch (e) {
+      _errorMessage = 'Error al actualizar el rol en Firestore: $e';
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- OTRAS FUNCIONES ---
+
+  Future<void> _fetchUserRole(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      _userRole = doc.data()?['role'] ?? 'cliente';
+    } catch (e) {
+      if (kDebugMode) print("Error fetching user role: $e");
+      _userRole = 'cliente';
+    }
+  }
+
+  // --- ACTUALIZAR PERFIL ---
+  Future<bool> updateUserProfile({
+    required String name,
+    required String phone,
+    String? photoUrl,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await user.updateDisplayName(name);
+        if (photoUrl != null) await user.updatePhotoURL(photoUrl);
+
+        Map<String, dynamic> updateData = {
+          'displayName': name,
+          'phoneNumber': phone,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (photoUrl != null) updateData['photoURL'] = photoUrl;
+
+        await _firestore.collection('users').doc(user.uid).update(updateData);
+        await user.reload();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- REGISTRO ---
   Future<User?> registerWithEmailPassword({
     required String email,
     required String password,
     required String displayName,
     required String phone,
     required String userRole,
+    String? photoUrl,
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
-      final User? user = result.user;
+
+      User? user = result.user;
+
       if (user != null) {
-        // Actualizar perfil del usuario
         await user.updateDisplayName(displayName);
-        
-        // Guardar datos en Firestore
-        await _firestore.collection('users').doc(user.uid).set({
-          'uid': user.uid,
-          'email': email,
-          'display_name': displayName,
-          'phone': phone,
-          'user_role': userRole,
-          'provider': 'email',
-          'photo_url': '',
-          'created_at': FieldValue.serverTimestamp(),
-        });
-        
-        // Crear datos iniciales
-        await _userDataService.createInitialUserData(user.uid);
+        if (photoUrl != null) await user.updatePhotoURL(photoUrl);
+        await user.reload();
+        user = _auth.currentUser;
+
+        // Guardar en Firestore
+        await _saveUserToFirestore(
+          user!,
+          extraData: {
+            'phoneNumber': phone,
+            'displayName': displayName,
+            'role': userRole,
+            'status': userRole,
+            if (photoUrl != null) 'photoURL': photoUrl,
+          },
+        );
+
+        // Actualizar rol localmente
+        _userRole = userRole;
       }
-      
       return user;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _mapFirebaseError(e.code);
+      return null;
     } catch (e) {
-      print('Error registering user: $e');
-      throw e;
+      _errorMessage = 'Error desconocido: $e';
+      return null;
+    } finally {
+      if (_auth.currentUser == null) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
-  // Login con email y password
+  // --- LOGIN EMAIL ---
   Future<User?> signInWithEmailPassword(String email, String password) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      if (result.user != null) {
+        await _saveUserToFirestore(result.user!);
+        await _fetchUserRole(result.user!.uid); // Obtener rol después de login
+      }
       return result.user;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _mapFirebaseError(e.code);
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
-      print('Error signing in: $e');
-      throw e;
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     }
   }
 
-  // Login con Google
+  // --- LOGIN GOOGLE ---
   Future<User?> signInWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        _isLoading = false;
+        notifyListeners();
+        return null;
+      }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential result = await _auth.signInWithCredential(credential);
-      final User? user = result.user;
-
-      if (user != null) {
-        // Crear o actualizar usuario en Firestore
-        await _createOrUpdateUser(user);
-        
-        // Crear datos iniciales si es un usuario nuevo
-        final hasData = await _userDataService.hasInitialData(user.uid);
-        if (!hasData) {
-          await _userDataService.createInitialUserData(user.uid);
-        }
+      final UserCredential result = await _auth.signInWithCredential(
+        credential,
+      );
+      if (result.user != null) {
+        await _saveUserToFirestore(result.user!);
+        await _fetchUserRole(result.user!.uid); // Obtener rol después de login
       }
 
-      return user;
+      return result.user;
     } catch (e) {
-      print('Error signing in with Google: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
       return null;
     }
   }
 
-  // Crear o actualizar usuario en Firestore
-  Future<void> _createOrUpdateUser(User user) async {
-    final userDoc = _firestore.collection('users').doc(user.uid);
-    final docSnapshot = await userDoc.get();
-
-    if (!docSnapshot.exists) {
-      // Crear nuevo usuario
-      await userDoc.set({
-        'uid': user.uid,
-        'email': user.email,
-        'display_name': user.displayName,
-        'photo_url': user.photoURL,
-        'provider': 'google',
-        'user_role': _getUserRole(user.email ?? ''),
-        'created_at': FieldValue.serverTimestamp(),
-      });
-    } else {
-      // Actualizar usuario existente
-      await userDoc.update({
-        'display_name': user.displayName,
-        'photo_url': user.photoURL,
-        'last_login': FieldValue.serverTimestamp(),
-      });
-    }
-  }
-
-  // Determinar rol del usuario
-  String _getUserRole(String email) {
-    // Todos los usuarios tienen acceso completo a la app
-    return 'Usuario';
-  }
-
-  // Logout
+  // --- LOGOUT ---
   Future<void> signOut() async {
+    _isLoading = true;
+    notifyListeners();
+    _userRole = 'cliente'; // Resetear rol al cerrar sesión
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
-  // Obtener datos del usuario desde Firestore
-  Future<Map<String, dynamic>?> getUserData(String uid) async {
+  // --- FIRESTORE HELPER ---
+  Future<void> _saveUserToFirestore(
+    User user, {
+    Map<String, dynamic>? extraData,
+  }) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      return doc.exists ? doc.data() : null;
+      final data = {
+        'uid': user.uid,
+        'email': user.email,
+        'photoURL': user.photoURL,
+        'lastLogin': FieldValue.serverTimestamp(),
+        'displayName': user.displayName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (extraData != null) {
+        data.addAll(extraData);
+        data['createdAt'] = FieldValue.serverTimestamp();
+      }
+
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .set(data, SetOptions(merge: true));
     } catch (e) {
-      print('Error getting user data: $e');
-      return null;
+      if (kDebugMode) print("Error guardando usuario en Firestore: $e");
+    }
+  }
+
+  String _mapFirebaseError(String code) {
+    switch (code) {
+      case 'email-already-in-use':
+        return 'El correo ya está registrado.';
+      case 'user-not-found':
+        return 'Usuario no encontrado.';
+      case 'wrong-password':
+        return 'Contraseña incorrecta.';
+      case 'invalid-email':
+        return 'Correo inválido.';
+      default:
+        return 'Error de autenticación ($code).';
     }
   }
 }

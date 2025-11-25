@@ -1,6 +1,7 @@
+// filepath: lib/screens/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../../theme/theme.dart';
+import 'package:flutter_modular/flutter_modular.dart'; // Usamos Flutter Modular para la navegación
+import '../../theme/theme.dart'; // Importa el archivo barril que exporta Styles y TextStyles
 
 /// Pantalla de Onboarding - Bienvenida a la aplicación
 ///
@@ -26,7 +27,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Bienvenido a',
       description:
           'Tu plataforma de confianza para encontrar inmuebles y servicios',
-      imagePath: 'assets/images/logo.png',
+      imagePath: 'assets/images/logo.png', // Logo blanco sobre fondo azul
       backgroundColor: Styles.primaryColor,
       showSkip: false,
       isSplash: true,
@@ -63,7 +64,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    // Auto-avanzar después del splash
+    // Auto-avanzar después del splash (página 0 a página 1)
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && _currentPage == 0) {
         _pageController.animateToPage(
@@ -99,7 +100,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goToLogin() {
-    context.go('/login');
+    // Navegación Modular a la ruta '/login', definida en AuthModule.
+    Modular.to.navigate('/login');
   }
 
   @override
@@ -134,7 +136,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         _pages.length - 1, // -1 porque no contamos el splash
                         (index) => _buildPageIndicator(
                           index + 1,
-                        ), // +1 para skip splash
+                        ), // +1 para saltar el splash
                       ),
                     ),
                     SizedBox(height: Styles.spacingLarge),
@@ -173,7 +175,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildPage(OnboardingPageData page) {
-    // Splash screen especial - SOLO LOGO BLANCO CON FONDO AZUL
+    // Splash screen especial (Página 0)
     if (page.isSplash) {
       return Container(
         decoration: Styles.backgroundDecoration(),
@@ -181,7 +183,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Hero(
             tag: 'app_logo',
             child: Image.asset(
-              page.imagePath, // logo.png (blanco)
+              page.imagePath, // 'assets/images/logo.png' (blanco)
               height: 200,
               fit: BoxFit.contain,
             ),
@@ -207,7 +209,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Image.asset(
-                    'assets/images/logoColor.png',
+                    'assets/images/logoColor.png', // Logo a color
                     height: 50,
                     fit: BoxFit.contain,
                   ),

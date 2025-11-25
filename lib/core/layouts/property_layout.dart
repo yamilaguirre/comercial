@@ -1,26 +1,27 @@
+// filepath: lib/core/layouts/property_layout.dart
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 import '../../theme/theme.dart';
-import '../../providers/auth_provider.dart';
 
-class MainLayout extends StatelessWidget {
+/// NOTA: Este Layout es el Shell para el módulo de Propiedades.
+/// Contiene la lógica de navegación inferior para las rutas de /home, /favorites, /messages, /alerts y /account.
+class PropertyLayout extends StatelessWidget {
   final Widget child;
 
-  const MainLayout({super.key, required this.child});
+  const PropertyLayout({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: child,
-      bottomNavigationBar: _buildBottomNavigationBar(context),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    // Obtener la ruta actual para determinar el índice seleccionado
-    final String location = GoRouterState.of(context).uri.toString();
+  Widget _buildBottomNavigationBar() {
+    // Usamos Modular.to.path para obtener la ruta actual (ej: '/property/home')
+    final String location = Modular.to.path;
     final int selectedIndex = _getSelectedIndex(location);
 
     return Container(
@@ -35,7 +36,7 @@ class MainLayout extends StatelessWidget {
       ),
       child: BottomNavigationBar(
         currentIndex: selectedIndex,
-        onTap: (index) => _onItemTapped(context, index),
+        onTap: (index) => _onItemTapped(index),
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: Styles.primaryColor,
@@ -76,23 +77,34 @@ class MainLayout extends StatelessWidget {
   }
 
   Widget _buildNavIcon(String iconName, bool isActive) {
+    IconData icon;
+    switch (iconName) {
+      case 'explorar':
+        icon = Icons.search;
+        break;
+      case 'guardados':
+        icon = Icons.bookmark_border;
+        break;
+      case 'buzon':
+        icon = Icons.message_outlined;
+        break;
+      case 'avisos':
+        icon = Icons.notifications_none;
+        break;
+      case 'cuenta':
+        icon = Icons.person_outline;
+        break;
+      default:
+        icon = Icons.question_mark;
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ColorFiltered(
-          colorFilter: isActive
-              ? ColorFilter.mode(Styles.primaryColor, BlendMode.srcIn)
-              : const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
-          child: Image.asset(
-            'assets/images/icon/$iconName.png',
-            width: 24,
-            height: 24,
-            errorBuilder: (context, error, stackTrace) => Icon(
-              Icons.circle,
-              color: isActive ? Styles.primaryColor : Colors.grey,
-              size: 24,
-            ),
-          ),
+        Icon(
+          icon,
+          color: isActive ? Styles.primaryColor : Colors.grey,
+          size: 24,
         ),
         if (isActive) ...[
           const SizedBox(height: 4),
@@ -109,48 +121,34 @@ class MainLayout extends StatelessWidget {
     );
   }
 
+  // Lógica para determinar el índice de la pestaña basado en la ruta (location)
   int _getSelectedIndex(String location) {
-    // Aceptamos property-home y work-home como índice 0
-    if (location.startsWith('/property-home') ||
-        location.startsWith('/work-home')) {
-      return 0;
-    }
-    if (location.startsWith('/favorites')) return 1;
-    if (location.startsWith('/messages')) return 2;
-    if (location.startsWith('/alerts')) return 3;
-    if (location.startsWith('/account')) return 4;
-
+    // Usamos endsWith o contains para manejar la ruta dentro del módulo /property
+    if (location.endsWith('/home')) return 0;
+    if (location.contains('/favorites')) return 1;
+    if (location.contains('/messages')) return 2;
+    if (location.contains('/alerts')) return 3;
+    if (location.contains('/account')) return 4;
     return 0;
   }
 
-  void _onItemTapped(BuildContext context, int index) {
+  // Lógica de navegación. Usamos navigate a la ruta relativa (PropertyModule gestiona /home, /favorites, etc.)
+  void _onItemTapped(int index) {
     switch (index) {
       case 0:
-        // Lógica de rol para saber a cuál Home ir al pulsar "Explorar"
-        final authService = context.read<AuthService>();
-        // Leemos el rol del provider (si no tiene, asumimos cliente -> property-home por defecto)
-        // NOTA: Como pediste no guardar en RAM, esto podría dar null si authService no tiene el rol cacheado.
-        // Pero para navegación rápida dentro del layout, asumimos la ruta actual o property-home.
-
-        // Si ya estamos en una ruta de trabajo, mantenemos trabajo. Si no, default a propiedades.
-        final currentLocation = GoRouterState.of(context).uri.toString();
-        if (currentLocation.startsWith('/work-home')) {
-          context.go('/work-home');
-        } else {
-          context.go('/property-home');
-        }
+        Modular.to.navigate('/property/home');
         break;
       case 1:
-        context.go('/favorites');
+        Modular.to.navigate('/property/favorites');
         break;
       case 2:
-        context.go('/messages');
+        Modular.to.navigate('/property/messages');
         break;
       case 3:
-        context.go('/alerts');
+        Modular.to.navigate('/property/alerts');
         break;
       case 4:
-        context.go('/account');
+        Modular.to.navigate('/property/account');
         break;
     }
   }

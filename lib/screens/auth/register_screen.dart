@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 import '../../theme/theme.dart';
 
 // Esta pantalla ahora solo es el punto de entrada para el registro/login
@@ -15,7 +15,7 @@ class RegisterScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
-          onPressed: () => context.go('/login'),
+          onPressed: () => Modular.to.navigate('/login'),
         ),
       ),
       body: SafeArea(
@@ -56,8 +56,9 @@ class RegisterScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: () => context.push(
-                    '/register-form?type=cliente',
+                  onPressed: () => Modular.to.pushNamed(
+                    '/register-form',
+                    arguments: 'cliente',
                   ), // El formulario maneja el registro real
                   icon: const Icon(Icons.person_add_alt_1),
                   label: const Text('Crear una cuenta nueva'),
@@ -83,7 +84,7 @@ class RegisterScreen extends StatelessWidget {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => context.go('/login'),
+                    onTap: () => Modular.to.navigate('/login'),
                     child: Text(
                       'Inicia sesión',
                       style: TextStyles.body.copyWith(

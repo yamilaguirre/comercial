@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  flutter_modular: ^6.3.2
   # ... otras dependencias ...
   http: ^1.2.1 # Para hacer la petición POST a tu API
   image_picker: ^1.1.0 # Para seleccionar archivos de la galería/cámara

@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
-class PropertyFormScreen extends StatelessWidget {
-  const PropertyFormScreen({super.key});
+class PropertyDetailScreen extends StatelessWidget {
+  final String propertyId;
+  final dynamic propertyData;
+
+  const PropertyDetailScreen({
+    super.key,
+    required this.propertyId,
+    this.propertyData,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Publicar Propiedad'),
-        backgroundColor: Colors.red,
+        title: Text('Detalle Propiedad $propertyId'),
+        backgroundColor: Colors.indigo,
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              'RUTA SECUNDARIA: Formulario de Publicación',
-              style: TextStyle(fontSize: 20, color: Colors.red),
+            Text(
+              'RUTA SECUNDARIA: Detalle de Propiedad $propertyId',
+              style: const TextStyle(fontSize: 20, color: Colors.indigo),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Modular.to.navigate('/property/my'),
-              child: const Text('Ir a Mis Publicaciones'),
-            ),
             TextButton(
               onPressed: () => Modular.to.pop(),
               child: const Text('Volver'),
