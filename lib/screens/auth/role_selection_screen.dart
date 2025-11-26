@@ -52,7 +52,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     // Las rutas de los módulos en AppModule son /property y /worker
     final targetRoute = role == 'trabajo'
         ? '/worker/home-worker'
-        : '/property/';
+        : '/property/home';
 
     // Usamos navigate para reemplazar el historial y redirigir a la raíz del módulo
     Modular.to.navigate(targetRoute);
@@ -100,7 +100,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     // Si el rol es distinto de 'indefinido', significa que está esperando redirección
-    if (_userRole != AuthService.ROLE_PENDING) {
+    if (_userRole != AuthService.ROLE_PENDING && _userRole != 'indefinido') {
       // Muestra un loader mientras ocurre la redirección.
       return const Scaffold(
         body: Center(

@@ -1,13 +1,16 @@
-// filepath: lib/screens/property/property_list_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_modular/flutter_modular.dart'; // <-- Reemplazo de go_router
+import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../theme/theme.dart';
+// Importamos los nuevos componentes visuales
+import 'components/category_selector.dart';
+import 'components/property_card_list_item.dart';
+
 // Asumo que estos archivos existen en tu proyecto
 import '../../models/property.dart';
-import '../../core/utils/amenity_helper.dart';
-import '../../core/utils/property_constants.dart';
+// import '../../core/utils/amenity_helper.dart'; // Ya no es necesario aquí
+// import '../../core/utils/property_constants.dart'; // Ya no es necesario aquí
 
 class PropertyListScreen extends StatefulWidget {
   const PropertyListScreen({super.key});
@@ -168,10 +171,18 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     });
   }
 
+  // Método callback para actualizar la categoría desde CategorySelector
   void _onCategorySelected(String category) {
     setState(() {
       selectedCategory = category;
       _filterProperties();
+    });
+  }
+
+  // Método callback para cambiar la vista desde CategorySelector
+  void _onToggleView(bool detailed) {
+    setState(() {
+      isDetailedView = detailed;
     });
   }
 
@@ -199,7 +210,10 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo (Mantengo el logo aquí, aunque en un Layout es común ponerlo en el AppBar)
+                  // Espacio superior (corregido en el paso anterior)
+                  const SizedBox(height: 16),
+
+                  // Logo
                   Padding(
                     padding: EdgeInsets.all(Styles.spacingMedium),
                     child: Image.asset(
@@ -209,51 +223,14 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                     ),
                   ),
 
-                  // Botones de Categoría (Comprar/Alquiler/Anticrético)
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: Styles.spacingMedium,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(child: _buildCategoryButton('Comprar')),
-                              SizedBox(width: Styles.spacingSmall),
-                              Expanded(child: _buildCategoryButton('Alquiler')),
-                              SizedBox(width: Styles.spacingSmall),
-                              Expanded(
-                                child: _buildCategoryButton('Anticrético'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: Styles.spacingSmall),
-                        // Botón de vista detallada/simple
-                        GestureDetector(
-                          onTap: () =>
-                              setState(() => isDetailedView = !isDetailedView),
-                          child: Container(
-                            padding: EdgeInsets.all(Styles.spacingSmall),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              isDetailedView
-                                  ? Icons
-                                        .view_agenda // Lista detallada
-                                  : Icons.grid_view, // Vista de cuadrícula
-                              color: Styles.primaryColor,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  // Botones de Categoría (USANDO EL NUEVO COMPONENTE)
+                  CategorySelector(
+                    selectedCategory: selectedCategory,
+                    onCategorySelected: _onCategorySelected,
+                    isDetailedView: isDetailedView,
+                    onToggleView: _onToggleView,
                   ),
-                  SizedBox(height: Styles.spacingMedium),
+                  SizedBox(height: Styles.spacingSmall),
 
                   // Search
                   Padding(
@@ -316,7 +293,11 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                         ),
                         itemCount: _filteredProperties.length,
                         itemBuilder: (context, index) {
-                          return _buildPropertyCard(_filteredProperties[index]);
+                          return PropertyCardListItem(
+                            property: _filteredProperties[index],
+                            style: PropertyCardStyle.detailed,
+                            onTap: () => _goToDetail(_filteredProperties[index]),
+                          );
                         },
                       ),
                     )
@@ -331,15 +312,17 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 0.65,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                            ),
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.65,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                         itemCount: _filteredProperties.length,
                         itemBuilder: (context, index) {
-                          return _buildSimplePropertyCard(
-                            _filteredProperties[index],
+                          return PropertyCardListItem(
+                            property: _filteredProperties[index],
+                            style: PropertyCardStyle.grid,
+                            onTap: () => _goToDetail(_filteredProperties[index]),
                           );
                         },
                       ),
@@ -400,7 +383,11 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                           ? 5
                           : _allProperties.length,
                       itemBuilder: (context, index) {
-                        return _buildSmallPropertyCard(_allProperties[index]);
+                        return PropertyCardListItem(
+                          property: _allProperties[index],
+                          style: PropertyCardStyle.small,
+                          onTap: () => _goToDetail(_allProperties[index]),
+                        );
                       },
                     ),
                   ),
@@ -408,447 +395,6 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                 ],
               ),
             ),
-    );
-  }
-
-  // --- WIDGETS DE COMPONENTES ---
-
-  Widget _buildCategoryButton(String title) {
-    final isSelected = selectedCategory == title;
-    return GestureDetector(
-      onTap: () => _onCategorySelected(title),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: Styles.spacingSmall),
-        decoration: BoxDecoration(
-          color: isSelected ? Styles.primaryColor : const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyles.body.copyWith(
-            color: isSelected ? Colors.white : Styles.textSecondary,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSimplePropertyCard(Property property) {
-    return GestureDetector(
-      onTap: () => _goToDetail(property), // <--- Conectado
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                  child: Image.network(
-                    property.imageUrl,
-                    height: 120,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(height: 120, color: Colors.grey[300]),
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      size: 16,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      property.price,
-                      style: TextStyles.title.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Styles.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      property.name,
-                      style: TextStyles.body.copyWith(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
-                    Row(
-                      children: [
-                        Icon(Icons.bed, size: 12, color: Styles.textSecondary),
-                        Text(
-                          ' ${property.bedrooms}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Styles.textSecondary,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Icon(
-                          Icons.square_foot,
-                          size: 12,
-                          color: Styles.textSecondary,
-                        ),
-                        Text(
-                          ' ${property.area.toInt()}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Styles.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Spacer(),
-
-                    if (property.amenities.isNotEmpty)
-                      Row(
-                        children: property.amenities.take(3).map((key) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: Icon(
-                              AmenityHelper.getIcon(key),
-                              size: 14,
-                              color: Styles.primaryColor.withOpacity(0.6),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPropertyCard(Property property) {
-    return GestureDetector(
-      onTap: () => _goToDetail(property), // <--- Conectado
-      child: Container(
-        width: 300,
-        margin: EdgeInsets.only(right: Styles.spacingMedium),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                  child: Image.network(
-                    property.imageUrl,
-                    height: 200,
-                    width: 300,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 200,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.image, size: 50),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      size: 20,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            Padding(
-              padding: EdgeInsets.all(Styles.spacingMedium),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    property.price,
-                    style: TextStyles.title.copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Styles.textPrimary,
-                    ),
-                  ),
-                  SizedBox(height: Styles.spacingXSmall),
-                  Text(
-                    property.name,
-                    style: TextStyles.body.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: Styles.spacingXSmall),
-                  Text(
-                    property.location,
-                    style: TextStyles.caption.copyWith(
-                      color: Styles.textSecondary,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: Styles.spacingSmall),
-
-                  Row(
-                    children: [
-                      Icon(Icons.bed, size: 16, color: Styles.textSecondary),
-                      SizedBox(width: 4),
-                      Text(
-                        '${property.bedrooms}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Styles.textSecondary,
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Icon(
-                        Icons.bathtub,
-                        size: 16,
-                        color: Styles.textSecondary,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        '${property.bathrooms}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Styles.textSecondary,
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Icon(
-                        Icons.square_foot,
-                        size: 16,
-                        color: Styles.textSecondary,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        '${property.area.toStringAsFixed(0)}m²',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Styles.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  if (property.amenities.isNotEmpty) ...[
-                    SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: property.amenities.take(5).map((key) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Tooltip(
-                              message:
-                                  PropertyConstants.amenityLabels[key] ?? key,
-                              child: Icon(
-                                AmenityHelper.getIcon(key),
-                                size: 18,
-                                color: Styles.primaryColor.withOpacity(0.7),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                Styles.spacingMedium,
-                0,
-                Styles.spacingMedium,
-                Styles.spacingMedium,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildActionButton(Icons.phone, 'Llamar'),
-                  _buildActionButton(Icons.message, 'Mensaje'),
-                  _buildActionButton(Icons.share, 'Compartir'),
-                  _buildActionButton(Icons.favorite_border, 'Guardar'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallPropertyCard(Property property) {
-    return GestureDetector(
-      onTap: () => _goToDetail(property), // <--- Conectado
-      child: Container(
-        width: 280,
-        margin: EdgeInsets.only(right: Styles.spacingMedium),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            children: [
-              Image.network(
-                property.imageUrl,
-                height: 200,
-                width: 280,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    Container(height: 200, color: Colors.grey[300]),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    size: 20,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 12,
-                left: 12,
-                right: 12,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      property.price,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      property.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 18, color: Styles.primaryColor),
-        ),
-        SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Styles.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 }

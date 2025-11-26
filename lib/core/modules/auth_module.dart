@@ -35,9 +35,6 @@ class AuthModule extends Module {
     r.child(
       '/select-role',
       child: (context) => const RoleSelectionScreen(),
-      // Mantenemos AuthGuard aquí para asegurar que solo usuarios autenticados
-      // puedan acceder a la selección de rol directamente.
-      guards: [AuthGuard(requiredRole: 'all')],
     );
   }
 }

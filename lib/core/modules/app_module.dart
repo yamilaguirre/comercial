@@ -24,7 +24,6 @@ class AppModule extends Module {
     r.module(
       '/worker',
       module: WorkerModule(),
-      guards: [AuthGuard(requiredRole: 'trabajo')],
     );
   }
 }
