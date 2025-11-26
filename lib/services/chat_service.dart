@@ -27,20 +27,37 @@ class ChatService {
   }
 
   // Enviar mensaje
-  Future<bool> sendMessage(String chatId, String senderId, String text) async {
+  Future<bool> sendMessage(
+    String chatId,
+    String senderId,
+    String text, {
+    String? messageType,
+    String? attachmentUrl,
+    String? fileName,
+  }) async {
     try {
       final chatRef = _firestore.collection('chats').doc(chatId);
       final now = Timestamp.now();
 
+      final messageData = {
+        'sender_id': senderId,
+        'text': text,
+        'timestamp': now, // Usar Timestamp.now() NO serverTimestamp en arrays
+      };
+
+      // Agregar datos de archivo si existen
+      if (messageType != null) {
+        messageData['type'] = messageType;
+      }
+      if (attachmentUrl != null) {
+        messageData['attachment_url'] = attachmentUrl;
+      }
+      if (fileName != null) {
+        messageData['file_name'] = fileName;
+      }
+
       await chatRef.update({
-        'messages': FieldValue.arrayUnion([
-          {
-            'sender_id': senderId,
-            'text': text,
-            'timestamp':
-                now, // Usar Timestamp.now() NO serverTimestamp en arrays
-          },
-        ]),
+        'messages': FieldValue.arrayUnion([messageData]),
         'last_message': text,
         'last_updated': FieldValue.serverTimestamp(),
       });

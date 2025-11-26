@@ -347,10 +347,28 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   }
                 }
 
+                // Extraer profesión del array de professions
+                String profession = '';
+                final professionsData = data['professions'] as List<dynamic>?;
+                if (professionsData != null && professionsData.isNotEmpty) {
+                  final firstProfession =
+                      professionsData[0] as Map<String, dynamic>?;
+                  final category =
+                      firstProfession?['category'] as String? ?? '';
+                  final subcategories =
+                      firstProfession?['subcategories'] as List<dynamic>?;
+
+                  if (subcategories != null && subcategories.isNotEmpty) {
+                    profession = subcategories[0].toString();
+                  } else if (category.isNotEmpty) {
+                    profession = category;
+                  }
+                }
+
                 return _buildWorkerCard(
                   workerId: workerDoc.id,
                   name: name,
-                  profession: data['profession'] as String? ?? '',
+                  profession: profession,
                   rating: (data['rating'] ?? 0.0).toDouble(),
                   reviews: data['reviews'] as int? ?? 0,
                   price: data['price'] as String? ?? '',
@@ -769,11 +787,14 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 4,
                     children: List.generate(5, (index) {
                       return IconButton(
-                        iconSize: 40,
+                        iconSize: 32,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () {
                           setState(() {
                             selectedRating = index + 1;

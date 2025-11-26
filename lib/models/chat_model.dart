@@ -1,23 +1,60 @@
 // models/chat_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum MessageType { text, image, file }
+
 class ChatMessage {
   final String senderId;
   final String text;
   final DateTime timestamp;
+  final MessageType type;
+  final String? attachmentUrl;
+  final String? fileName;
 
   ChatMessage({
     required this.senderId,
     required this.text,
     required this.timestamp,
+    this.type = MessageType.text,
+    this.attachmentUrl,
+    this.fileName,
   });
 
   factory ChatMessage.fromMap(Map<String, dynamic> data) {
+    // Determinar el tipo de mensaje
+    MessageType messageType = MessageType.text;
+    if (data['type'] != null) {
+      switch (data['type']) {
+        case 'image':
+          messageType = MessageType.image;
+          break;
+        case 'file':
+          messageType = MessageType.file;
+          break;
+        default:
+          messageType = MessageType.text;
+      }
+    }
+
     return ChatMessage(
       senderId: data['sender_id'] ?? '',
       text: data['text'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
+      type: messageType,
+      attachmentUrl: data['attachment_url'],
+      fileName: data['file_name'],
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'sender_id': senderId,
+      'text': text,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'type': type.name,
+      'attachment_url': attachmentUrl,
+      'file_name': fileName,
+    };
   }
 }
 
@@ -41,7 +78,7 @@ class Chat {
   factory Chat.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final messagesData = data['messages'] as List<dynamic>? ?? [];
-    
+
     return Chat(
       id: doc.id,
       propertyId: data['property_id'] ?? '',
