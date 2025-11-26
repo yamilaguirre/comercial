@@ -4,7 +4,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../theme/theme.dart';
+import '../../providers/auth_provider.dart';
 import 'premium_subscription_modal.dart';
 
 // Token de Mapbox
@@ -78,7 +80,9 @@ class _WorkerLocationSearchScreenState
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       if (mounted) {
@@ -97,6 +101,9 @@ class _WorkerLocationSearchScreenState
 
   Future<void> _loadWorkers() async {
     try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid;
+
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('role', isEqualTo: 'trabajo')
@@ -105,6 +112,9 @@ class _WorkerLocationSearchScreenState
 
       final workers = <WorkerData>[];
       for (var doc in snapshot.docs) {
+        // Excluir al usuario actual
+        if (doc.id == currentUserId) continue;
+
         final data = doc.data();
 
         // Obtener ubicación del campo 'location'
@@ -125,6 +135,7 @@ class _WorkerLocationSearchScreenState
                 photoUrl: data['photoUrl'],
                 rating: (data['rating'] ?? 0.0).toDouble(),
                 phone: data['phone'] ?? '',
+                price: (data['price']?.toString() ?? '').trim(),
               ),
             );
           }
@@ -150,8 +161,7 @@ class _WorkerLocationSearchScreenState
         return false;
       }
 
-      // Filtrar por distancia desde la ubicación del usuario (o centro del mapa si se prefiere)
-      // Usamos _userLocation para filtrar lo que está cerca del usuario realmente
+      // Filtrar por distancia desde la ubicación del usuario
       final distance = Geolocator.distanceBetween(
         _userLocation!.latitude,
         _userLocation!.longitude,
@@ -195,14 +205,6 @@ class _WorkerLocationSearchScreenState
     });
   }
 
-  void _onWorkerSelected(int index) {
-    setState(() {
-      _selectedWorkerIndex = index;
-    });
-    final worker = _filteredWorkers[index];
-    _mapController.move(LatLng(worker.latitude, worker.longitude), 16.0);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,12 +218,10 @@ class _WorkerLocationSearchScreenState
               initialZoom: 14.0,
               onPositionChanged: (camera, hasGesture) {
                 if (hasGesture) {
-                  // Solo actualizamos el centro visual, no la ubicación del usuario
                   _mapCenter = camera.center;
                 }
               },
               onTap: (_, __) {
-                // Deseleccionar trabajador al tocar el mapa
                 setState(() {
                   _selectedWorkerIndex = -1;
                 });
@@ -234,7 +234,7 @@ class _WorkerLocationSearchScreenState
                 userAgentPackageName: 'com.mobiliaria.app',
               ),
 
-              // Radio de búsqueda (alrededor del usuario)
+              // Radio de búsqueda
               if (_userLocation != null)
                 CircleLayer(
                   circles: [
@@ -249,7 +249,7 @@ class _WorkerLocationSearchScreenState
                   ],
                 ),
 
-              // Marcadores de trabajadores con fotos de perfil
+              // Marcadores de trabajadores
               MarkerLayer(
                 markers: _filteredWorkers.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -262,7 +262,6 @@ class _WorkerLocationSearchScreenState
                     height: isSelected ? 70 : 55,
                     child: GestureDetector(
                       onTap: () {
-                        // Navegar al perfil público del trabajador
                         Modular.to.pushNamed(
                           '/worker/public-profile',
                           arguments: worker,
@@ -317,7 +316,7 @@ class _WorkerLocationSearchScreenState
                 }).toList(),
               ),
 
-              // Marcador de Ubicación del Usuario (Punto Azul)
+              // Ubicación del Usuario
               if (_userLocation != null)
                 MarkerLayer(
                   markers: [
@@ -340,7 +339,6 @@ class _WorkerLocationSearchScreenState
                         ),
                       ),
                     ),
-                    // Halo semitransparente alrededor
                     Marker(
                       point: _userLocation!,
                       width: 60,
@@ -365,7 +363,6 @@ class _WorkerLocationSearchScreenState
             child: SafeArea(
               child: Column(
                 children: [
-                  // App Bar flotante
                   Container(
                     margin: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -410,8 +407,6 @@ class _WorkerLocationSearchScreenState
                       ],
                     ),
                   ),
-
-                  // Chips de categorías
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -471,7 +466,7 @@ class _WorkerLocationSearchScreenState
           // Botón de ubicación
           Positioned(
             right: 16,
-            bottom: 300, // Ajustado para dejar espacio al panel inferior
+            bottom: 300,
             child: FloatingActionButton(
               heroTag: 'location_btn',
               backgroundColor: Colors.white,
@@ -504,16 +499,20 @@ class _WorkerLocationSearchScreenState
                     ),
                   ],
                 ),
-                child: Column(
+                child: ListView(
+                  controller: scrollController,
+                  padding: EdgeInsets.zero,
                   children: [
                     // Handle
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 12),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 12),
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
 
@@ -560,13 +559,11 @@ class _WorkerLocationSearchScreenState
                               divisions: 19,
                               onChanged: (value) {
                                 if (value > 3.0) {
-                                  // Mostrar modal Premium si intenta pasar de 3km
                                   showDialog(
                                     context: context,
                                     builder: (context) =>
                                         const PremiumSubscriptionModal(),
                                   );
-                                  // Mantener en 3km si no es premium
                                   setState(() {
                                     _searchRadius = 3.0;
                                     _filterWorkersByLocation();
@@ -613,33 +610,46 @@ class _WorkerLocationSearchScreenState
                     const Divider(height: 1),
 
                     // Lista de resultados
-                    Expanded(
-                      child: _filteredWorkers.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No hay trabajadores en este rango',
-                                style: TextStyle(color: Colors.grey[500]),
-                              ),
-                            )
-                          : ListView.builder(
-                              controller: scrollController,
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _filteredWorkers.length,
-                              itemBuilder: (context, index) {
-                                final worker = _filteredWorkers[index];
-                                final distance = _userLocation != null
-                                    ? Geolocator.distanceBetween(
-                                            _userLocation!.latitude,
-                                            _userLocation!.longitude,
-                                            worker.latitude,
-                                            worker.longitude,
-                                          ) /
-                                          1000
-                                    : 0.0;
-                                return _buildWorkerCard(worker, distance);
-                              },
-                            ),
-                    ),
+                    if (_filteredWorkers.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Center(
+                          child: Text(
+                            'No hay trabajadores en este rango',
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _filteredWorkers.length,
+                        itemBuilder: (context, index) {
+                          final worker = _filteredWorkers[index];
+                          String distanceDisplay = '';
+
+                          if (_userLocation != null) {
+                            final distanceInMeters = Geolocator.distanceBetween(
+                              _userLocation!.latitude,
+                              _userLocation!.longitude,
+                              worker.latitude,
+                              worker.longitude,
+                            );
+
+                            if (distanceInMeters < 1000) {
+                              distanceDisplay = '${distanceInMeters.toInt()} m';
+                            } else {
+                              final distanceKm = distanceInMeters / 1000;
+                              distanceDisplay =
+                                  '${distanceKm.toStringAsFixed(1)} km';
+                            }
+                          }
+
+                          return _buildWorkerCard(worker, distanceDisplay);
+                        },
+                      ),
                   ],
                 ),
               );
@@ -650,199 +660,227 @@ class _WorkerLocationSearchScreenState
     );
   }
 
-  Widget _buildWorkerCard(WorkerData worker, double distance) {
+  Widget _buildWorkerCard(WorkerData worker, String distance) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(color: Colors.grey[100]!),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: () {
-            // Navegar al perfil público
             Modular.to.pushNamed('/worker/public-profile', arguments: worker);
           },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Foto con indicador de estado
-                Stack(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        image: worker.photoUrl != null
-                            ? DecorationImage(
-                                image: NetworkImage(worker.photoUrl!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                        color: Colors.grey[200],
-                      ),
-                      child: worker.photoUrl == null
-                          ? Icon(
-                              Icons.person,
-                              size: 30,
-                              color: Colors.grey[400],
-                            )
-                          : null,
-                    ),
-                    Positioned(
-                      right: -2,
-                      top: -2,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                    // Foto con indicador de estado
+                    Stack(
+                      children: [
+                        Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            image: worker.photoUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage(worker.photoUrl!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            color: Colors.grey[200],
+                          ),
+                          child: worker.photoUrl == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 35,
+                                  color: Colors.grey[400],
+                                )
+                              : null,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 16),
-
-                // Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              worker.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Info Central
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            worker.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF212121),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            worker.profession,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
                             children: [
-                              const Text(
-                                'Desde',
-                                style: TextStyle(
-                                  fontSize: 10,
+                              // Indicador de nivel (ej. Avanzado)
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.circle,
+                                    size: 8,
+                                    color: Colors.amber[700],
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.circle,
+                                    size: 8,
+                                    color: Colors.amber[700],
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.circle,
+                                    size: 8,
+                                    color: Colors.amber[700],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Avanzado',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 16,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                worker.rating.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF212121),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                distance,
+                                style: const TextStyle(
+                                  fontSize: 13,
                                   color: Colors.grey,
                                 ),
                               ),
-                              Text(
-                                'Bs 120', // Placeholder o dato real
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0033CC),
-                                ),
-                              ),
                             ],
                           ),
                         ],
                       ),
-                      Text(
-                        worker.profession,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Avanzado',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.star, size: 14, color: Colors.amber),
-                          const SizedBox(width: 4),
-                          Text(
-                            worker.rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.amber,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 14,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${distance.toStringAsFixed(1)} km',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Modular.to.pushNamed(
-                              '/worker/public-profile',
-                              arguments: worker,
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0033CC),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Ver perfil completo'),
-                              SizedBox(width: 4),
-                              Icon(Icons.arrow_forward, size: 14),
-                            ],
+                    ),
+
+                    // Precio (Derecha)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text(
+                          'Desde',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          worker.price.isNotEmpty
+                              ? 'Bs ${worker.price}'
+                              : 'A convenir',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0033CC),
                           ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Botón inferior
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0033CC),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(20),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Text(
+                        'Ver perfil completo',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward, color: Colors.white, size: 16),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -850,7 +888,6 @@ class _WorkerLocationSearchScreenState
   }
 }
 
-// Modelo de datos para trabajador
 class WorkerData {
   final String id;
   final String name;
@@ -861,6 +898,7 @@ class WorkerData {
   final String? photoUrl;
   final double rating;
   final String phone;
+  final String price;
 
   WorkerData({
     required this.id,
@@ -872,5 +910,6 @@ class WorkerData {
     this.photoUrl,
     required this.rating,
     required this.phone,
+    required this.price,
   });
 }

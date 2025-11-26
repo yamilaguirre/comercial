@@ -264,18 +264,38 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
           if (_searchQuery.isEmpty) return true;
 
-          final data = doc.data() as Map<String, dynamic>;
-          final name = (data['name'] ?? '').toString().toLowerCase();
-          final profession = (data['profession'] ?? '')
-              .toString()
-              .toLowerCase();
-          final services =
-              (data['services'] as List<dynamic>?)
+            final data = doc.data() as Map<String, dynamic>;
+            final profile = data['profile'] as Map<String, dynamic>?;
+            final name = (data['name'] ?? '').toString().toLowerCase();
+            // Prefer top-level `profession` if exists; otherwise, check `profile.profession` or arrays
+            String profession = (data['profession'] ?? profile?['profession'] ?? '').toString().toLowerCase();
+            final professionsData = (data['professions'] as List<dynamic>?) ?? (profile?['professions'] as List<dynamic>?);
+            if ((profession.isEmpty || profession == 'sin profesión especificada') &&
+              professionsData != null && professionsData.isNotEmpty) {
+            final List<String> allSubcategories = [];
+            for (var prof in professionsData) {
+              final profMap = prof as Map<String, dynamic>?;
+              final subcategories = profMap?['subcategories'] as List<dynamic>?;
+              if (subcategories != null && subcategories.isNotEmpty) {
+                allSubcategories.addAll(
+                  subcategories.map((s) => s.toString().toLowerCase()),
+                );
+              } else {
+                final cat = profMap?['category'] as String? ?? '';
+                if (cat.isNotEmpty) allSubcategories.add(cat.toLowerCase());
+              }
+            }
+            if (allSubcategories.isNotEmpty) {
+              profession = allSubcategories.join(' ');
+            }
+          }
+
+            final services = (data['services'] as List<dynamic>?)
                   ?.map((s) => s.toString().toLowerCase())
                   .toList() ??
               [];
 
-          return name.contains(_searchQuery) ||
+            return name.contains(_searchQuery) ||
               profession.contains(_searchQuery) ||
               services.any((s) => s.contains(_searchQuery));
         }).toList();
@@ -347,9 +367,13 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   }
                 }
 
-                // Extraer profesión del array de professions
-                String profession = 'Sin profesión especificada';
-                final professionsData = data['professions'] as List<dynamic>?;
+                // Extraer profesión (primero revisar top-level `profession`, luego `profile.profession`, luego `professions` arrays)
+                final profileMap = data['profile'] as Map<String, dynamic>?;
+                String profession = (data['profession'] as String? ?? profileMap?['profession'] as String? ?? '').toString();
+                final professionsData = (data['professions'] as List<dynamic>?) ?? (profileMap?['professions'] as List<dynamic>?);
+                if (profession.isEmpty) {
+                  profession = 'Sin profesión especificada';
+                }
                 if (professionsData != null && professionsData.isNotEmpty) {
                   // Recolectar todas las subcategorías de todas las profesiones
                   final List<String> allSubcategories = [];
@@ -366,18 +390,22 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     }
                   }
 
-                  // Si tiene subcategorías, mostrar las primeras 2
-                  if (allSubcategories.isNotEmpty) {
-                    profession = allSubcategories.take(2).join(' • ');
-                  } else {
-                    // Si no tiene subcategorías, usar la categoría principal
-                    final firstProfession =
-                        professionsData[0] as Map<String, dynamic>?;
-                    final category =
-                        firstProfession?['category'] as String? ?? '';
-                    if (category.isNotEmpty) {
-                      profession = category;
+                  // Si top-level profession está vacío o es el valor por defecto,
+                  // usar el array de profesiones para construir la visualización
+                  if (profession == 'Sin profesión especificada') {
+                    if (allSubcategories.isNotEmpty) {
+                      profession = allSubcategories.take(2).join(' • ');
+                    } else {
+                      // Si no tiene subcategorías, usar la categoría principal
+                      final firstProfession =
+                          professionsData[0] as Map<String, dynamic>?;
+                      final category = firstProfession?['category'] as String? ?? '';
+                      if (category.isNotEmpty) {
+                        profession = category;
+                      }
                     }
+                  } else {
+                    // top-level profession is already set; keep it
                   }
                 }
 
@@ -387,7 +415,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   profession: profession,
                   rating: (data['rating'] ?? 0.0).toDouble(),
                   reviews: data['reviews'] as int? ?? 0,
-                  price: data['price'] as String? ?? '',
+                  price: (data['price']?.toString() ?? '').trim(),
                   distance: distance,
                   services:
                       (data['services'] as List<dynamic>?)
@@ -433,7 +461,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
             Row(
@@ -452,7 +480,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                 ),
                 const SizedBox(width: 12),
 
-                // Información del trabajador
+                // Información del trabajador (Nombre + Rating)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,22 +493,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           color: Color(0xFF212121),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        profession,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: profession == 'Sin profesión especificada'
-                              ? Colors.grey[400]
-                              : const Color(0xFF616161),
-                          fontStyle: profession == 'Sin profesión especificada'
-                              ? FontStyle.italic
-                              : FontStyle.normal,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
 
                       // Estrellas de rating (clickeables)
                       GestureDetector(
@@ -558,7 +571,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
 
             // Precio y distancia
             Row(
@@ -572,7 +585,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF616161)),
                     ),
                     Text(
-                      price,
+                      price.isNotEmpty ? 'Bs $price' : price,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -598,7 +611,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     const SizedBox(width: 8),
                     const Icon(Icons.star, size: 16, color: Colors.amber),
                     Text(
-                      '$rating ($reviews)',
+                      rating.toStringAsFixed(1),
                       style: const TextStyle(
                         fontSize: 14,
                         color: Color(0xFF212121),
@@ -609,7 +622,30 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+
+            // Profesión como Chip
+            if (profession != 'Sin profesión especificada')
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  profession,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF616161),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+            const SizedBox(height: 18),
 
             // Tags de servicios
             Wrap(
@@ -636,7 +672,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               }).toList(),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
             // Botones de acción
             Row(

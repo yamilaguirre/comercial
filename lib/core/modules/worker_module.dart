@@ -37,6 +37,10 @@ class WorkerModule extends Module {
           child: (context) => const WorkerAlertsScreen(),
         ),
         ParallelRoute.child(
+          'profile',
+          child: (context) => const WorkerProfileScreen(),
+        ),
+        ParallelRoute.child(
           'account',
           child: (context) => const WorkerProfileScreen(),
         ),

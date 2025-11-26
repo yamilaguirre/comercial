@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'dart:io';
 import '../../theme/theme.dart';
+import 'widgets/profession_selector.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/image_service.dart';
 
@@ -19,6 +20,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _priceController = TextEditingController();
 
   String _selectedAvailability = 'Inmediato';
   final List<String> _availabilityOptions = [
@@ -27,49 +29,8 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     'No disponible',
   ];
 
-  // Estructura de profesiones con sus subcategorías
-  final Map<String, List<String>> _professionCategories = {
-    'Mano de obra': [
-      'Electricista',
-      'Plomero',
-      'Albañ il',
-      'Carpintero',
-      'Pintor',
-      'Soldador',
-    ],
-    'Técnicos': [
-      'Técnico en refrigeración',
-      'Técnico en computadoras',
-      'Técnico automotriz',
-      'Técnico en electrodomésticos',
-      'Técnico en audio/video',
-    ],
-    'Profesionales': [
-      'Desarrollador web',
-      'Desarrollador mobile',
-      'Diseñador UX/UI',
-      'Diseñador gráfico',
-      'Arquitecto',
-      'Ingeniero civil',
-      'Contador',
-      'Abogado',
-    ],
-    'Otros': [
-      'Jardinero',
-      'Limpieza',
-      'Mudanzas',
-      'Seguridad',
-      'Chef/Cocinero',
-      'Fotógrafo',
-      'Músico',
-    ],
-  };
-
   // Almacena las selecciones: Map<categoria, List<subcategorias>>
   final Map<String, List<String>> _selectedProfessions = {};
-
-  // Categorías expandidas
-  final Set<String> _expandedCategories = {};
 
   // Foto de perfil
   File? _profileImage;
@@ -92,6 +53,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -116,6 +78,11 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           if (profile != null) {
             setState(() {
               _descriptionController.text = profile['description'] ?? '';
+              // Prefer profile specific price, otherwise check root-level price
+              _priceController.text =
+                  profile['price']?.toString() ??
+                  data?['price']?.toString() ??
+                  '';
 
               // Asegurar que availability tenga un valor válido
               final availability = profile['availability'] as String?;
@@ -291,15 +258,36 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         }
       });
 
-      // Guardar en Firestore
+      // Preparar string representativo de profesion (top-level) para compatibilidad
+      String professionTopLevel = '';
+      if (professions.isNotEmpty) {
+        final List<String> allSubcategories = [];
+        for (var p in professions) {
+          final subs = p['subcategories'] as List<dynamic>?;
+          if (subs != null && subs.isNotEmpty) {
+            allSubcategories.addAll(subs.map((e) => e.toString()));
+          }
+        }
+        if (allSubcategories.isNotEmpty) {
+          professionTopLevel = allSubcategories.take(2).join(' • ');
+        } else {
+          professionTopLevel = professions[0]['category'] ?? '';
+        }
+      }
+
+      final String priceValue = _priceController.text.trim();
+      // Guardar en Firestore (asegurar que es string)
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
         {
+          'professions': professions,
+          'price': priceValue, // String
           'profile': {
             'fullName': _nameController.text.trim(),
             'description': _descriptionController.text.trim(),
             'availability': _selectedAvailability,
             'professions': professions,
             'portfolioImages': portfolioUrls,
+            'price': priceValue, // String
             'photoUrl': profilePhotoUrl,
             'updatedAt': FieldValue.serverTimestamp(),
           },
@@ -307,6 +295,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           'photoUrl': profilePhotoUrl,
           'photoURL':
               profilePhotoUrl, // También guardar en photoURL (mayúscula)
+          'profession': professionTopLevel,
         },
       );
 
@@ -349,20 +338,6 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     );
   }
 
-  int _getSelectedCount(String category) {
-    return _selectedProfessions[category]?.length ?? 0;
-  }
-
-  void _toggleCategory(String category) {
-    setState(() {
-      if (_expandedCategories.contains(category)) {
-        _expandedCategories.remove(category);
-      } else {
-        _expandedCategories.add(category);
-      }
-    });
-  }
-
   void _toggleSubcategory(String category, String subcategory) {
     setState(() {
       if (!_selectedProfessions.containsKey(category)) {
@@ -381,21 +356,6 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         _selectedProfessions.remove(category);
       }
     });
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Mano de obra':
-        return Icons.build;
-      case 'Técnicos':
-        return Icons.settings;
-      case 'Profesionales':
-        return Icons.business_center;
-      case 'Otros':
-        return Icons.more_horiz;
-      default:
-        return Icons.work;
-    }
   }
 
   @override
@@ -431,535 +391,479 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           ],
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                // Nombre completo
-                const Text(
-                  'Nombre Completo',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: 'Ej: Pedro Perez Gonzales',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    filled: true,
-                    fillColor: const Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
+          Expanded(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16.0),
+                children: [
+                  // Nombre completo
+                  const Text(
+                    'Nombre Completo',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'El nombre es requerido';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 24),
-
-                // Foto de perfil
-                const Text(
-                  'Foto de Perfil',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      hintText: 'Ej: Pedro Perez Gonzales',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: const Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El nombre es requerido';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: GestureDetector(
-                    onTap: _pickProfileImage,
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.grey[200],
-                            image: _profileImage != null
-                                ? DecorationImage(
-                                    image: FileImage(_profileImage!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : _profileImageUrl != null
-                                ? DecorationImage(
-                                    image: NetworkImage(_profileImageUrl!),
-                                    fit: BoxFit.cover,
+
+                  const SizedBox(height: 24),
+
+                  // Foto de perfil
+                  const Text(
+                    'Foto de Perfil',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: GestureDetector(
+                      onTap: _pickProfileImage,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey[200],
+                              image: _profileImage != null
+                                  ? DecorationImage(
+                                      image: FileImage(_profileImage!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : _profileImageUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(_profileImageUrl!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                            child:
+                                _profileImage == null &&
+                                    _profileImageUrl == null
+                                ? Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: Colors.grey[400],
                                   )
                                 : null,
                           ),
-                          child:
-                              _profileImage == null && _profileImageUrl == null
-                              ? Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.grey[400],
-                                )
-                              : null,
-                        ),
-                        // Botón de editar foto
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Styles.primaryColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Descripción personal
-                const Text(
-                  'Descripción Personal',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _descriptionController,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Ej: Profesional comprometido, especializado en [tu especialidad], con enfoque en calidad y puntualidad en cada proyecto.',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                    filled: true,
-                    fillColor: const Color(0xFFF5F5F5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.all(16),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'La descripción es requerida';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 24),
-
-                // Disponibilidad
-                const Text(
-                  'Disponibilidad',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Styles.primaryColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedAvailability,
-                      isExpanded: true,
-                      dropdownColor: Styles.primaryColor,
-                      icon: const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.white,
-                      ),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      items: _availabilityOptions.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedAvailability = newValue;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Profesión
-                const Text(
-                  'Profesión',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Chips de categorías seleccionadas
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _professionCategories.keys.map((category) {
-                    final count = _getSelectedCount(category);
-                    final isExpanded = _expandedCategories.contains(category);
-
-                    return GestureDetector(
-                      onTap: () => _toggleCategory(category),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: count > 0
-                              ? Styles.primaryColor.withOpacity(0.1)
-                              : const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: count > 0
-                                ? Styles.primaryColor
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getCategoryIcon(category),
-                              size: 18,
-                              color: count > 0
-                                  ? Styles.primaryColor
-                                  : Colors.black87,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              count > 0 ? '$category ($count)' : category,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: count > 0
-                                    ? Styles.primaryColor
-                                    : Colors.black87,
+                          // Botón de editar foto
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Styles.primaryColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              size: 18,
-                              color: count > 0
-                                  ? Styles.primaryColor
-                                  : Colors.grey[600],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-
-                // Expandibles de subcategorías
-                ..._professionCategories.keys
-                    .where((cat) => _expandedCategories.contains(cat))
-                    .map((category) {
-                      final subcategories = _professionCategories[category]!;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey[300]!),
-                            ),
-                            child: Column(
-                              children: subcategories.map((subcategory) {
-                                final isSelected =
-                                    _selectedProfessions[category]?.contains(
-                                      subcategory,
-                                    ) ??
-                                    false;
-
-                                return CheckboxListTile(
-                                  value: isSelected,
-                                  title: Text(
-                                    subcategory,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: true,
-                                  activeColor: Styles.primaryColor,
-                                  onChanged: (bool? value) {
-                                    _toggleSubcategory(category, subcategory);
-                                  },
-                                );
-                              }).toList(),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 16,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
-                      );
-                    })
-                    .toList(),
-
-                const SizedBox(height: 24),
-
-                // Subir fotos portafolio
-                const Text(
-                  'Subir Fotos Portafolio',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
 
-                // Botones para agregar imágenes - Diseño tipo card
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _pickPortfolioImage,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(
-                              color: const Color(0xFFE5E7EB),
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.upload_outlined,
-                                size: 48,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Subir imágenes',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
+                  const SizedBox(height: 24),
+
+                  // Descripción personal
+                  const Text(
+                    'Descripción Personal',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _descriptionController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText:
+                          'Ej: Profesional comprometido, especializado en [tu especialidad], con enfoque en calidad y puntualidad en cada proyecto.',
+                      hintStyle: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 13,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'La descripción es requerida';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Disponibilidad
+                  const Text(
+                    'Disponibilidad',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Styles.primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedAvailability,
+                        isExpanded: true,
+                        dropdownColor: Styles.primaryColor,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.white,
                         ),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        items: _availabilityOptions.map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedAvailability = newValue;
+                            });
+                          }
+                        },
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _takePhoto,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(
-                              color: const Color(0xFFE5E7EB),
-                              width: 1.5,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.camera_alt_outlined,
-                                size: 48,
-                                color: Colors.grey[600],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Tomar foto',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[700],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Profesión
+                  const Text(
+                    'Profesión',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Selector de Profesiones (refactorizado a widget)
+                  ProfessionSelector(
+                    selectedProfessions: _selectedProfessions,
+                    onToggleSubcategory: _toggleSubcategory,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Precio (Desde)
+                  const Text(
+                    'Precio (Desde)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _priceController,
+                    keyboardType: TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Ej: 150',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: const Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
                       ),
                     ),
-                  ],
-                ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El precio es requerido';
+                      }
+                      final num? parsed = num.tryParse(
+                        value.replaceAll(',', '.'),
+                      );
+                      if (parsed == null || parsed <= 0) {
+                        return 'Ingresa un precio válido mayor que 0';
+                      }
+                      return null;
+                    },
+                  ),
 
-                const SizedBox(height: 16),
+                  const SizedBox(height: 24),
 
-                // Mostrar imágenes del portafolio subidas
-                if (_portfolioImages.isNotEmpty ||
-                    _portfolioUrls.isNotEmpty) ...[
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  // Subir fotos portafolio
+                  const Text(
+                    'Subir Fotos Portafolio',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Botones para agregar imágenes - Diseño tipo card
+                  Row(
                     children: [
-                      // Imágenes existentes (URLs)
-                      ..._portfolioUrls.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final url = entry.value;
-                        return Stack(
-                          children: [
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                image: DecorationImage(
-                                  image: NetworkImage(url),
-                                  fit: BoxFit.cover,
-                                ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _pickPortfolioImage,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                                width: 1.5,
                               ),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _portfolioUrls.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 16,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.upload_outlined,
+                                  size: 48,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Subir imágenes',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        );
-                      }),
-                      // Imágenes nuevas (archivos locales)
-                      ..._portfolioImages.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final file = entry.value;
-                        return Stack(
-                          children: [
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                image: DecorationImage(
-                                  image: FileImage(file),
-                                  fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _takePhoto,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.camera_alt_outlined,
+                                  size: 48,
+                                  color: Colors.grey[600],
                                 ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _portfolioImages.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    color: Colors.white,
-                                    size: 16,
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Tomar foto',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        );
-                      }),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ],
 
-                const SizedBox(height: 100), // Espacio para los botones fijos
-              ],
+                  const SizedBox(height: 16),
+
+                  // Mostrar imágenes del portafolio subidas
+                  if (_portfolioImages.isNotEmpty ||
+                      _portfolioUrls.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        // Imágenes existentes (URLs)
+                        ..._portfolioUrls.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final url = entry.value;
+                          return Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: NetworkImage(url),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _portfolioUrls.removeAt(index);
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                        // Imágenes nuevas (archivos locales)
+                        ..._portfolioImages.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final file = entry.value;
+                          return Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: FileImage(file),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _portfolioImages.removeAt(index);
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
 
           // Botones inferiores fijos
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
               child: Row(
                 children: [
                   Expanded(
