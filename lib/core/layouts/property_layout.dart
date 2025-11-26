@@ -123,16 +123,16 @@ class PropertyLayout extends StatelessWidget {
 
   // Lógica para determinar el índice de la pestaña basado en la ruta (location)
   int _getSelectedIndex(String location) {
-    // Usamos endsWith o contains para manejar la ruta dentro del módulo /property
-    if (location.endsWith('/home')) return 0;
-    if (location.contains('/favorites')) return 1;
-    if (location.contains('/messages')) return 2;
-    if (location.contains('/alerts')) return 3;
-    if (location.contains('/account')) return 4;
+    // Usamos contains para manejar la ruta dentro del módulo /property
+    if (location.contains('home')) return 0;
+    if (location.contains('favorites')) return 1;
+    if (location.contains('messages')) return 2;
+    if (location.contains('alerts')) return 3;
+    if (location.contains('account')) return 4;
     return 0;
   }
 
-  // Lógica de navegación. Usamos navigate a la ruta relativa (PropertyModule gestiona /home, /favorites, etc.)
+  // Lógica de navegación. Usamos navigate a la ruta completa
   void _onItemTapped(int index) {
     switch (index) {
       case 0:

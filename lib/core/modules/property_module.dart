@@ -31,28 +31,27 @@ class PropertyModule extends Module {
 
       children: [
         // RUTA HIJA POR DEFECTO DEL SHELL (Explorar)
-        // Modular.initialRoute aquí es '/' (relativo a /property/) -> /property/
-        // ESTO DEBERÍA CARGAR PropertyListScreen cuando se navega a /property/
+        // Usamos 'home' en lugar de Modular.initialRoute para evitar conflicto
         ParallelRoute.child(
-          Modular.initialRoute, // Path: '/' (la raíz del children)
+          'home', // Path relativo: 'home'
           child: (context) => const PropertyListScreen(),
         ),
 
         // RUTAS SECUNDARIAS DEL LAYOUT (BOTTOM NAVIGATION BAR)
         ParallelRoute.child(
-          '/favorites', // -> /property/favorites
+          'favorites', // -> /property/favorites
           child: (context) => const PropertyFavoritesScreen(),
         ),
         ParallelRoute.child(
-          '/messages', // -> /property/messages
+          'messages', // -> /property/messages
           child: (context) => const PropertyMessagesScreen(),
         ),
         ParallelRoute.child(
-          '/alerts', // -> /property/alerts
+          'alerts', // -> /property/alerts
           child: (context) => const PropertyAlertsScreen(),
         ),
         ParallelRoute.child(
-          '/account', // -> /property/account
+          'account', // -> /property/account
           child: (context) => const PropertyAccountScreen(),
         ),
       ],
