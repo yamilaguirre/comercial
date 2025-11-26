@@ -69,14 +69,19 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         elevation: 0,
         items: [
           BottomNavigationBarItem(
-            icon: _buildNavIcon('inicio', false),
-            activeIcon: _buildNavIcon('inicio', true),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
             icon: _buildNavIcon('mensajes', false),
             activeIcon: _buildNavIcon('mensajes', true),
             label: 'Mensajes',
+          ),
+          BottomNavigationBarItem(
+            icon: _buildNavIcon('explorar', false),
+            activeIcon: _buildNavIcon('explorar', true),
+            label: 'Explorar',
+          ),
+          BottomNavigationBarItem(
+            icon: _buildNavIcon('inicio', false),
+            activeIcon: _buildNavIcon('inicio', true),
+            label: 'Inicio',
           ),
           BottomNavigationBarItem(
             icon: _buildNavIcon('regresar', false),
@@ -129,44 +134,54 @@ class _WorkerLayoutState extends State<WorkerLayout> {
 
   IconData _getFallbackIcon(String iconName) {
     switch (iconName) {
-      case 'inicio':
-        return Icons.home_work;
       case 'mensajes':
         return Icons.message;
+      case 'explorar':
+        return Icons.explore;
+      case 'inicio':
+        return Icons.person;
       case 'regresar':
         return Icons.arrow_back;
       case 'cuenta':
-        return Icons.person;
+        return Icons.account_circle_outlined;
       default:
         return Icons.circle;
     }
   }
 
   int _getSelectedIndex(String location) {
-    if (location.contains('home-worker')) return 0;
-    if (location.contains('messages')) return 1;
-    // Regresar (index 2) no mantiene estado activo ya que sale del módulo
-    if (location.contains('account')) return 3;
-    return 0;
+    if (location.contains('messages')) return 0;
+    if (location.contains('home-worker')) return 1;
+    if (location.contains('profile')) return 2;
+    // Regresar (index 3) no mantiene estado activo ya que sale del módulo
+    if (location.contains('account')) return 4;
+    return 1; // Default to Explorar
   }
 
   void _onItemTapped(BuildContext context, int index) {
     switch (index) {
       case 0:
-        Modular.to.navigate('/worker/home-worker');
-        break;
-      case 1:
+        // Mensajes
         Modular.to.navigate('/worker/messages');
         break;
+      case 1:
+        // Explorar -> home_work_screen
+        Modular.to.navigate('/worker/home-worker');
+        break;
       case 2:
-        // Resetear rol y navegar a selección
+        // Inicio -> worker_profile_screen
+        Modular.to.navigate('/worker/profile');
+        break;
+      case 3:
+        // Regresar - Resetear rol y navegar a selección
         final authService = Provider.of<AuthService>(context, listen: false);
         authService.resetRole().then((_) {
           Modular.to.navigate('/select-role');
         });
         break;
-      case 3:
-        Modular.to.navigate('/worker/account');
+      case 4:
+        // Cuenta -> en blanco por el momento
+        // TODO: Navegar a la pantalla de cuenta cuando esté lista
         break;
     }
   }
