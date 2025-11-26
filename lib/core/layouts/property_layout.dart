@@ -5,25 +5,41 @@ import '../../theme/theme.dart';
 
 /// NOTA: Este Layout es el Shell para el módulo de Propiedades.
 /// Contiene la lógica de navegación inferior para las rutas de /home, /favorites, /messages, /alerts y /account.
-class PropertyLayout extends StatelessWidget {
+class PropertyLayout extends StatefulWidget {
   final Widget child;
 
   const PropertyLayout({super.key, required this.child});
 
   @override
+  State<PropertyLayout> createState() => _PropertyLayoutState();
+}
+
+class _PropertyLayoutState extends State<PropertyLayout> {
+  int _selectedIndex = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateSelectedIndex();
+  }
+
+  void _updateSelectedIndex() {
+    final String location = Modular.to.path;
+    setState(() {
+      _selectedIndex = _getSelectedIndex(location);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: child,
+      body: widget.child,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
   Widget _buildBottomNavigationBar() {
-    // Usamos Modular.to.path para obtener la ruta actual (ej: '/property/home')
-    final String location = Modular.to.path;
-    final int selectedIndex = _getSelectedIndex(location);
-
     return Container(
       decoration: BoxDecoration(
         boxShadow: [
@@ -35,8 +51,8 @@ class PropertyLayout extends StatelessWidget {
         ],
       ),
       child: BottomNavigationBar(
-        currentIndex: selectedIndex,
-        onTap: (index) => _onItemTapped(index),
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: Styles.primaryColor,
@@ -47,28 +63,28 @@ class PropertyLayout extends StatelessWidget {
         elevation: 0,
         items: [
           BottomNavigationBarItem(
-            icon: _buildNavIcon('explorar', false),
-            activeIcon: _buildNavIcon('explorar', true),
+            icon: _buildNavIcon(Icons.search, false),
+            activeIcon: _buildNavIcon(Icons.search, true),
             label: 'Explorar',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('guardados', false),
-            activeIcon: _buildNavIcon('guardados', true),
+            icon: _buildNavIcon(Icons.favorite_border, false),
+            activeIcon: _buildNavIcon(Icons.favorite, true),
             label: 'Guardados',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('buzon', false),
-            activeIcon: _buildNavIcon('buzon', true),
+            icon: _buildNavIcon(Icons.chat_bubble_outline, false),
+            activeIcon: _buildNavIcon(Icons.chat_bubble, true),
             label: 'Buzón',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('avisos', false),
-            activeIcon: _buildNavIcon('avisos', true),
+            icon: _buildNavIcon(Icons.notifications_none, false),
+            activeIcon: _buildNavIcon(Icons.notifications, true),
             label: 'Avisos',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('cuenta', false),
-            activeIcon: _buildNavIcon('cuenta', true),
+            icon: _buildNavIcon(Icons.person_outline, false),
+            activeIcon: _buildNavIcon(Icons.person, true),
             label: 'Cuenta',
           ),
         ],
@@ -76,28 +92,7 @@ class PropertyLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildNavIcon(String iconName, bool isActive) {
-    IconData icon;
-    switch (iconName) {
-      case 'explorar':
-        icon = Icons.search;
-        break;
-      case 'guardados':
-        icon = Icons.bookmark_border;
-        break;
-      case 'buzon':
-        icon = Icons.message_outlined;
-        break;
-      case 'avisos':
-        icon = Icons.notifications_none;
-        break;
-      case 'cuenta':
-        icon = Icons.person_outline;
-        break;
-      default:
-        icon = Icons.question_mark;
-    }
-
+  Widget _buildNavIcon(IconData icon, bool isActive) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -123,17 +118,48 @@ class PropertyLayout extends StatelessWidget {
 
   // Lógica para determinar el índice de la pestaña basado en la ruta (location)
   int _getSelectedIndex(String location) {
-    // Usamos contains para manejar la ruta dentro del módulo /property
-    if (location.contains('home')) return 0;
-    if (location.contains('favorites')) return 1;
-    if (location.contains('messages')) return 2;
-    if (location.contains('alerts')) return 3;
-    if (location.contains('account')) return 4;
+    // Normalizar la ruta para comparación
+    final normalizedLocation = location.toLowerCase();
+
+    // Verificar rutas específicas primero
+    if (normalizedLocation.endsWith('/home') ||
+        normalizedLocation.endsWith('/property/home') ||
+        normalizedLocation == '/property' ||
+        normalizedLocation == '/property/') {
+      return 0;
+    }
+    if (normalizedLocation.contains('/favorites') ||
+        normalizedLocation.contains('/collection-detail')) {
+      return 1;
+    }
+    if (normalizedLocation.contains('/messages') ||
+        normalizedLocation.contains('/chat-detail')) {
+      return 2;
+    }
+    if (normalizedLocation.contains('/alerts')) {
+      return 3;
+    }
+    if (normalizedLocation.contains('/account') ||
+        normalizedLocation.contains('/edit-profile') ||
+        normalizedLocation.contains('/agent-management-profile')) {
+      return 4;
+    }
+
+    // Por defecto, explorar
     return 0;
   }
 
   // Lógica de navegación. Usamos navigate a la ruta completa
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) {
+      // Si ya estamos en la misma tab, no hacer nada o hacer scroll to top
+      return;
+    }
+
+    setState(() {
+      _selectedIndex = index;
+    });
+
     switch (index) {
       case 0:
         Modular.to.navigate('/property/home');

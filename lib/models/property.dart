@@ -88,11 +88,30 @@ class Property {
       bedrooms: data['rooms'] ?? 0,
       bathrooms: data['bathrooms'] ?? 0,
       area: (data['area_sqm'] ?? 0).toDouble(),
-      geopoint: data['geopoint'] as GeoPoint?,
+      geopoint: _parseGeoPoint(data['geopoint']),
       ownerId: data['owner_id'] ?? '',
       imageUrls: urls,
       department: data['department'],
       zone: data['zone_key'],
     );
+  }
+
+  // Helper para parsear GeoPoint de forma segura
+  static GeoPoint? _parseGeoPoint(dynamic geopointData) {
+    if (geopointData == null) return null;
+
+    if (geopointData is GeoPoint) {
+      return geopointData;
+    }
+
+    if (geopointData is Map) {
+      final lat = geopointData['latitude'] ?? geopointData['_latitude'];
+      final lng = geopointData['longitude'] ?? geopointData['_longitude'];
+      if (lat != null && lng != null) {
+        return GeoPoint(lat.toDouble(), lng.toDouble());
+      }
+    }
+
+    return null;
   }
 }

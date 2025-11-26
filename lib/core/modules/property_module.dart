@@ -10,9 +10,12 @@ import '../../screens/property/my_properties_screen.dart';
 import '../../screens/property/property_detail_screen.dart';
 import '../../screens/property/agent_management_profile_screen.dart';
 import '../../screens/property/public_agent_profile_screen.dart';
+import '../../screens/property/chat/property_chat_detail_screen.dart';
+import '../../screens/property/collection_detail_screen.dart';
 import '../../providers/mobiliaria_provider.dart';
 import '../../screens/common/map_picker_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
+import '../../../models/saved_collection_model.dart';
 
 class PropertyModule extends Module {
   @override
@@ -58,7 +61,34 @@ class PropertyModule extends Module {
     r.child('/new', child: (context) => const PropertyFormScreen());
     r.child('/my', child: (context) => const MyPropertiesScreen());
     r.child('/map-picker', child: (context) => const MapPickerScreen());
-    r.child('/edit-profile', child: (context) => EditProfileScreen(userData: Modular.args.data));
+    r.child(
+      '/edit-profile',
+      child: (context) => EditProfileScreen(userData: Modular.args.data),
+    );
+
+    // RUTAS DE CHAT
+    r.child(
+      '/chat-detail',
+      child: (context) {
+        final args = Modular.args.data as Map<String, dynamic>;
+        return PropertyChatDetailScreen(
+          chatId: args['chatId'],
+          otherUserId: args['otherUserId'],
+          otherUserName: args['otherUserName'],
+          otherUserPhoto: args['otherUserPhoto'],
+          propertyId: args['propertyId'],
+        );
+      },
+    );
+
+    // RUTA DE COLECCIÓN
+    r.child(
+      '/collection-detail',
+      child: (context) {
+        final collection = Modular.args.data as SavedCollection;
+        return CollectionDetailScreen(collection: collection);
+      },
+    );
 
     // Perfil de Gestión (Agente/Dueño - Ruta directa, fuera del bottom bar)
     r.child(
