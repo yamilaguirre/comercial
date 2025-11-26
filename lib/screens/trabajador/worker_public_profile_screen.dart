@@ -54,14 +54,36 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
 
         final data = snapshot.data!.data() as Map<String, dynamic>;
         final profile = data['profile'] as Map<String, dynamic>?;
-        
+
         // Leer datos con validaciones
-        final String description = profile?['description']?.toString() ?? 'Sin descripción';
-        final String availability = profile?['availability']?.toString() ?? 'No disponible';
-        final String price = (data['price']?.toString() ?? '').trim();
-        final List<dynamic> portfolioImagesList = profile?['portfolioImages'] as List<dynamic>? ?? [];
+        final String description =
+            profile?['description']?.toString() ?? 'Sin descripción';
+        final String availability =
+            profile?['availability']?.toString() ?? 'No disponible';
+        final String price =
+            (profile?['price']?.toString() ?? data['price']?.toString() ?? '')
+                .trim();
+        final List<dynamic> portfolioImagesList =
+            profile?['portfolioImages'] as List<dynamic>? ?? [];
         final int reviews = (data['reviews'] as num?)?.toInt() ?? 0;
-        final List<String> services = (data['services'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? [];
+
+        // Extraer servicios desde professions
+        final List<String> services = [];
+        final professions = profile?['professions'] as List<dynamic>?;
+        if (professions != null) {
+          for (var prof in professions) {
+            final subcategories = prof['subcategories'] as List<dynamic>?;
+            if (subcategories != null) {
+              services.addAll(subcategories.map((e) => e.toString()));
+            }
+          }
+        } else {
+          // Fallback antiguo por si acaso
+          final oldServices = (data['services'] as List<dynamic>?);
+          if (oldServices != null) {
+            services.addAll(oldServices.map((s) => s.toString()));
+          }
+        }
 
         return Scaffold(
           backgroundColor: Colors.white,
@@ -74,7 +96,10 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
             ),
             title: const Text(
               'Perfil',
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             actions: [
               IconButton(
@@ -89,7 +114,10 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
               children: [
                 // Header con Foto y Datos Básicos
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -100,7 +128,11 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                             ? NetworkImage(widget.worker.photoUrl!)
                             : null,
                         child: widget.worker.photoUrl == null
-                            ? const Icon(Icons.person, size: 45, color: Colors.grey)
+                            ? const Icon(
+                                Icons.person,
+                                size: 45,
+                                color: Colors.grey,
+                              )
                             : null,
                       ),
                       const SizedBox(width: 16),
@@ -130,7 +162,11 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                const Icon(Icons.star, size: 16, color: Colors.amber),
+                                const Icon(
+                                  Icons.star,
+                                  size: 16,
+                                  color: Colors.amber,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   widget.worker.rating.toStringAsFixed(1),
@@ -167,7 +203,10 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                       children: [
                         const Text(
                           'Precio',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Container(
@@ -181,7 +220,10 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                             children: [
                               const Text(
                                 'Desde',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                               Text(
                                 'Bs $price',
@@ -208,7 +250,10 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                     children: [
                       const Text(
                         'Sobre el profesional',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Text(
@@ -225,22 +270,35 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
 
                 // Disponibilidad
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Disponibilidad',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[700]),
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 16,
+                            color: Colors.grey[700],
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             availability,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -260,7 +318,10 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                       children: [
                         const Text(
                           'Servicios',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -268,14 +329,20 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                           runSpacing: 8,
                           children: services.take(6).map((service) {
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey[100],
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Text(
                                 service,
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF616161)),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF616161),
+                                ),
                               ),
                             );
                           }).toList(),
@@ -284,8 +351,7 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                     ),
                   ),
 
-                if (services.isNotEmpty)
-                  const Divider(height: 1, thickness: 1),
+                if (services.isNotEmpty) const Divider(height: 1, thickness: 1),
 
                 // Portafolio
                 if (portfolioImagesList.isNotEmpty)
@@ -296,21 +362,26 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                       children: [
                         const Text(
                           'Portafolio',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 1,
-                          ),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                                childAspectRatio: 1,
+                              ),
                           itemCount: portfolioImagesList.length,
                           itemBuilder: (context, index) {
-                            final imageUrl = portfolioImagesList[index].toString();
+                            final imageUrl = portfolioImagesList[index]
+                                .toString();
                             return ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Image.network(
@@ -319,16 +390,22 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                                 errorBuilder: (context, error, stackTrace) {
                                   return Container(
                                     color: Colors.grey[200],
-                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
                                   );
                                 },
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: Colors.grey[200],
-                                    child: const Center(child: CircularProgressIndicator()),
-                                  );
-                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      );
+                                    },
                               ),
                             );
                           },
@@ -364,11 +441,16 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                         }
                       },
                       icon: const Icon(Icons.phone_outlined, size: 18),
-                      label: const Text('Llamar', style: TextStyle(fontSize: 14)),
+                      label: const Text(
+                        'Llamar',
+                        style: TextStyle(fontSize: 14),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: BorderSide(color: Colors.grey[300]!),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         foregroundColor: Colors.black87,
                       ),
                     ),
@@ -377,11 +459,16 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        final authService = Provider.of<AuthService>(context, listen: false);
+                        final authService = Provider.of<AuthService>(
+                          context,
+                          listen: false,
+                        );
                         final currentUser = authService.currentUser;
                         if (currentUser == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Debes iniciar sesión')),
+                            const SnackBar(
+                              content: Text('Debes iniciar sesión'),
+                            ),
                           );
                           return;
                         }
@@ -389,13 +476,17 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                         try {
                           final chatService = ChatService();
                           final userIds = [currentUser.uid, widget.worker.id];
-                          String? chatId = await chatService.findExistingChat('general', userIds);
+                          String? chatId = await chatService.findExistingChat(
+                            'general',
+                            userIds,
+                          );
 
                           if (chatId == null) {
                             chatId = await chatService.createChat(
                               propertyId: 'general',
                               userIds: userIds,
-                              initialMessage: 'Hola, vi tu perfil y me interesa tu servicio.',
+                              initialMessage:
+                                  'Hola, vi tu perfil y me interesa tu servicio.',
                               senderId: currentUser.uid,
                             );
                           }
@@ -420,12 +511,17 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                         }
                       },
                       icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                      label: const Text('Contactar', style: TextStyle(fontSize: 14)),
+                      label: const Text(
+                        'Contactar',
+                        style: TextStyle(fontSize: 14),
+                      ),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         backgroundColor: Styles.primaryColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         elevation: 0,
                       ),
                     ),

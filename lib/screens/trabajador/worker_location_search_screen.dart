@@ -125,6 +125,7 @@ class _WorkerLocationSearchScreenState
                 photoUrl: data['photoUrl'],
                 rating: (data['rating'] ?? 0.0).toDouble(),
                 phone: data['phone'] ?? '',
+                price: (data['price']?.toString() ?? '').trim(),
               ),
             );
           }
@@ -749,7 +750,9 @@ class _WorkerLocationSearchScreenState
                                 ),
                               ),
                               Text(
-                                'Bs 120', // Placeholder o dato real
+                                worker.price.isNotEmpty
+                                    ? 'Bs ${worker.price}'
+                                    : 'A convenir',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -861,6 +864,7 @@ class WorkerData {
   final String? photoUrl;
   final double rating;
   final String phone;
+  final String price;
 
   WorkerData({
     required this.id,
@@ -872,5 +876,6 @@ class WorkerData {
     this.photoUrl,
     required this.rating,
     required this.phone,
+    required this.price,
   });
 }
