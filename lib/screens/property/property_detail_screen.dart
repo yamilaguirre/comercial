@@ -6,14 +6,19 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 // Importaciones de Mapa (Asumo que _buildMapSection todavía está en esta pantalla)
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/property.dart';
 import '../../theme/theme.dart';
 import '../../core/utils/amenity_helper.dart';
 import '../../core/utils/property_constants.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/chat_service.dart';
+import '../../services/saved_list_service.dart';
 
 import 'components/detail_feature_item.dart';
-import 'components/detail_owner_contact_card.dart'; // NUEVO COMPONENTE
+import 'components/detail_owner_contact_card.dart';
+import 'components/add_to_collection_dialog.dart';
 
 // --- CONSTANTES DE MAPA (RESTAURADAS) ---
 const String _mapboxAccessToken =
@@ -45,17 +50,93 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   bool _isFavorite = false;
   int _currentImageIndex = 0;
   final PageController _carouselController = PageController();
+  final SavedListService _savedListService = SavedListService();
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _checkIfSaved();
   }
 
   @override
   void dispose() {
     _carouselController.dispose();
     super.dispose();
+  }
+
+  // Verificar si la propiedad está guardada
+  Future<void> _checkIfSaved() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid ?? '';
+
+    if (userId.isEmpty || _property == null) return;
+
+    final isSaved = await _savedListService.isPropertySaved(
+      userId,
+      widget.propertyId,
+    );
+    if (mounted) {
+      setState(() {
+        _isFavorite = isSaved;
+      });
+    }
+  }
+
+  // Guardar/quitar de favoritos
+  Future<void> _toggleFavorite() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid ?? '';
+
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes iniciar sesión para guardar propiedades'),
+        ),
+      );
+      return;
+    }
+
+    if (_isFavorite) {
+      // Mostrar opciones para quitar de colecciones
+      final collections = await _savedListService.getCollectionsWithProperty(
+        userId,
+        widget.propertyId,
+      );
+
+      if (collections.isEmpty) return;
+
+      // Quitar de todas las colecciones
+      for (final collection in collections) {
+        await _savedListService.removePropertyFromCollection(
+          collection.id,
+          widget.propertyId,
+        );
+      }
+
+      if (mounted) {
+        setState(() => _isFavorite = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Quitado de favoritos')));
+      }
+    } else {
+      // Mostrar diálogo para agregar a colecciones
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) =>
+            AddToCollectionDialog(propertyId: widget.propertyId),
+      );
+
+      if (result == true) {
+        _checkIfSaved();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Agregado a favoritos')));
+        }
+      }
+    }
   }
 
   // Lógica de carga de datos
@@ -139,10 +220,87 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
   // Implementación del chat interno desde la interfaz
   @override
-  void startInternalChat() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Chat interno próximamente...')),
-    );
+  Future<void> startInternalChat() async {
+    if (_property == null || _ownerData == null) return;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUser?.uid ?? '';
+
+    if (currentUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para chatear')),
+      );
+      return;
+    }
+
+    // No permitir chat con uno mismo
+    if (currentUserId == _property!.ownerId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No puedes chatear contigo mismo')),
+      );
+      return;
+    }
+
+    try {
+      // Mostrar indicador de carga
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final chatService = ChatService();
+
+      // Buscar chat existente
+      String? chatId = await chatService.findExistingChat(_property!.id, [
+        currentUserId,
+        _property!.ownerId,
+      ]);
+
+      // Si no existe, crear uno nuevo
+      if (chatId == null) {
+        final initialMessage =
+            'Hola, estoy interesado en tu propiedad "${_property!.name}"';
+        chatId = await chatService.createChat(
+          propertyId: _property!.id,
+          userIds: [currentUserId, _property!.ownerId],
+          initialMessage: initialMessage,
+          senderId: currentUserId,
+        );
+      }
+
+      // Cerrar indicador de carga
+      if (mounted) Navigator.of(context).pop();
+
+      if (chatId != null) {
+        // Navegar al chat
+        Modular.to.pushNamed(
+          '/property/chat-detail',
+          arguments: {
+            'chatId': chatId,
+            'otherUserId': _property!.ownerId,
+            'otherUserName': _ownerData?['displayName'] ?? 'Usuario',
+            'otherUserPhoto': _ownerData?['photoURL'],
+            'propertyId': _property!.id,
+          },
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error al crear el chat')),
+          );
+        }
+      }
+    } catch (e) {
+      // Cerrar indicador de carga si está abierto
+      if (mounted) Navigator.of(context).pop();
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   void _openFullScreenGallery(List<String> images, int initialIndex) {
@@ -446,8 +604,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                         _isFavorite ? Icons.favorite : Icons.favorite_border,
                         color: _isFavorite ? Colors.red : Colors.black,
                       ),
-                      onPressed: () =>
-                          setState(() => _isFavorite = !_isFavorite),
+                      onPressed: _toggleFavorite,
                     ),
                   ),
                 ],
