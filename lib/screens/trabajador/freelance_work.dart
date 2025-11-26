@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 import 'dart:io';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -95,7 +96,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   }
 
   Future<void> _loadUserData() async {
-    final authService = context.read<AuthService>();
+    final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
 
     if (user != null) {
@@ -252,7 +253,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     });
 
     try {
-      final authService = context.read<AuthService>();
+      final authService = Provider.of<AuthService>(context, listen: false);
       final user = authService.currentUser;
 
       if (user == null) {
@@ -321,9 +322,15 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           const SnackBar(
             content: Text('Perfil guardado exitosamente'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-        Navigator.of(context).pop();
+        // Navegar después de que termine el frame actual para evitar errores
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Modular.to.navigate('/worker/home');
+          }
+        });
       }
     } catch (e) {
       _showError('Error al guardar perfil: $e');
@@ -400,7 +407,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Modular.to.navigate('/worker/home'),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -957,9 +964,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => Navigator.of(context).pop(),
+                      onPressed: _isLoading ? null : () => Modular.to.pop(),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.black87,
                         side: BorderSide(color: Colors.grey[300]!),

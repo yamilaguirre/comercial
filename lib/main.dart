@@ -1,6 +1,8 @@
 // filepath: lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart'; // Reemplaza go_router y provider
+import 'package:provider/provider.dart';
+import 'package:my_first_app/providers/auth_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 // Importaciones específicas del proyecto
@@ -31,13 +33,16 @@ class MyAppWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Comercial',
-      debugShowCheckedModeBanner: false,
-      // Obtenemos el tema globalmente
-      theme: AppTheme.themeData(),
-      // La configuración de rutas (routerConfig) se obtiene directamente de Modular
-      routerConfig: Modular.routerConfig,
+    return ChangeNotifierProvider.value(
+      value: Modular.get<AuthService>(),
+      child: MaterialApp.router(
+        title: 'Comercial',
+        debugShowCheckedModeBanner: false,
+        // Obtenemos el tema globalmente
+        theme: AppTheme.themeData(),
+        // La configuración de rutas (routerConfig) se obtiene directamente de Modular
+        routerConfig: Modular.routerConfig,
+      ),
     );
   }
 }

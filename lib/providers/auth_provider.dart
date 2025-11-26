@@ -89,6 +89,26 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // --- FUNCIÓN PARA RESETEAR ROL (Para botón "Regresar") ---
+  Future<void> resetRole() async {
+    final user = currentUser;
+    if (user == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _resetRoleToIndefinido(user);
+      _userRole = ROLE_PENDING;
+    } catch (e) {
+      _errorMessage = 'Error al resetear rol: $e';
+      if (kDebugMode) print("Error resetRole: $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // --- FUNCIÓN DE EDICIÓN DE PERFIL (SOLICITADA) ---
   Future<bool> updateUserProfile({
     String? name,

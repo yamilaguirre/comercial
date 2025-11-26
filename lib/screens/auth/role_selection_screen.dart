@@ -50,7 +50,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   void _navigateBasedOnRole(String role) {
     // Las rutas de los módulos en AppModule son /property y /worker
-    final targetRoute = role == 'trabajo' ? '/worker/' : '/property/';
+    final targetRoute = role == 'trabajo'
+        ? '/worker/home-worker'
+        : '/property/';
 
     // Usamos navigate para reemplazar el historial y redirigir a la raíz del módulo
     Modular.to.navigate(targetRoute);

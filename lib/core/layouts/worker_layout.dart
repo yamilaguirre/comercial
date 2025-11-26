@@ -1,23 +1,48 @@
-// filepath: lib/core/layouts/worker_layout.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import 'package:my_first_app/theme/theme.dart';
 
-class WorkerLayout extends StatelessWidget {
+class WorkerLayout extends StatefulWidget {
   final Widget child;
 
   const WorkerLayout({super.key, required this.child});
 
   @override
+  State<WorkerLayout> createState() => _WorkerLayoutState();
+}
+
+class _WorkerLayoutState extends State<WorkerLayout> {
+  @override
+  void initState() {
+    super.initState();
+    Modular.routerDelegate.addListener(_onRouteChanged);
+  }
+
+  @override
+  void dispose() {
+    Modular.routerDelegate.removeListener(_onRouteChanged);
+    super.dispose();
+  }
+
+  void _onRouteChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: child,
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      body: widget.child,
+      bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
 
-  Widget _buildBottomNavigationBar() {
+  Widget _buildBottomNavigationBar(BuildContext context) {
     final String location = Modular.to.path;
     final int selectedIndex = _getSelectedIndex(location);
 
@@ -33,7 +58,7 @@ class WorkerLayout extends StatelessWidget {
       ),
       child: BottomNavigationBar(
         currentIndex: selectedIndex,
-        onTap: (index) => _onItemTapped(index),
+        onTap: (index) => _onItemTapped(context, index),
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         selectedItemColor: Styles.primaryColor,
@@ -54,11 +79,6 @@ class WorkerLayout extends StatelessWidget {
             label: 'Mensajes',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('trabajos', false),
-            activeIcon: _buildNavIcon('trabajos', true),
-            label: 'Trabajos',
-          ),
-          BottomNavigationBarItem(
             icon: _buildNavIcon('regresar', false),
             activeIcon: _buildNavIcon('regresar', true),
             label: 'Regresar',
@@ -74,34 +94,23 @@ class WorkerLayout extends StatelessWidget {
   }
 
   Widget _buildNavIcon(String iconName, bool isActive) {
-    IconData icon;
-    switch (iconName) {
-      case 'inicio':
-        icon = Icons.home_work;
-        break;
-      case 'mensajes':
-        icon = Icons.message;
-        break;
-      case 'trabajos':
-        icon = Icons.construction;
-        break;
-      case 'regresar':
-        icon = Icons.arrow_back;
-        break;
-      case 'cuenta':
-        icon = Icons.person;
-        break;
-      default:
-        icon = Icons.circle;
-    }
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          color: isActive ? Styles.primaryColor : Colors.grey,
-          size: 24,
+        ColorFiltered(
+          colorFilter: isActive
+              ? ColorFilter.mode(Styles.primaryColor, BlendMode.srcIn)
+              : const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
+          child: Image.asset(
+            'assets/images/icon/$iconName.png',
+            width: 24,
+            height: 24,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              _getFallbackIcon(iconName),
+              color: isActive ? Styles.primaryColor : Colors.grey,
+              size: 24,
+            ),
+          ),
         ),
         if (isActive) ...[
           const SizedBox(height: 4),
@@ -118,33 +127,45 @@ class WorkerLayout extends StatelessWidget {
     );
   }
 
+  IconData _getFallbackIcon(String iconName) {
+    switch (iconName) {
+      case 'inicio':
+        return Icons.home_work;
+      case 'mensajes':
+        return Icons.message;
+      case 'regresar':
+        return Icons.arrow_back;
+      case 'cuenta':
+        return Icons.person;
+      default:
+        return Icons.circle;
+    }
+  }
+
   int _getSelectedIndex(String location) {
-    if (location.endsWith('/home')) return 0;
+    if (location.endsWith('/home-worker')) return 0;
     if (location.contains('/messages')) return 1;
-    // Usa 'trabajos' como la ruta del módulo /worker/trabajos (asumo)
-    if (location.contains('/trabajos')) return 2;
-    // Regresar siempre va a la selección de rol (que está en /auth/select-role)
-    if (location.contains('/select-role')) return 3;
-    if (location.contains('/account')) return 4;
+    // Regresar (index 2) no mantiene estado activo ya que sale del módulo
+    if (location.contains('/account')) return 3;
     return 0;
   }
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(BuildContext context, int index) {
     switch (index) {
       case 0:
-        Modular.to.navigate('/worker/home');
+        Modular.to.navigate('/worker/home-worker');
         break;
       case 1:
         Modular.to.navigate('/worker/messages');
         break;
       case 2:
-        Modular.to.navigate('/worker/trabajos');
+        // Resetear rol y navegar a selección
+        final authService = Provider.of<AuthService>(context, listen: false);
+        authService.resetRole().then((_) {
+          Modular.to.navigate('/select-role');
+        });
         break;
       case 3:
-        // Navega a la ruta absoluta en el AuthModule
-        Modular.to.navigate('/auth/select-role');
-        break;
-      case 4:
         Modular.to.navigate('/worker/account');
         break;
     }
