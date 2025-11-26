@@ -317,7 +317,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         // Navegar después de que termine el frame actual para evitar errores
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            Modular.to.navigate('/worker/home');
+            Modular.to.navigate('/freelance/home');
           }
         });
       }

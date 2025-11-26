@@ -218,6 +218,16 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                   onTap: _changeModule, // Llama a la nueva función
                 ),
                 AccountMenuSection.buildDivider(),
+                AccountMenuItem(
+                  icon: Icons.work_outline,
+                  iconColor: Colors.purple.shade600,
+                  iconBgColor: Colors.purple.shade600.withOpacity(0.1),
+                  title: 'Vista de Trabajador',
+                  subtitle:
+                      'Crea tu perfil de trabajador para ofrecer servicios',
+                  onTap: () => Modular.to.pushNamed('/worker/edit-profile'),
+                ),
+                AccountMenuSection.buildDivider(),
               ]);
 
               // Añadir opciones de gestión de propiedades (son estáticas ahora)

@@ -5,16 +5,16 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:my_first_app/theme/theme.dart';
 
-class WorkerLayout extends StatefulWidget {
+class FreelanceLayout extends StatefulWidget {
   final Widget child;
 
-  const WorkerLayout({super.key, required this.child});
+  const FreelanceLayout({super.key, required this.child});
 
   @override
-  State<WorkerLayout> createState() => _WorkerLayoutState();
+  State<FreelanceLayout> createState() => _FreelanceLayoutState();
 }
 
-class _WorkerLayoutState extends State<WorkerLayout> {
+class _FreelanceLayoutState extends State<FreelanceLayout> {
   @override
   void initState() {
     super.initState();
@@ -69,24 +69,19 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         elevation: 0,
         items: [
           BottomNavigationBarItem(
-            icon: _buildNavIcon('explorar', false),
-            activeIcon: _buildNavIcon('explorar', true),
-            label: 'Explorar',
+            icon: _buildNavIcon('inicio', false),
+            activeIcon: _buildNavIcon('inicio', true),
+            label: 'Inicio',
           ),
           BottomNavigationBarItem(
             icon: _buildNavIcon('mensajes', false),
             activeIcon: _buildNavIcon('mensajes', true),
-            label: 'Mensajes',
+            label: 'Chat',
           ),
           BottomNavigationBarItem(
             icon: _buildNavIcon('regresar', false),
             activeIcon: _buildNavIcon('regresar', true),
             label: 'Regresar',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildNavIcon('cuenta', false),
-            activeIcon: _buildNavIcon('cuenta', true),
-            label: 'Cuenta',
           ),
         ],
       ),
@@ -129,38 +124,33 @@ class _WorkerLayoutState extends State<WorkerLayout> {
 
   IconData _getFallbackIcon(String iconName) {
     switch (iconName) {
-      case 'mensajes':
-        return Icons.message;
-      case 'explorar':
-        return Icons.explore;
       case 'inicio':
         return Icons.person;
+      case 'mensajes':
+        return Icons.message;
       case 'regresar':
         return Icons.arrow_back;
-      case 'cuenta':
-        return Icons.account_circle_outlined;
       default:
         return Icons.circle;
     }
   }
 
   int _getSelectedIndex(String location) {
-    if (location.contains('home-worker')) return 0;
+    if (location.contains('home')) return 0;
     if (location.contains('messages')) return 1;
     // Regresar (index 2) no mantiene estado activo ya que sale del módulo
-    if (location.contains('account')) return 3;
-    return 0; // Default to Explorar
+    return 0; // Default to Inicio
   }
 
   void _onItemTapped(BuildContext context, int index) {
     switch (index) {
       case 0:
-        // Explorar -> home_work_screen
-        Modular.to.navigate('/worker/home-worker');
+        // Inicio -> worker_profile_screen
+        Modular.to.navigate('/freelance/home');
         break;
       case 1:
-        // Mensajes
-        Modular.to.navigate('/worker/messages');
+        // Chat -> messages
+        Modular.to.navigate('/freelance/messages');
         break;
       case 2:
         // Regresar - Resetear rol y navegar a selección
@@ -168,10 +158,6 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         authService.resetRole().then((_) {
           Modular.to.navigate('/select-role');
         });
-        break;
-      case 3:
-        // Cuenta -> property_account_screen
-        Modular.to.navigate('/worker/account');
         break;
     }
   }
