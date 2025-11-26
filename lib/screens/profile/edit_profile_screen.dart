@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_modular/flutter_modular.dart'; // <-- Importación de Modular
+
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 import '../../services/image_service.dart';
+import 'dart:io'; // Necesario para FileImage
 
 class EditProfileScreen extends StatefulWidget {
+  // Nota: Al usar Modular, los argumentos se pasan en Modular.args.data
   final Map<String, dynamic>? userData;
 
   const EditProfileScreen({super.key, this.userData});
@@ -25,19 +28,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final ImagePicker _picker = ImagePicker();
   late String? _currentPhotoUrl;
 
+  // Accede a los datos pasados por Modular.args
+  Map<String, dynamic>? get _userData =>
+      Modular.args.data is Map<String, dynamic>
+      ? Modular.args.data as Map<String, dynamic>?
+      : widget.userData;
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(
-      text: widget.userData?['displayName'] ?? '',
+      text: _userData?['displayName'] ?? '',
     );
     _phoneController = TextEditingController(
-      text: widget.userData?['phoneNumber'] ?? '',
+      text: _userData?['phoneNumber'] ?? '',
     );
-    _emailController = TextEditingController(
-      text: widget.userData?['email'] ?? '',
-    );
-    _currentPhotoUrl = widget.userData?['photoURL'];
+    _emailController = TextEditingController(text: _userData?['email'] ?? '');
+    _currentPhotoUrl = _userData?['photoURL'];
   }
 
   @override
@@ -111,7 +118,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             backgroundColor: Styles.successColor,
           ),
         );
-        context.pop();
+        // CORREGIDO: Usamos Modular.to.pop() para volver a la pantalla anterior
+        Modular.to.pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -127,7 +135,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final avatarImage = _imageFile != null
-        ? Image.network(_imageFile!.path).image
+        // Si hay una nueva imagen seleccionada, úsala desde el archivo
+        ? FileImage(File(_imageFile!.path))
+        // Si hay una URL actual, úsala. Si no hay, es null.
         : (_currentPhotoUrl != null ? NetworkImage(_currentPhotoUrl!) : null);
 
     return Scaffold(
@@ -143,7 +153,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+          // CORREGIDO: Usamos Modular.to.pop()
+          onPressed: () => Modular.to.pop(),
         ),
       ),
       body: SingleChildScrollView(
@@ -157,7 +168,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.grey[100],
-                    backgroundImage: avatarImage,
+                    backgroundImage: avatarImage as ImageProvider<Object>?,
                     child: avatarImage == null
                         ? Text(
                             _nameController.text.isNotEmpty

@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/mobiliaria_provider.dart';
+import '../../models/property.dart';
 
 import 'components/profile_header_section.dart';
 import 'components/profile_components.dart';
@@ -25,24 +29,52 @@ class PublicProfileData {
 }
 
 // Pantalla que ve un cliente/usuario cuando revisa el perfil de un agente.
-class PublicAgentProfileScreen extends StatelessWidget {
-  // Simulación: en una app real, esto vendría de Modular.args.data o se buscaría por ID.
-  final PublicProfileData mockAgentData = PublicProfileData(
-    name: 'Juan Pérez',
-    role: 'Agente Inmobiliario',
-    photoUrl: 'https://placehold.co/100x100/A3B8E8/ffffff?text=JP',
-    phone: '59171234567', // Número limpio para lanzar
-    email: 'juan.perez@email.com',
-  );
-
+class PublicAgentProfileScreen extends StatefulWidget {
   PublicAgentProfileScreen({super.key});
 
-  // Simulación de estadísticas visibles al público
-  final Map<String, String> _publicStats = {
-    'Activas': '12',
-    'Consultas': '8',
-    'Visitas': '2.8K',
-  };
+  @override
+  State<PublicAgentProfileScreen> createState() => _PublicAgentProfileScreenState();
+}
+
+class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
+  Map<String, dynamic>? userData;
+  List<Property> userProperties = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final authService = Modular.get<AuthService>();
+      final user = authService.currentUser;
+      
+      if (user != null) {
+        // Cargar datos del usuario
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        
+        if (userDoc.exists) {
+          userData = userDoc.data();
+        }
+        
+        // Cargar propiedades del usuario
+        final mobiliariaProvider = Modular.get<MobiliariaProvider>();
+        userProperties = await mobiliariaProvider.fetchUserProperties();
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
 
   Future<void> _launchUrl(Uri uri, BuildContext context) async {
     try {
@@ -58,13 +90,24 @@ class PublicAgentProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos el Stat de Contacto para el pie de la cabecera
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Styles.primaryColor),
+        ),
+      );
+    }
+    
+    final displayName = userData?['displayName'] ?? 'Usuario';
+    final email = userData?['email'] ?? 'Sin correo';
+    final phone = userData?['phoneNumber'] ?? 'Sin teléfono';
+    final photoUrl = userData?['photoURL'];
+    final userRole = userData?['role'] ?? 'cliente';
+    
     final Map<String, String> publicStats = {
-      'Publicaciones': _publicStats['Activas'] ?? '0',
-      'Consultas': _publicStats['Consultas'] ?? '0',
-      'Contactos':
-          _publicStats['Visitas'] ??
-          '0', // Usamos Visitas como proxy de interacciones
+      'Publicaciones': userProperties.length.toString(),
+      'Activas': userProperties.length.toString(),
+      'Contactos': '0',
     };
 
     return Scaffold(
@@ -73,9 +116,9 @@ class PublicAgentProfileScreen extends StatelessWidget {
         children: [
           // 1. Cabecera (Parte Constante y No-Editable)
           ProfileHeaderSection(
-            name: mockAgentData.name,
-            role: mockAgentData.role,
-            photoUrl: mockAgentData.photoUrl,
+            name: displayName,
+            role: userRole == 'inmobiliaria' ? 'Agente Inmobiliario' : 'Usuario',
+            photoUrl: photoUrl,
             isVerified: true,
             stats: publicStats,
             showPlanBadge: false, // El cliente no ve el plan interno
@@ -113,7 +156,7 @@ class PublicAgentProfileScreen extends StatelessWidget {
                         ContactInfoItem(
                           icon: Icons.person_outline,
                           label: 'Nombre del Agente',
-                          value: mockAgentData.name,
+                          value: displayName,
                           onTap: () {},
                           isEditable: false,
                         ),
@@ -121,9 +164,9 @@ class PublicAgentProfileScreen extends StatelessWidget {
                         ContactInfoItem(
                           icon: Icons.phone_outlined,
                           label: 'Llamar',
-                          value: mockAgentData.phone,
+                          value: phone,
                           onTap: () {
-                            final uri = Uri.parse('tel:${mockAgentData.phone}');
+                            final uri = Uri.parse('tel:$phone');
                             _launchUrl(uri, context);
                           },
                           isEditable: true,
@@ -132,11 +175,9 @@ class PublicAgentProfileScreen extends StatelessWidget {
                         ContactInfoItem(
                           icon: Icons.email_outlined,
                           label: 'Enviar Correo',
-                          value: mockAgentData.email,
+                          value: email,
                           onTap: () {
-                            final uri = Uri.parse(
-                              'mailto:${mockAgentData.email}',
-                            );
+                            final uri = Uri.parse('mailto:$email');
                             _launchUrl(uri, context);
                           },
                           isEditable: true,
@@ -150,9 +191,7 @@ class PublicAgentProfileScreen extends StatelessWidget {
                             final message = Uri.encodeComponent(
                               'Hola, vi tu perfil en MobiliariaApp y me gustaría consultarte.',
                             );
-                            final uri = Uri.parse(
-                              "https://wa.me/${mockAgentData.phone}?text=$message",
-                            );
+                            final uri = Uri.parse("https://wa.me/$phone?text=$message");
                             _launchUrl(uri, context);
                           },
                           isEditable: true,
@@ -165,54 +204,44 @@ class PublicAgentProfileScreen extends StatelessWidget {
                   SizedBox(height: Styles.spacingLarge),
 
                   // --- Propiedades/Servicios Activos ---
-                  Text(
-                    'Publicaciones Activas',
-                    style: TextStyles.subtitle.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  // Aquí se cargarían las tarjetas de propiedades del agente
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: Styles.spacingMedium,
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Mostrando las últimas 3 publicaciones de ${mockAgentData.name}',
-                        style: TextStyles.caption.copyWith(color: Colors.grey),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Mis Publicaciones (${userProperties.length})',
+                        style: TextStyles.subtitle.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ),
-
-                  // Simulación de tarjeta de propiedad
-                  Container(
-                    height: 120,
-                    margin: EdgeInsets.only(bottom: Styles.spacingMedium),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Tarjeta de Propiedad 1',
-                        style: TextStyle(color: Styles.textSecondary),
+                      TextButton.icon(
+                        onPressed: () => Modular.to.pushNamed('/property/new'),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Nueva'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Styles.primaryColor,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  Container(
-                    height: 120,
-                    margin: EdgeInsets.only(bottom: Styles.spacingMedium),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Tarjeta de Propiedad 2',
-                        style: TextStyle(color: Styles.textSecondary),
+                  
+                  if (userProperties.isEmpty)
+                    Container(
+                      padding: EdgeInsets.all(Styles.spacingLarge),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.home_outlined, size: 48, color: Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Aún no tienes propiedades publicadas',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    )
+                  else
+                    ...userProperties.take(6).map((property) => _buildPropertyCard(property)),
 
                   SizedBox(height: Styles.spacingLarge * 2),
                 ],
@@ -220,6 +249,80 @@ class PublicAgentProfileScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildPropertyCard(Property property) {
+    return Card(
+      margin: EdgeInsets.only(bottom: Styles.spacingMedium),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () => Modular.to.pushNamed('/property/detail/${property.id}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(Styles.spacingMedium),
+          child: Row(
+            children: [
+              // Imagen
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  color: Colors.grey[200],
+                  child: property.imageUrl.isNotEmpty
+                      ? Image.network(
+                          property.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.home, size: 40, color: Colors.grey),
+                        )
+                      : const Icon(Icons.home, size: 40, color: Colors.grey),
+                ),
+              ),
+              SizedBox(width: Styles.spacingMedium),
+              // Información
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      property.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      property.location,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      property.price,
+                      style: const TextStyle(
+                        color: Styles.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Botón editar
+              IconButton(
+                onPressed: () => Modular.to.pushNamed('/property/new', arguments: property),
+                icon: const Icon(Icons.edit, color: Styles.primaryColor),
+                tooltip: 'Editar',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

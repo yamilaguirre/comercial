@@ -10,10 +10,15 @@ import '../../screens/property/my_properties_screen.dart';
 import '../../screens/property/property_detail_screen.dart';
 import '../../screens/property/agent_management_profile_screen.dart';
 import '../../screens/property/public_agent_profile_screen.dart';
+import '../../providers/mobiliaria_provider.dart';
+import '../../screens/common/map_picker_screen.dart';
+import '../../screens/profile/edit_profile_screen.dart';
 
 class PropertyModule extends Module {
   @override
-  void binds(i) {}
+  void binds(i) {
+    i.addLazySingleton(() => MobiliariaProvider());
+  }
 
   @override
   void routes(r) {
@@ -52,6 +57,8 @@ class PropertyModule extends Module {
     // 2. RUTAS SECUNDARIAS
     r.child('/new', child: (context) => const PropertyFormScreen());
     r.child('/my', child: (context) => const MyPropertiesScreen());
+    r.child('/map-picker', child: (context) => const MapPickerScreen());
+    r.child('/edit-profile', child: (context) => EditProfileScreen(userData: Modular.args.data));
 
     // Perfil de Gestión (Agente/Dueño - Ruta directa, fuera del bottom bar)
     r.child(

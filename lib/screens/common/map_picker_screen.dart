@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 import 'package:geolocator/geolocator.dart'; // Importante para GPS
 import '../../theme/theme.dart';
 
@@ -101,7 +101,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   void _confirmLocation() {
     if (_center != null) {
       // Devolver la ubicación seleccionada
-      context.pop(_center);
+      Modular.to.pop(_center);
     }
   }
 
@@ -120,7 +120,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           ),
           child: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => context.pop(),
+            onPressed: () => Modular.to.pop(),
           ),
         ),
       ),

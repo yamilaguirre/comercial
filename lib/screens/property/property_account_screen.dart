@@ -30,45 +30,9 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
       return;
     }
 
-    const newRole = 'indefinido';
-
     try {
-      // 1. Actualizar 'role' y 'status' a indefinido en Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {'role': newRole, 'status': newRole},
-      );
-
-      // 2. Mostrar mensaje de éxito (opcional)
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Cambiando rol a indefinido...'),
-            backgroundColor: Styles.infoColor,
-            duration: const Duration(milliseconds: 1000),
-          ),
-        );
-      }
-
-      // 3. Actualizar estado local de autenticación
-      await user.reload();
-      authService.notifyListeners();
-
-      // CORRECCIÓN: Añadir un pequeño retraso para asegurar que los Guards de Modular
-      // hayan procesado el rol actualizado ('indefinido') antes de navegar.
-      await Future.delayed(const Duration(milliseconds: 50));
-
-      // 4. Navegamos a la pantalla de selección.
-      Modular.to.navigate('/select-role');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cambiar el rol a indefinido: $e'),
-            backgroundColor: Styles.errorColor,
-          ),
-        );
-      }
-    }
+      Modular.to.navigate('/worker/home-worker');
+    } catch (e) {}
   }
 
   // --- Opciones de Gestión de Propiedades (ESTÁTICAS) ---
@@ -106,8 +70,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           title: 'Editar perfil',
           subtitle: 'Actualiza tu información personal',
           onTap: () => Modular.to.pushNamed(
-            // La ruta es relativa al módulo PropertyModule
-            '/property/account/edit-profile',
+            '/property/edit-profile',
             arguments: userData,
           ),
         ),
