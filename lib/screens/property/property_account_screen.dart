@@ -140,8 +140,12 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await authService.signOut();
-              Modular.to.navigate('/');
+              // 1. Navegar primero para salir de la pantalla protegida
+              Modular.to.pushNamedAndRemoveUntil('/login', (p0) => false);
+
+              // 2. Cerrar sesión después de navegar
+              // Usamos el servicio directamente ya que el contexto podría no ser válido
+              Modular.get<AuthService>().signOut();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
