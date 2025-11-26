@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'dart:io';
 import '../../theme/theme.dart';
+import 'widgets/profession_selector.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/image_service.dart';
 
@@ -19,6 +20,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _priceController = TextEditingController();
 
   String _selectedAvailability = 'Inmediato';
   final List<String> _availabilityOptions = [
@@ -27,49 +29,10 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     'No disponible',
   ];
 
-  // Estructura de profesiones con sus subcategorías
-  final Map<String, List<String>> _professionCategories = {
-    'Mano de obra': [
-      'Electricista',
-      'Plomero',
-      'Albañ il',
-      'Carpintero',
-      'Pintor',
-      'Soldador',
-    ],
-    'Técnicos': [
-      'Técnico en refrigeración',
-      'Técnico en computadoras',
-      'Técnico automotriz',
-      'Técnico en electrodomésticos',
-      'Técnico en audio/video',
-    ],
-    'Profesionales': [
-      'Desarrollador web',
-      'Desarrollador mobile',
-      'Diseñador UX/UI',
-      'Diseñador gráfico',
-      'Arquitecto',
-      'Ingeniero civil',
-      'Contador',
-      'Abogado',
-    ],
-    'Otros': [
-      'Jardinero',
-      'Limpieza',
-      'Mudanzas',
-      'Seguridad',
-      'Chef/Cocinero',
-      'Fotógrafo',
-      'Músico',
-    ],
-  };
 
   // Almacena las selecciones: Map<categoria, List<subcategorias>>
   final Map<String, List<String>> _selectedProfessions = {};
 
-  // Categorías expandidas
-  final Set<String> _expandedCategories = {};
 
   // Foto de perfil
   File? _profileImage;
@@ -92,6 +55,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -114,8 +78,10 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           final profile = data?['profile'] as Map<String, dynamic>?;
 
           if (profile != null) {
-            setState(() {
+              setState(() {
               _descriptionController.text = profile['description'] ?? '';
+                  // Prefer profile specific price, otherwise check root-level price
+                  _priceController.text = profile['price']?.toString() ?? data?['price']?.toString() ?? '';
 
               // Asegurar que availability tenga un valor válido
               final availability = profile['availability'] as String?;
@@ -291,22 +257,43 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         }
       });
 
-      // Guardar en Firestore
+      // Preparar string representativo de profesion (top-level) para compatibilidad
+      String professionTopLevel = '';
+      if (professions.isNotEmpty) {
+        final List<String> allSubcategories = [];
+        for (var p in professions) {
+          final subs = p['subcategories'] as List<dynamic>?;
+          if (subs != null && subs.isNotEmpty) {
+            allSubcategories.addAll(subs.map((e) => e.toString()));
+          }
+        }
+        if (allSubcategories.isNotEmpty) {
+          professionTopLevel = allSubcategories.take(2).join(' • ');
+        } else {
+          professionTopLevel = professions[0]['category'] ?? '';
+        }
+      }
+
+      final String priceValue = _priceController.text.trim();
+      // Guardar en Firestore (asegurar que es string)
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
         {
+          'professions': professions,
+          'price': priceValue,  // String
           'profile': {
             'fullName': _nameController.text.trim(),
             'description': _descriptionController.text.trim(),
             'availability': _selectedAvailability,
             'professions': professions,
             'portfolioImages': portfolioUrls,
+            'price': priceValue,  // String
             'photoUrl': profilePhotoUrl,
             'updatedAt': FieldValue.serverTimestamp(),
           },
           'name': _nameController.text.trim(),
           'photoUrl': profilePhotoUrl,
-          'photoURL':
-              profilePhotoUrl, // También guardar en photoURL (mayúscula)
+          'photoURL': profilePhotoUrl, // También guardar en photoURL (mayúscula)
+            'profession': professionTopLevel,
         },
       );
 
@@ -349,19 +336,6 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     );
   }
 
-  int _getSelectedCount(String category) {
-    return _selectedProfessions[category]?.length ?? 0;
-  }
-
-  void _toggleCategory(String category) {
-    setState(() {
-      if (_expandedCategories.contains(category)) {
-        _expandedCategories.remove(category);
-      } else {
-        _expandedCategories.add(category);
-      }
-    });
-  }
 
   void _toggleSubcategory(String category, String subcategory) {
     setState(() {
@@ -383,20 +357,6 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     });
   }
 
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Mano de obra':
-        return Icons.build;
-      case 'Técnicos':
-        return Icons.settings;
-      case 'Profesionales':
-        return Icons.business_center;
-      case 'Otros':
-        return Icons.more_horiz;
-      default:
-        return Icons.work;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -636,118 +596,52 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Chips de categorías seleccionadas
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _professionCategories.keys.map((category) {
-                    final count = _getSelectedCount(category);
-                    final isExpanded = _expandedCategories.contains(category);
-
-                    return GestureDetector(
-                      onTap: () => _toggleCategory(category),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: count > 0
-                              ? Styles.primaryColor.withOpacity(0.1)
-                              : const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: count > 0
-                                ? Styles.primaryColor
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getCategoryIcon(category),
-                              size: 18,
-                              color: count > 0
-                                  ? Styles.primaryColor
-                                  : Colors.black87,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              count > 0 ? '$category ($count)' : category,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: count > 0
-                                    ? Styles.primaryColor
-                                    : Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              size: 18,
-                              color: count > 0
-                                  ? Styles.primaryColor
-                                  : Colors.grey[600],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                // Selector de Profesiones (refactorizado a widget)
+                ProfessionSelector(
+                  selectedProfessions: _selectedProfessions,
+                  onToggleSubcategory: _toggleSubcategory,
                 ),
 
-                // Expandibles de subcategorías
-                ..._professionCategories.keys
-                    .where((cat) => _expandedCategories.contains(cat))
-                    .map((category) {
-                      final subcategories = _professionCategories[category]!;
+                const SizedBox(height: 24),
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey[300]!),
-                            ),
-                            child: Column(
-                              children: subcategories.map((subcategory) {
-                                final isSelected =
-                                    _selectedProfessions[category]?.contains(
-                                      subcategory,
-                                    ) ??
-                                    false;
-
-                                return CheckboxListTile(
-                                  value: isSelected,
-                                  title: Text(
-                                    subcategory,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: true,
-                                  activeColor: Styles.primaryColor,
-                                  onChanged: (bool? value) {
-                                    _toggleSubcategory(category, subcategory);
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      );
-                    })
-                    .toList(),
+                // Precio (Desde)
+                const Text(
+                  'Precio (Desde)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _priceController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'Ej: 150',
+                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    filled: true,
+                    fillColor: const Color(0xFFF5F5F5),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'El precio es requerido';
+                    }
+                    final num? parsed = num.tryParse(value.replaceAll(',', '.'));
+                    if (parsed == null || parsed <= 0) {
+                      return 'Ingresa un precio válido mayor que 0';
+                    }
+                    return null;
+                  },
+                ),
 
                 const SizedBox(height: 24),
 

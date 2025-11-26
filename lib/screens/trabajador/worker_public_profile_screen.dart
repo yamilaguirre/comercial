@@ -1,405 +1,441 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
-import 'worker_location_search_screen.dart'; // Para acceder a WorkerData
+import 'worker_location_search_screen.dart';
 
-class WorkerPublicProfileScreen extends StatelessWidget {
+class WorkerPublicProfileScreen extends StatefulWidget {
   final WorkerData worker;
 
   const WorkerPublicProfileScreen({super.key, required this.worker});
 
   @override
+  State<WorkerPublicProfileScreen> createState() =>
+      _WorkerPublicProfileScreenState();
+}
+
+class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Modular.to.pop(),
-        ),
-        title: const Text(
-          'Perfil',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share_outlined, color: Colors.black),
-            onPressed: () {
-              // Implementar compartir
-            },
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.worker.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Modular.to.pop(),
+              ),
+            ),
+            body: const Center(child: Text('Trabajador no encontrado')),
+          );
+        }
+
+        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final profile = data['profile'] as Map<String, dynamic>?;
+        
+        // Leer datos con validaciones
+        final String description = profile?['description']?.toString() ?? 'Sin descripción';
+        final String availability = profile?['availability']?.toString() ?? 'No disponible';
+        final String price = (data['price']?.toString() ?? '').trim();
+        final List<dynamic> portfolioImagesList = profile?['portfolioImages'] as List<dynamic>? ?? [];
+        final int reviews = (data['reviews'] as num?)?.toInt() ?? 0;
+        final List<String> services = (data['services'] as List<dynamic>?)?.map((s) => s.toString()).toList() ?? [];
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              onPressed: () => Modular.to.pop(),
+            ),
+            title: const Text(
+              'Perfil',
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.share_outlined, color: Colors.black),
+                onPressed: () {},
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header con Foto y Datos Básicos
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.grey[200],
-                    backgroundImage: worker.photoUrl != null
-                        ? NetworkImage(worker.photoUrl!)
-                        : null,
-                    child: worker.photoUrl == null
-                        ? const Icon(Icons.person, size: 40, color: Colors.grey)
-                        : null,
+          body: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header con Foto y Datos Básicos
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 45,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: widget.worker.photoUrl != null
+                            ? NetworkImage(widget.worker.photoUrl!)
+                            : null,
+                        child: widget.worker.photoUrl == null
+                            ? const Icon(Icons.person, size: 45, color: Colors.grey)
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.worker.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.worker.profession,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.star, size: 16, color: Colors.amber),
+                                const SizedBox(width: 4),
+                                Text(
+                                  widget.worker.rating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '($reviews)',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                ),
+
+                const Divider(height: 1, thickness: 1),
+
+                // Sección de Precio
+                if (price.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          worker.name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        const Text(
+                          'Precio',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          worker.profession,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 18,
-                              color: Colors.amber,
-                            ),
-                            const Icon(
-                              Icons.star,
-                              size: 18,
-                              color: Colors.amber,
-                            ),
-                            const Icon(
-                              Icons.star,
-                              size: 18,
-                              color: Colors.amber,
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Desde',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Avanzado', // Esto podría venir de la BD
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
+                              Text(
+                                'Bs $price',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0033CC),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.star, size: 16, color: Colors.amber),
-                            const SizedBox(width: 4),
-                            Text(
-                              worker.rating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              ' (189 reseñas)', // Placeholder
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                            const SizedBox(width: 16),
-                            Icon(
-                              Icons.location_on_outlined,
-                              size: 16,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '0.8 km', // Placeholder o calculado
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
 
-            const Divider(height: 1),
+                const Divider(height: 1, thickness: 1),
 
-            // Sección de Precios
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Precios',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                // Sobre el profesional
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Sobre el profesional',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildPriceItem('Servicio básico', 'Bs 120'),
-                  const SizedBox(height: 12),
-                  _buildPriceItem('Servicio estándar', 'Bs 250'),
-                  const SizedBox(height: 12),
-                  _buildPriceItem('Servicio avanzado', 'Bs 450'),
-                ],
-              ),
-            ),
+                ),
 
-            const Divider(height: 1),
-
-            // Sobre el profesional
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Sobre el profesional',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                // Disponibilidad
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Disponibilidad',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey[700]),
+                          const SizedBox(width: 8),
+                          Text(
+                            availability,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '${worker.profession} con 8 años de experiencia. Especializado en instalaciones sanitarias, destapes y reparaciones urgentes.',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey[700],
-                      height: 1.5,
+                ),
+
+                const SizedBox(height: 12),
+                const Divider(height: 1, thickness: 1),
+
+                // Servicios
+                if (services.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Servicios',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: services.take(6).map((service) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                service,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF616161)),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                if (services.isNotEmpty)
+                  const Divider(height: 1, thickness: 1),
+
+                // Portafolio
+                if (portfolioImagesList.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Portafolio',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 1,
+                          ),
+                          itemCount: portfolioImagesList.length,
+                          itemBuilder: (context, index) {
+                            final imageUrl = portfolioImagesList[index].toString();
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                  );
+                                },
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: const Center(child: CircularProgressIndicator()),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 100),
+              ],
+            ),
+          ),
+          bottomNavigationBar: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        if (widget.worker.phone.isNotEmpty) {
+                          launchUrl(Uri.parse('tel:${widget.worker.phone}'));
+                        }
+                      },
+                      icon: const Icon(Icons.phone_outlined, size: 18),
+                      label: const Text('Llamar', style: TextStyle(fontSize: 14)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        foregroundColor: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final authService = Provider.of<AuthService>(context, listen: false);
+                        final currentUser = authService.currentUser;
+                        if (currentUser == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Debes iniciar sesión')),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final chatService = ChatService();
+                          final userIds = [currentUser.uid, widget.worker.id];
+                          String? chatId = await chatService.findExistingChat('general', userIds);
+
+                          if (chatId == null) {
+                            chatId = await chatService.createChat(
+                              propertyId: 'general',
+                              userIds: userIds,
+                              initialMessage: 'Hola, vi tu perfil y me interesa tu servicio.',
+                              senderId: currentUser.uid,
+                            );
+                          }
+
+                          if (chatId != null && mounted) {
+                            Modular.to.pushNamed(
+                              '/worker/chat-detail',
+                              arguments: {
+                                'chatId': chatId,
+                                'otherUserId': widget.worker.id,
+                                'otherUserName': widget.worker.name,
+                                'otherUserPhoto': widget.worker.photoUrl,
+                              },
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                      label: const Text('Contactar', style: TextStyle(fontSize: 14)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: Styles.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-
-            // Disponibilidad
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Disponibilidad',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today_outlined,
-                        color: Colors.grey[700],
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Disponible hoy',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-            const Divider(height: 1),
-
-            // Portafolio
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Portafolio',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _buildPortfolioItem(
-                        'https://images.unsplash.com/photo-1584622050111-993a426fbf0a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-                      ),
-                      const SizedBox(width: 12),
-                      _buildPortfolioItem(
-                        'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 100), // Espacio para botones fijos
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  if (worker.phone.isNotEmpty) {
-                    launchUrl(Uri.parse('tel:${worker.phone}'));
-                  }
-                },
-                icon: const Icon(Icons.phone_outlined),
-                label: const Text('Llamar'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(color: Colors.grey[300]!),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  foregroundColor: Colors.black87,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final authService = Provider.of<AuthService>(
-                    context,
-                    listen: false,
-                  );
-                  final currentUser = authService.currentUser;
-                  if (currentUser == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Debes iniciar sesión')),
-                    );
-                    return;
-                  }
-
-                  try {
-                    final chatService = ChatService();
-                    final userIds = [currentUser.uid, worker.id];
-                    String? chatId = await chatService.findExistingChat(
-                      'general',
-                      userIds,
-                    );
-
-                    if (chatId == null) {
-                      chatId = await chatService.createChat(
-                        propertyId: 'general',
-                        userIds: userIds,
-                        initialMessage:
-                            'Hola, vi tu perfil y me interesa tu servicio.',
-                        senderId: currentUser.uid,
-                      );
-                    }
-
-                    if (chatId != null) {
-                      Modular.to.pushNamed(
-                        '/worker/chat-detail',
-                        arguments: {
-                          'chatId': chatId,
-                          'otherUserId': worker.id,
-                          'otherUserName': worker.name,
-                          'otherUserPhoto': worker.photoUrl,
-                        },
-                      );
-                    }
-                  } catch (e) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                },
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Contactar'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: const Color(0xFF0033CC), // Azul oscuro
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriceItem(String title, String price) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
-          Text(
-            price,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0033CC),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPortfolioItem(String imageUrl) {
-    return Container(
-      width: 100,
-      height: 100,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        image: DecorationImage(
-          image: NetworkImage(imageUrl),
-          fit: BoxFit.cover,
-        ),
-      ),
+        );
+      },
     );
   }
 }
