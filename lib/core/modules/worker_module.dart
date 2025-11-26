@@ -9,6 +9,7 @@ import 'package:my_first_app/screens/trabajador/worker_location_search_screen.da
 import 'package:my_first_app/screens/trabajador/worker_public_profile_screen.dart';
 import 'package:my_first_app/screens/trabajador/freelance_work.dart';
 import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
+import 'package:my_first_app/screens/property/property_account_screen.dart';
 
 class WorkerModule extends Module {
   @override
@@ -42,7 +43,7 @@ class WorkerModule extends Module {
         ),
         ParallelRoute.child(
           'account',
-          child: (context) => const WorkerProfileScreen(),
+          child: (context) => const PropertyAccountScreen(),
         ),
       ],
     );
