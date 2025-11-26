@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../theme/theme.dart';
 import '../../../services/chat_service.dart';
+import '../../../services/image_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/chat_model.dart';
 
@@ -28,7 +30,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
+  final ImagePicker _imagePicker = ImagePicker();
   bool _isSending = false;
+  bool _isUploading = false;
 
   @override
   void dispose() {
@@ -80,6 +84,68 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     setState(() {
       _isSending = false;
     });
+  }
+
+  Future<void> _pickAndSendImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (image == null) return;
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid ?? '';
+
+      // Subir imagen al servidor
+      final imageUrl = await ImageService.uploadImageToApi(
+        image,
+        folderPath: 'chat_images/${widget.chatId}',
+      );
+
+      // Enviar mensaje con imagen
+      final success = await _chatService.sendMessage(
+        widget.chatId,
+        currentUserId,
+        'Imagen',
+        messageType: 'image',
+        attachmentUrl: imageUrl,
+      );
+
+      if (success) {
+        _scrollToBottom();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error al enviar imagen')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
+  void _showFilePickerNotAvailable() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Función de archivos próximamente disponible'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -153,138 +219,169 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Lista de mensajes
-          Expanded(
-            child: StreamBuilder<Chat?>(
-              stream: _chatService.getChatById(widget.chatId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Lista de mensajes
+            Expanded(
+              child: StreamBuilder<Chat?>(
+                stream: _chatService.getChatById(widget.chatId),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
 
-                final chat = snapshot.data;
-                if (chat == null) {
-                  return const Center(child: Text('Chat no encontrado'));
-                }
+                  final chat = snapshot.data;
+                  if (chat == null) {
+                    return const Center(child: Text('Chat no encontrado'));
+                  }
 
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _scrollToBottom();
-                });
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _scrollToBottom();
+                  });
 
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: chat.messages.length,
-                  itemBuilder: (context, index) {
-                    final message = chat.messages[index];
-                    final isMe = message.senderId == currentUserId;
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: chat.messages.length,
+                    itemBuilder: (context, index) {
+                      final message = chat.messages[index];
+                      final isMe = message.senderId == currentUserId;
 
-                    return _MessageBubble(
-                      message: message.text,
-                      isMe: isMe,
-                      timestamp: message.timestamp,
-                    );
-                  },
-                );
-              },
+                      return _MessageBubble(message: message, isMe: isMe);
+                    },
+                  );
+                },
+              ),
             ),
-          ),
 
-          // Campo de entrada de mensaje
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
+            // Indicador de subida
+            if (_isUploading)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                color: Colors.blue.withOpacity(0.1),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 12),
+                    Text('Subiendo imagen...'),
+                  ],
                 ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                // Botón de adjuntar imagen
-                IconButton(
-                  icon: Icon(Icons.image, color: Colors.grey[600]),
-                  onPressed: () {
-                    // TODO: Implementar adjuntar imagen
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.attach_file, color: Colors.grey[600]),
-                  onPressed: () {
-                    // TODO: Implementar adjuntar archivo
-                  },
-                ),
+              ),
 
-                // Campo de texto
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Escribe un mensaje...',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+            // Campo de entrada de mensaje
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.only(
+                left: 8,
+                right: 8,
+                top: 8,
+                bottom: 8 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Botón de adjuntar imagen
+                  IconButton(
+                    icon: Icon(Icons.image, color: Styles.primaryColor),
+                    onPressed: _isUploading ? null : _pickAndSendImage,
+                  ),
+                  // Botón de adjuntar archivo (Próximamente)
+                  IconButton(
+                    icon: const Icon(Icons.attach_file, color: Colors.grey),
+                    onPressed: _showFilePickerNotAvailable,
+                  ),
+
+                  // Campo de texto
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 100),
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: InputDecoration(
+                          hintText: 'Escribe un mensaje...',
+                          hintStyle: TextStyle(color: Colors.grey[400]),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                        maxLines: null,
+                        textCapitalization: TextCapitalization.sentences,
                       ),
                     ),
-                    maxLines: null,
-                    textCapitalization: TextCapitalization.sentences,
                   ),
-                ),
 
-                // Botón de enviar
-                Container(
-                  decoration: BoxDecoration(
-                    color: Styles.primaryColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: _isSending
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                  const SizedBox(width: 8),
+
+                  // Botón de enviar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Styles.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: _isSending
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.send,
                               color: Colors.white,
+                              size: 20,
                             ),
-                          )
-                        : const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _isSending ? null : _sendMessage,
+                      onPressed: _isSending ? null : _sendMessage,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _MessageBubble extends StatelessWidget {
-  final String message;
+  final ChatMessage message;
   final bool isMe;
-  final DateTime timestamp;
 
-  const _MessageBubble({
-    required this.message,
-    required this.isMe,
-    required this.timestamp,
-  });
+  const _MessageBubble({required this.message, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -296,7 +393,10 @@ class _MessageBubble extends StatelessWidget {
           if (!isMe) ...[const SizedBox(width: 8)],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              constraints: BoxConstraints(
+                maxWidth: screenWidth * 0.75, // 75% del ancho de pantalla
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isMe ? Styles.primaryColor : Colors.white,
                 borderRadius: BorderRadius.only(
@@ -316,19 +416,73 @@ class _MessageBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    message,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 15,
+                  // Contenido del mensaje según tipo
+                  if (message.type == MessageType.image) ...[
+                    if (message.attachmentUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          message.attachmentUrl!,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.broken_image, size: 50);
+                          },
+                        ),
+                      ),
+                  ] else if (message.type == MessageType.file) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isMe
+                            ? Colors.white.withOpacity(0.2)
+                            : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.insert_drive_file,
+                            color: isMe ? Colors.white : Styles.primaryColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              message.fileName ?? message.text,
+                              style: TextStyle(
+                                color: isMe ? Colors.white : Colors.black87,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    Text(
+                      message.text,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.black87,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}',
+                        '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
                         style: TextStyle(
                           color: isMe ? Colors.white70 : Colors.grey[600],
                           fontSize: 11,
@@ -336,7 +490,11 @@ class _MessageBubble extends StatelessWidget {
                       ),
                       if (isMe) ...[
                         const SizedBox(width: 4),
-                        Icon(Icons.done_all, size: 14, color: Colors.white70),
+                        const Icon(
+                          Icons.done_all,
+                          size: 14,
+                          color: Colors.white70,
+                        ),
                       ],
                     ],
                   ),

@@ -347,10 +347,44 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   }
                 }
 
+                // Extraer profesión del array de professions
+                String profession = 'Sin profesión especificada';
+                final professionsData = data['professions'] as List<dynamic>?;
+                if (professionsData != null && professionsData.isNotEmpty) {
+                  // Recolectar todas las subcategorías de todas las profesiones
+                  final List<String> allSubcategories = [];
+
+                  for (var prof in professionsData) {
+                    final profMap = prof as Map<String, dynamic>?;
+                    final subcategories =
+                        profMap?['subcategories'] as List<dynamic>?;
+
+                    if (subcategories != null && subcategories.isNotEmpty) {
+                      allSubcategories.addAll(
+                        subcategories.map((s) => s.toString()),
+                      );
+                    }
+                  }
+
+                  // Si tiene subcategorías, mostrar las primeras 2
+                  if (allSubcategories.isNotEmpty) {
+                    profession = allSubcategories.take(2).join(' • ');
+                  } else {
+                    // Si no tiene subcategorías, usar la categoría principal
+                    final firstProfession =
+                        professionsData[0] as Map<String, dynamic>?;
+                    final category =
+                        firstProfession?['category'] as String? ?? '';
+                    if (category.isNotEmpty) {
+                      profession = category;
+                    }
+                  }
+                }
+
                 return _buildWorkerCard(
                   workerId: workerDoc.id,
                   name: name,
-                  profession: data['profession'] as String? ?? '',
+                  profession: profession,
                   rating: (data['rating'] ?? 0.0).toDouble(),
                   reviews: data['reviews'] as int? ?? 0,
                   price: data['price'] as String? ?? '',
@@ -434,10 +468,17 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       const SizedBox(height: 2),
                       Text(
                         profession,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF616161),
+                          color: profession == 'Sin profesión especificada'
+                              ? Colors.grey[400]
+                              : const Color(0xFF616161),
+                          fontStyle: profession == 'Sin profesión especificada'
+                              ? FontStyle.italic
+                              : FontStyle.normal,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
 
@@ -769,11 +810,14 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 4,
                     children: List.generate(5, (index) {
                       return IconButton(
-                        iconSize: 40,
+                        iconSize: 32,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () {
                           setState(() {
                             selectedRating = index + 1;

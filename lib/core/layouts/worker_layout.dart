@@ -143,10 +143,10 @@ class _WorkerLayoutState extends State<WorkerLayout> {
   }
 
   int _getSelectedIndex(String location) {
-    if (location.endsWith('/home-worker')) return 0;
-    if (location.contains('/messages')) return 1;
+    if (location.contains('home-worker')) return 0;
+    if (location.contains('messages')) return 1;
     // Regresar (index 2) no mantiene estado activo ya que sale del módulo
-    if (location.contains('/account')) return 3;
+    if (location.contains('account')) return 3;
     return 0;
   }
 

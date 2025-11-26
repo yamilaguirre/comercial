@@ -21,23 +21,23 @@ class WorkerModule extends Module {
       child: (context) => const WorkerLayout(child: RouterOutlet()),
       children: [
         ParallelRoute.child(
-          '/home-worker',
+          'home-worker',
           child: (context) => const HomeWorkScreen(),
         ),
         ParallelRoute.child(
-          '/favorites',
+          'favorites',
           child: (context) => const WorkerSavedScreen(),
         ),
         ParallelRoute.child(
-          '/messages',
+          'messages',
           child: (context) => const ChatListScreen(),
         ),
         ParallelRoute.child(
-          '/alerts',
+          'alerts',
           child: (context) => const WorkerAlertsScreen(),
         ),
         ParallelRoute.child(
-          '/account',
+          'account',
           child: (context) => const WorkerProfileScreen(),
         ),
       ],
