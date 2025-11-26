@@ -2,9 +2,13 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:my_first_app/core/layouts/worker_layout.dart';
 import 'package:my_first_app/screens/trabajador/home_work_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_saved_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_messages_screen.dart';
+import 'package:my_first_app/screens/trabajador/chat/chat_list_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_profile_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_alerts_screen.dart';
+import 'package:my_first_app/screens/trabajador/worker_location_search_screen.dart';
+import 'package:my_first_app/screens/trabajador/worker_public_profile_screen.dart';
+import 'package:my_first_app/screens/trabajador/freelance_work.dart';
+import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
 
 class WorkerModule extends Module {
   @override
@@ -14,13 +18,10 @@ class WorkerModule extends Module {
   void routes(r) {
     r.child(
       Modular.initialRoute,
-      // Corregido: Solo (context)
       child: (context) => const WorkerLayout(child: RouterOutlet()),
-
       children: [
-        // Corregido: Usar ParallelRoute.child
         ParallelRoute.child(
-          '/home',
+          '/home-worker',
           child: (context) => const HomeWorkScreen(),
         ),
         ParallelRoute.child(
@@ -29,7 +30,7 @@ class WorkerModule extends Module {
         ),
         ParallelRoute.child(
           '/messages',
-          child: (context) => const WorkerMessagesScreen(),
+          child: (context) => const ChatListScreen(),
         ),
         ParallelRoute.child(
           '/alerts',
@@ -40,6 +41,29 @@ class WorkerModule extends Module {
           child: (context) => const WorkerProfileScreen(),
         ),
       ],
+    );
+
+    // Rutas fuera del layout principal (pantallas completas)
+    r.child(
+      '/location-search',
+      child: (context) => const WorkerLocationSearchScreen(),
+    );
+
+    r.child(
+      '/public-profile',
+      child: (context) => WorkerPublicProfileScreen(worker: r.args.data),
+    );
+
+    r.child('/edit-profile', child: (context) => const FreelanceWorkScreen());
+
+    r.child(
+      '/chat-detail',
+      child: (context) => ChatDetailScreen(
+        chatId: r.args.data['chatId'],
+        otherUserId: r.args.data['otherUserId'],
+        otherUserName: r.args.data['otherUserName'],
+        otherUserPhoto: r.args.data['otherUserPhoto'],
+      ),
     );
   }
 }

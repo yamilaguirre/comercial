@@ -10,9 +10,11 @@ class ChatService {
     return _firestore
         .collection('chats')
         .where('user_ids', arrayContains: userId)
-        .orderBy('last_updated', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Chat.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Chat.fromFirestore(doc)).toList(),
+        );
   }
 
   // Obtener chat específico
@@ -28,19 +30,21 @@ class ChatService {
   Future<bool> sendMessage(String chatId, String senderId, String text) async {
     try {
       final chatRef = _firestore.collection('chats').doc(chatId);
-      
+      final now = Timestamp.now();
+
       await chatRef.update({
         'messages': FieldValue.arrayUnion([
           {
             'sender_id': senderId,
             'text': text,
-            'timestamp': FieldValue.serverTimestamp(),
-          }
+            'timestamp':
+                now, // Usar Timestamp.now() NO serverTimestamp en arrays
+          },
         ]),
         'last_message': text,
         'last_updated': FieldValue.serverTimestamp(),
       });
-      
+
       return true;
     } catch (e) {
       print('Error sending message: $e');
@@ -56,6 +60,8 @@ class ChatService {
     required String senderId,
   }) async {
     try {
+      final now = Timestamp.now();
+
       final docRef = await _firestore.collection('chats').add({
         'property_id': propertyId,
         'user_ids': userIds,
@@ -65,11 +71,12 @@ class ChatService {
           {
             'sender_id': senderId,
             'text': initialMessage,
-            'timestamp': FieldValue.serverTimestamp(),
-          }
+            'timestamp':
+                now, // Usar Timestamp.now() NO serverTimestamp en arrays
+          },
         ],
       });
-      
+
       return docRef.id;
     } catch (e) {
       print('Error creating chat: $e');
@@ -78,7 +85,10 @@ class ChatService {
   }
 
   // Buscar chat existente entre usuarios para una propiedad
-  Future<String?> findExistingChat(String propertyId, List<String> userIds) async {
+  Future<String?> findExistingChat(
+    String propertyId,
+    List<String> userIds,
+  ) async {
     try {
       final snapshot = await _firestore
           .collection('chats')
@@ -92,7 +102,7 @@ class ChatService {
           return doc.id;
         }
       }
-      
+
       return null;
     } catch (e) {
       print('Error finding existing chat: $e');
