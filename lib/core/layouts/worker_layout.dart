@@ -74,6 +74,11 @@ class _WorkerLayoutState extends State<WorkerLayout> {
             label: 'Explorar',
           ),
           BottomNavigationBarItem(
+            icon: _buildNavIcon('guardados', false),
+            activeIcon: _buildNavIcon('guardados', true),
+            label: 'Guardados',
+          ),
+          BottomNavigationBarItem(
             icon: _buildNavIcon('mensajes', false),
             activeIcon: _buildNavIcon('mensajes', true),
             label: 'Mensajes',
@@ -133,6 +138,8 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         return Icons.message;
       case 'explorar':
         return Icons.explore;
+      case 'guardados':
+        return Icons.favorite_border;
       case 'inicio':
         return Icons.person;
       case 'regresar':
@@ -146,9 +153,10 @@ class _WorkerLayoutState extends State<WorkerLayout> {
 
   int _getSelectedIndex(String location) {
     if (location.contains('home-worker')) return 0;
-    if (location.contains('messages')) return 1;
-    // Regresar (index 2) no mantiene estado activo ya que sale del módulo
-    if (location.contains('account')) return 3;
+    if (location.contains('favorites')) return 1;
+    if (location.contains('messages')) return 2;
+    // Regresar (index 3) no mantiene estado activo ya que sale del módulo
+    if (location.contains('account')) return 4;
     return 0; // Default to Explorar
   }
 
@@ -159,17 +167,21 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         Modular.to.navigate('/worker/home-worker');
         break;
       case 1:
+        // Guardados
+        Modular.to.navigate('/worker/favorites');
+        break;
+      case 2:
         // Mensajes
         Modular.to.navigate('/worker/messages');
         break;
-      case 2:
+      case 3:
         // Regresar - Resetear rol y navegar a selección
         final authService = Provider.of<AuthService>(context, listen: false);
         authService.resetRole().then((_) {
           Modular.to.navigate('/select-role');
         });
         break;
-      case 3:
+      case 4:
         // Cuenta -> property_account_screen
         Modular.to.navigate('/worker/account');
         break;
