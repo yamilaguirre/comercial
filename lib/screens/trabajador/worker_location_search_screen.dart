@@ -7,6 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/map_drawing_detector.dart';
+import '../../utils/map_geometry_utils.dart';
 import 'premium_subscription_modal.dart';
 
 // Token de Mapbox
@@ -39,6 +41,10 @@ class _WorkerLocationSearchScreenState
   // Controlador para el PageView de trabajadores
   late PageController _pageController;
   int _selectedWorkerIndex = -1;
+
+  // Estado del modo de dibujo
+  bool _isDrawingMode = false;
+  List<LatLng>? _searchPolygon; // Polígono de búsqueda dibujado
 
   // Categorías disponibles con sus colores e iconos
   final Map<String, Map<String, dynamic>> _categoryStyles = {
@@ -205,6 +211,40 @@ class _WorkerLocationSearchScreenState
     });
   }
 
+  void _filterWorkersByPolygon() {
+    if (_searchPolygon == null || _searchPolygon!.isEmpty) return;
+
+    final filtered = _workers.where((worker) {
+      // Filtrar por categoría
+      if (_selectedCategories.isNotEmpty &&
+          !_selectedCategories.contains(worker.category)) {
+        return false;
+      }
+
+      // Verificar si el trabajador está dentro del polígono
+      final workerLocation = LatLng(worker.latitude, worker.longitude);
+      return MapGeometryUtils.isPointInPolygon(workerLocation, _searchPolygon!);
+    }).toList();
+
+    // Ordenar por distancia al centro del polígono
+    final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
+    filtered.sort((a, b) {
+      final distanceA = MapGeometryUtils.calculateDistance(
+        center,
+        LatLng(a.latitude, a.longitude),
+      );
+      final distanceB = MapGeometryUtils.calculateDistance(
+        center,
+        LatLng(b.latitude, b.longitude),
+      );
+      return distanceA.compareTo(distanceB);
+    });
+
+    setState(() {
+      _filteredWorkers = filtered;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -233,6 +273,20 @@ class _WorkerLocationSearchScreenState
                     'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
                 userAgentPackageName: 'com.mobiliaria.app',
               ),
+
+              // Polígono de búsqueda dibujado
+              if (_searchPolygon != null && _searchPolygon!.isNotEmpty)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: _searchPolygon!,
+                      color: const Color(0xFF0033CC).withOpacity(0.15),
+                      borderColor: const Color(0xFF0033CC),
+                      borderStrokeWidth: 3.0,
+                      isFilled: true,
+                    ),
+                  ],
+                ),
 
               // Radio de búsqueda
               if (_userLocation != null)
@@ -354,6 +408,31 @@ class _WorkerLocationSearchScreenState
                 ),
             ],
           ),
+          // Detector de dibujo en el mapa
+          MapDrawingDetector(
+            isEnabled: _isDrawingMode,
+            mapController: _mapController,
+            onPolygonDrawn: (List<LatLng> polygon) {
+              setState(() {
+                _searchPolygon = polygon;
+                _mapCenter = MapGeometryUtils.calculateCentroid(polygon);
+                _isDrawingMode = false;
+              });
+              _mapController.move(_mapCenter, 14.5);
+              _filterWorkersByPolygon();
+
+              final area = MapGeometryUtils.calculatePolygonArea(polygon);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '¡Área de búsqueda definida! (~${area.toStringAsFixed(1)} km²)',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
 
           // Barra superior con filtros
           Positioned(
@@ -459,6 +538,44 @@ class _WorkerLocationSearchScreenState
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // Botón de modo de dibujo
+          Positioned(
+            right: 16,
+            bottom: 370,
+            child: FloatingActionButton(
+              heroTag: 'drawing_btn',
+              backgroundColor: _isDrawingMode
+                  ? const Color(0xFF0033CC)
+                  : Colors.white,
+              onPressed: () {
+                setState(() {
+                  _isDrawingMode = !_isDrawingMode;
+                  // Limpiar el polígono anterior cuando se activa el modo de dibujo
+                  if (_isDrawingMode) {
+                    _searchPolygon = null;
+                  }
+                });
+                if (_isDrawingMode) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Modo dibujo activado - Dibuja un área en el mapa',
+                      ),
+                      backgroundColor: Color(0xFF0033CC),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              child: Image.asset(
+                'assets/images/icon/hand-draw.png',
+                width: 30,
+                height: 30,
+                color: _isDrawingMode ? Colors.white : const Color(0xFF0033CC),
               ),
             ),
           ),
