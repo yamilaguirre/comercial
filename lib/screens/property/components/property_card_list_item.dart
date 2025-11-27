@@ -12,12 +12,16 @@ class PropertyCardListItem extends StatelessWidget {
   final Property property;
   final PropertyCardStyle style;
   final VoidCallback onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteToggle;
 
   const PropertyCardListItem({
     super.key,
     required this.property,
     required this.onTap,
     this.style = PropertyCardStyle.detailed,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
   });
 
   @override
@@ -78,23 +82,25 @@ class PropertyCardListItem extends StatelessWidget {
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      size: 20,
-                      color: Colors.black87,
+                  child: GestureDetector(
+                    onTap: onFavoriteToggle,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 20,
+                        color: isFavorite ? Colors.red : Colors.black87,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
             Expanded(
-              // Usamos Expanded para que la columna interior ocupe el espacio restante
               child: Padding(
                 padding: EdgeInsets.all(Styles.spacingMedium),
                 child: Column(
@@ -194,19 +200,19 @@ class PropertyCardListItem extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const Spacer(), // Empuja los botones de acción hacia abajo
+                    const Spacer(),
                   ],
                 ),
               ),
             ),
-            _buildActionButtons(), // Botones de acción en la base
+            _buildActionButtons(),
           ],
         ),
       ),
     );
   }
 
-  // Corresponde a _buildSimplePropertyCard (Usado en el Grid)
+  // GRID CARD - COMPACTA CON TODA LA INFORMACIÓN
   Widget _buildGridCard() {
     return GestureDetector(
       onTap: onTap,
@@ -233,26 +239,29 @@ class PropertyCardListItem extends StatelessWidget {
                   ),
                   child: Image.network(
                     property.imageUrl,
-                    height: 120,
+                    height: 100,
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>
-                        Container(height: 120, color: Colors.grey[300]),
+                        Container(height: 100, color: Colors.grey[300]),
                   ),
                 ),
                 Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      size: 16,
-                      color: Colors.black87,
+                  top: 6,
+                  right: 6,
+                  child: GestureDetector(
+                    onTap: onFavoriteToggle,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 14,
+                        color: isFavorite ? Colors.red : Colors.black87,
+                      ),
                     ),
                   ),
                 ),
@@ -260,24 +269,38 @@ class PropertyCardListItem extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       property.price,
                       style: TextStyles.title.copyWith(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: Styles.textPrimary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       property.name,
                       style: TextStyles.body.copyWith(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    // ZONA/UBICACIÓN
+                    Text(
+                      property.location,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Styles.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -285,24 +308,24 @@ class PropertyCardListItem extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.bed, size: 12, color: Styles.textSecondary),
+                        Icon(Icons.bed, size: 11, color: Styles.textSecondary),
                         Text(
                           ' ${property.bedrooms}',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             color: Styles.textSecondary,
                           ),
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: 4),
                         Icon(
                           Icons.square_foot,
-                          size: 12,
+                          size: 11,
                           color: Styles.textSecondary,
                         ),
                         Text(
                           ' ${property.area.toInt()}',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 9,
                             color: Styles.textSecondary,
                           ),
                         ),
@@ -315,10 +338,10 @@ class PropertyCardListItem extends StatelessWidget {
                       Row(
                         children: property.amenities.take(3).map((key) {
                           return Padding(
-                            padding: const EdgeInsets.only(right: 4),
+                            padding: const EdgeInsets.only(right: 2),
                             child: Icon(
                               AmenityHelper.getIcon(key),
-                              size: 14,
+                              size: 12,
                               color: Styles.primaryColor.withOpacity(0.6),
                             ),
                           );
@@ -370,16 +393,19 @@ class PropertyCardListItem extends StatelessWidget {
               Positioned(
                 top: 12,
                 right: 12,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    size: 20,
-                    color: Colors.black87,
+                child: GestureDetector(
+                  onTap: onFavoriteToggle,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isFavorite ? Icons.favorite : Icons.favorite_border,
+                      size: 20,
+                      color: isFavorite ? Colors.red : Colors.black87,
+                    ),
                   ),
                 ),
               ),

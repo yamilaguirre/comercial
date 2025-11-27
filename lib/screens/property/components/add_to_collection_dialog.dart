@@ -123,69 +123,76 @@ class _AddToCollectionDialogState extends State<AddToCollectionDialog> {
       title: const Text('Guardar en colección'),
       content: SizedBox(
         width: double.maxFinite,
-        child: _isLoading
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // LISTA O LOADING
+            if (_isLoading)
+              const SizedBox(
+                height: 150,
+                child: Center(
+                  child: CircularProgressIndicator(color: Styles.primaryColor),
                 ),
               )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_collections.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(
-                        'No tienes colecciones aún',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _collections.length,
-                        itemBuilder: (context, index) {
-                          final collection = _collections[index];
-                          final isSelected = _selectedCollectionIds.contains(
-                            collection.id,
-                          );
+            else if (_collections.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'No tienes colecciones aún',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              )
+            else
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _collections.length,
+                    itemBuilder: (context, index) {
+                      final collection = _collections[index];
+                      final isSelected = _selectedCollectionIds.contains(
+                        collection.id,
+                      );
 
-                          return CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (value) {
-                              setState(() {
-                                if (value == true) {
-                                  _selectedCollectionIds.add(collection.id);
-                                } else {
-                                  _selectedCollectionIds.remove(collection.id);
-                                }
-                              });
-                            },
-                            title: Text(collection.name),
-                            subtitle: Text(
-                              '${collection.propertyCount} ${collection.propertyCount == 1 ? 'propiedad' : 'propiedades'}',
-                            ),
-                            activeColor: Styles.primaryColor,
-                          );
+                      return CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedCollectionIds.add(collection.id);
+                            } else {
+                              _selectedCollectionIds.remove(collection.id);
+                            }
+                          });
                         },
-                      ),
-                    ),
-                  const Divider(),
-                  ListTile(
-                    leading: Icon(Icons.add, color: Styles.primaryColor),
-                    title: Text(
-                      'Crear nueva colección',
-                      style: TextStyle(
-                        color: Styles.primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onTap: _createNewCollection,
+                        title: Text(collection.name),
+                        subtitle: Text(
+                          '${collection.propertyCount} ${collection.propertyCount == 1 ? 'propiedad' : 'propiedades'}',
+                        ),
+                        activeColor: Styles.primaryColor,
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
+
+            const Divider(),
+
+            // BOTÓN CREAR NUEVA (Siempre visible)
+            ListTile(
+              leading: Icon(Icons.add, color: Styles.primaryColor),
+              title: Text(
+                'Crear nueva colección',
+                style: TextStyle(
+                  color: Styles.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: _createNewCollection,
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
