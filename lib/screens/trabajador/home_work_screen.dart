@@ -7,6 +7,8 @@ import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
 import '../../services/location_service.dart';
+import 'package:flutter_modular/flutter_modular.dart'
+    hide ModularWatchExtension;
 import 'worker_location_search_screen.dart';
 import 'chat/chat_detail_screen.dart';
 
@@ -63,6 +65,16 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     // Detener tracking cuando se cierre la pantalla
     LocationService().stopLocationTracking();
     super.dispose();
+  }
+
+  Future<void> _incrementWorkerViews(String workerId) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(workerId).set({
+        'views': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error incrementing views: $e');
+    }
   }
 
   @override
@@ -264,14 +276,21 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
           if (_searchQuery.isEmpty) return true;
 
-            final data = doc.data() as Map<String, dynamic>;
-            final profile = data['profile'] as Map<String, dynamic>?;
-            final name = (data['name'] ?? '').toString().toLowerCase();
-            // Prefer top-level `profession` if exists; otherwise, check `profile.profession` or arrays
-            String profession = (data['profession'] ?? profile?['profession'] ?? '').toString().toLowerCase();
-            final professionsData = (data['professions'] as List<dynamic>?) ?? (profile?['professions'] as List<dynamic>?);
-            if ((profession.isEmpty || profession == 'sin profesión especificada') &&
-              professionsData != null && professionsData.isNotEmpty) {
+          final data = doc.data() as Map<String, dynamic>;
+          final profile = data['profile'] as Map<String, dynamic>?;
+          final name = (data['name'] ?? '').toString().toLowerCase();
+          // Prefer top-level `profession` if exists; otherwise, check `profile.profession` or arrays
+          String profession =
+              (data['profession'] ?? profile?['profession'] ?? '')
+                  .toString()
+                  .toLowerCase();
+          final professionsData =
+              (data['professions'] as List<dynamic>?) ??
+              (profile?['professions'] as List<dynamic>?);
+          if ((profession.isEmpty ||
+                  profession == 'sin profesión especificada') &&
+              professionsData != null &&
+              professionsData.isNotEmpty) {
             final List<String> allSubcategories = [];
             for (var prof in professionsData) {
               final profMap = prof as Map<String, dynamic>?;
@@ -290,12 +309,13 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             }
           }
 
-            final services = (data['services'] as List<dynamic>?)
+          final services =
+              (data['services'] as List<dynamic>?)
                   ?.map((s) => s.toString().toLowerCase())
                   .toList() ??
               [];
 
-            return name.contains(_searchQuery) ||
+          return name.contains(_searchQuery) ||
               profession.contains(_searchQuery) ||
               services.any((s) => s.contains(_searchQuery));
         }).toList();
@@ -369,8 +389,14 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
                 // Extraer profesión (primero revisar top-level `profession`, luego `profile.profession`, luego `professions` arrays)
                 final profileMap = data['profile'] as Map<String, dynamic>?;
-                String profession = (data['profession'] as String? ?? profileMap?['profession'] as String? ?? '').toString();
-                final professionsData = (data['professions'] as List<dynamic>?) ?? (profileMap?['professions'] as List<dynamic>?);
+                String profession =
+                    (data['profession'] as String? ??
+                            profileMap?['profession'] as String? ??
+                            '')
+                        .toString();
+                final professionsData =
+                    (data['professions'] as List<dynamic>?) ??
+                    (profileMap?['professions'] as List<dynamic>?);
                 if (profession.isEmpty) {
                   profession = 'Sin profesión especificada';
                 }
@@ -399,7 +425,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       // Si no tiene subcategorías, usar la categoría principal
                       final firstProfession =
                           professionsData[0] as Map<String, dynamic>?;
-                      final category = firstProfession?['category'] as String? ?? '';
+                      final category =
+                          firstProfession?['category'] as String? ?? '';
                       if (category.isNotEmpty) {
                         profession = category;
                       }
@@ -424,6 +451,19 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       [],
                   photoUrl: data['photoUrl'] as String?,
                   phone: data['phoneNumber'] as String? ?? '',
+                  latitude: workerLocation?['latitude'] as double? ?? 0.0,
+                  longitude: workerLocation?['longitude'] as double? ?? 0.0,
+                  categories:
+                      professionsData
+                          ?.map(
+                            (p) =>
+                                (p as Map<String, dynamic>?)?['category']
+                                    ?.toString() ??
+                                '',
+                          )
+                          .where((c) => c.isNotEmpty)
+                          .toList() ??
+                      ['Servicios'],
                 );
               },
             );
@@ -444,6 +484,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required List<String> services,
     String? photoUrl,
     required String phone,
+    required double latitude,
+    required double longitude,
+    required List<String> categories,
   }) {
     final authService = context.read<AuthService>();
     final currentUserId = authService.currentUser?.uid ?? '';
@@ -467,16 +510,63 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Foto de perfil
-                CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                      ? NetworkImage(photoUrl)
-                      : null,
-                  child: photoUrl == null || photoUrl.isEmpty
-                      ? Icon(Icons.person, size: 40, color: Colors.grey[400])
-                      : null,
+                // Foto de perfil con botón "Ver Perfil"
+                Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 35,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                          ? NetworkImage(photoUrl)
+                          : null,
+                      child: photoUrl == null || photoUrl.isEmpty
+                          ? Icon(
+                              Icons.person,
+                              size: 40,
+                              color: Colors.grey[400],
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        _incrementWorkerViews(workerId);
+                        Modular.to.pushNamed(
+                          '/worker/public-profile',
+                          arguments: WorkerData(
+                            id: workerId,
+                            name: name,
+                            profession: profession,
+                            categories: categories,
+                            latitude: latitude,
+                            longitude: longitude,
+                            photoUrl: photoUrl,
+                            rating: rating,
+                            phone: phone,
+                            price: price,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF001BB7).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Ver Perfil',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF001BB7),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 12),
 
@@ -627,8 +717,10 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             // Profesión como Chip
             if (profession != 'Sin profesión especificada')
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(16),

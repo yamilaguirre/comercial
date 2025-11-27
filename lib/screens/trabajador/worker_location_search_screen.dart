@@ -279,6 +279,16 @@ class _WorkerLocationSearchScreenState
     });
   }
 
+  Future<void> _incrementWorkerViews(String workerId) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(workerId).set({
+        'views': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error incrementing views: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -820,6 +830,7 @@ class _WorkerLocationSearchScreenState
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
+            _incrementWorkerViews(worker.id);
             Modular.to.pushNamed('/worker/public-profile', arguments: worker);
           },
           child: Column(
