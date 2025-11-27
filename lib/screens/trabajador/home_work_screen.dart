@@ -3,14 +3,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_modular/flutter_modular.dart'
+    hide ModularWatchExtension;
+
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
 import '../../services/location_service.dart';
-import 'package:flutter_modular/flutter_modular.dart'
-    hide ModularWatchExtension;
 import 'worker_location_search_screen.dart';
 import 'chat/chat_detail_screen.dart';
+import 'components/add_to_worker_collection_dialog.dart';
 
 class HomeWorkScreen extends StatefulWidget {
   const HomeWorkScreen({super.key});
@@ -30,17 +32,20 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     _initializeWorkerLocation();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    LocationService().stopLocationTracking();
+    super.dispose();
+  }
+
   Future<void> _initializeWorkerLocation() async {
     final authService = context.read<AuthService>();
     final currentUser = authService.currentUser;
 
     if (currentUser != null && !_locationInitialized) {
       _locationInitialized = true;
-
-      // Inicializar perfil del trabajador (ubicación y rating)
       await LocationService.initializeWorkerProfile(currentUser.uid);
-
-      // Iniciar tracking de ubicación continuo
       final locationService = LocationService();
       final started = await locationService.startLocationTracking(
         currentUser.uid,
@@ -59,14 +64,6 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    // Detener tracking cuando se cierre la pantalla
-    LocationService().stopLocationTracking();
-    super.dispose();
-  }
-
   Future<void> _incrementWorkerViews(String workerId) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(workerId).set({
@@ -77,6 +74,43 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     }
   }
 
+  Future<void> _toggleFavorite(String workerId, bool isFavorite) async {
+    final user = Provider.of<AuthService>(context, listen: false).currentUser;
+    if (user == null) return;
+
+    try {
+      if (isFavorite) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+              'favoriteWorkers': FieldValue.arrayRemove([workerId]),
+            });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Eliminado de favoritos')),
+          );
+        }
+      } else {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+              'favoriteWorkers': FieldValue.arrayUnion([workerId]),
+            });
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) =>
+                AddToWorkerCollectionDialog(workerId: workerId),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,10 +118,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header con logo y búsqueda
             _buildHeader(),
-
-            // Contenido scrolleable
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
@@ -96,13 +127,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-
-                      // Botón de búsqueda por ubicación
                       _buildLocationButton(),
-
                       const SizedBox(height: 24),
-
-                      // Título de la sección
                       const Text(
                         'Destacados cerca de ti',
                         style: TextStyle(
@@ -111,10 +137,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           color: Color(0xFF212121),
                         ),
                       ),
-
                       const SizedBox(height: 16),
-
-                      // Lista de trabajadores
                       _buildWorkersList(),
                     ],
                   ),
@@ -876,40 +899,6 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  Future<void> _toggleFavorite(String workerId, bool isFavorite) async {
-    final authService = context.read<AuthService>();
-    final currentUserId = authService.currentUser?.uid;
-
-    if (currentUserId == null) return;
-
-    try {
-      final userRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserId);
-
-      if (isFavorite) {
-        // Remover de favoritos
-        await userRef.update({
-          'favoriteWorkers': FieldValue.arrayRemove([workerId]),
-        });
-      } else {
-        // Agregar a favoritos
-        await userRef.update({
-          'favoriteWorkers': FieldValue.arrayUnion([workerId]),
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al actualizar favoritos: $e'),
-            backgroundColor: Styles.errorColor,
-          ),
-        );
       }
     }
   }

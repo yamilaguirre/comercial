@@ -1,7 +1,6 @@
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:my_first_app/core/layouts/worker_layout.dart';
 import 'package:my_first_app/screens/trabajador/home_work_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_saved_screen.dart';
 import 'package:my_first_app/screens/trabajador/chat/chat_list_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_profile_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_alerts_screen.dart';
@@ -10,6 +9,8 @@ import 'package:my_first_app/screens/trabajador/worker_public_profile_screen.dar
 import 'package:my_first_app/screens/trabajador/freelance_work.dart';
 import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
 import 'package:my_first_app/screens/property/property_account_screen.dart';
+import 'package:my_first_app/screens/trabajador/worker_favorites_screen.dart';
+import 'package:my_first_app/screens/trabajador/worker_collection_detail_screen.dart';
 
 class WorkerModule extends Module {
   @override
@@ -27,7 +28,7 @@ class WorkerModule extends Module {
         ),
         ParallelRoute.child(
           'favorites',
-          child: (context) => const WorkerSavedScreen(),
+          child: (context) => const WorkerFavoritesScreen(),
         ),
         ParallelRoute.child(
           'messages',
@@ -57,6 +58,11 @@ class WorkerModule extends Module {
     r.child(
       '/public-profile',
       child: (context) => WorkerPublicProfileScreen(worker: r.args.data),
+    );
+
+    r.child(
+      '/collection-detail',
+      child: (context) => WorkerCollectionDetailScreen(collection: r.args.data),
     );
 
     r.child('/edit-profile', child: (context) => const FreelanceWorkScreen());

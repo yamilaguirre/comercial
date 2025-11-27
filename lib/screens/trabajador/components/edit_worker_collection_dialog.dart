@@ -1,0 +1,86 @@
+import 'package:flutter/material.dart';
+import '../../../theme/theme.dart';
+
+class EditWorkerCollectionDialog extends StatefulWidget {
+  final String currentName;
+
+  const EditWorkerCollectionDialog({super.key, required this.currentName});
+
+  @override
+  State<EditWorkerCollectionDialog> createState() =>
+      _EditWorkerCollectionDialogState();
+}
+
+class _EditWorkerCollectionDialogState
+    extends State<EditWorkerCollectionDialog> {
+  late final TextEditingController _nameController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.currentName);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate()) {
+      Navigator.of(context).pop(_nameController.text.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar colección'),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _nameController,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Nombre de la colección',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Styles.primaryColor, width: 2),
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Por favor ingresa un nombre';
+            }
+            if (value.trim().length < 3) {
+              return 'El nombre debe tener al menos 3 caracteres';
+            }
+            return null;
+          },
+          textCapitalization: TextCapitalization.words,
+          onFieldSubmitted: (_) => _save(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Cancelar', style: TextStyle(color: Colors.grey[600])),
+        ),
+        ElevatedButton(
+          onPressed: _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Styles.primaryColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
