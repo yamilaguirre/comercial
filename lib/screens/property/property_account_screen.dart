@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 import '../../providers/mobiliaria_provider.dart'; // Importación necesaria
+import '../../core/utils/create_test_notifications.dart'; // TEMPORAL: Para pruebas
 
 // Importamos los nuevos componentes
 import 'components/account_header.dart';
@@ -226,6 +227,54 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                   subtitle:
                       'Crea tu perfil de trabajador para ofrecer servicios',
                   onTap: () => Modular.to.pushNamed('/worker/edit-profile'),
+                ),
+                AccountMenuSection.buildDivider(),
+                // TEMPORAL: Botón para crear notificaciones de prueba
+                AccountMenuItem(
+                  icon: Icons.bug_report,
+                  iconColor: Colors.orange.shade600,
+                  iconBgColor: Colors.orange.shade600.withOpacity(0.1),
+                  title: '🧪 Crear Notificaciones de Prueba',
+                  subtitle: 'Genera 5 notificaciones de ejemplo (TEMPORAL)',
+                  onTap: () async {
+                    final authService = Provider.of<AuthService>(
+                      context,
+                      listen: false,
+                    );
+                    final userId = authService.currentUser?.uid ?? '';
+
+                    if (userId.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Error: No hay usuario autenticado'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Mostrar loading
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Creando notificaciones de prueba...'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+
+                    // Crear notificaciones
+                    await TestNotifications.createAllTestNotifications(userId);
+
+                    // Confirmar
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            '✅ 5 notificaciones creadas! Ve a la pestaña Avisos',
+                          ),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
                 ),
                 AccountMenuSection.buildDivider(),
               ]);

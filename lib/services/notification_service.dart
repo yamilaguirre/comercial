@@ -12,7 +12,11 @@ class NotificationService {
         .where('user_id', isEqualTo: userId)
         .orderBy('created_at', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => AppNotification.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => AppNotification.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   // Obtener notificaciones no leídas
@@ -23,7 +27,11 @@ class NotificationService {
         .where('is_read', isEqualTo: false)
         .orderBy('created_at', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => AppNotification.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => AppNotification.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   // Marcar notificación como leída
@@ -72,26 +80,39 @@ class NotificationService {
   }
 
   // Crear nueva notificación
-  Future<bool> createNotification({
+  Future<String?> createNotification({
     required String userId,
-    required String type,
+    required NotificationType type,
     required String title,
     required String message,
     String? propertyId,
+    Map<String, dynamic>? metadata,
   }) async {
     try {
-      await _firestore.collection('notifications').add({
+      final docRef = await _firestore.collection('notifications').add({
         'user_id': userId,
-        'type': type,
+        'type': type.toFirestore(),
         'title': title,
         'message': message,
         'property_id': propertyId,
         'is_read': false,
         'created_at': FieldValue.serverTimestamp(),
+        'metadata': metadata,
       });
-      return true;
+      return docRef.id;
     } catch (e) {
       print('Error creating notification: $e');
+      return null;
+    }
+  }
+
+  // Eliminar notificación
+  Future<bool> deleteNotification(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).delete();
+      return true;
+    } catch (e) {
+      print('Error deleting notification: $e');
       return false;
     }
   }
