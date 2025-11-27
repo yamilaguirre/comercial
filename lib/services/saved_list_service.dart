@@ -1,7 +1,7 @@
-// services/saved_list_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/saved_collection_model.dart';
 import '../models/property.dart';
+import '../models/contact_filter.dart';
 
 class SavedListService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -221,6 +221,87 @@ class SavedListService {
     } catch (e) {
       print('Error getting total saved count: $e');
       return 0;
+    }
+  }
+
+  // Obtener IDs de propiedades contactadas (donde existe un chat)
+  Future<Set<String>> getContactedPropertyIds(String userId) async {
+    try {
+      final chatsSnapshot = await _firestore
+          .collection('chats')
+          .where('user_ids', arrayContains: userId)
+          .get();
+
+      final contactedIds = <String>{};
+      for (var doc in chatsSnapshot.docs) {
+        final propertyId = doc.data()['property_id'] as String?;
+        if (propertyId != null && propertyId.isNotEmpty) {
+          contactedIds.add(propertyId);
+        }
+      }
+      return contactedIds;
+    } catch (e) {
+      print('Error getting contacted property IDs: $e');
+      return {};
+    }
+  }
+
+  // Obtener propiedades guardadas filtradas por estado de contacto
+  Future<List<Property>> getFilteredSavedProperties(
+    String userId,
+    ContactFilter filter,
+  ) async {
+    try {
+      // Obtener todas las propiedades guardadas
+      final allSavedProperties = await getAllSavedProperties(userId);
+
+      if (filter == ContactFilter.all) {
+        return allSavedProperties;
+      }
+
+      // Obtener IDs de propiedades contactadas
+      final contactedIds = await getContactedPropertyIds(userId);
+
+      // Filtrar según el tipo
+      if (filter == ContactFilter.contacted) {
+        return allSavedProperties
+            .where((property) => contactedIds.contains(property.id))
+            .toList();
+      } else {
+        // ContactFilter.notContacted
+        return allSavedProperties
+            .where((property) => !contactedIds.contains(property.id))
+            .toList();
+      }
+    } catch (e) {
+      print('Error getting filtered saved properties: $e');
+      return [];
+    }
+  }
+
+  // Contar propiedades por estado de contacto
+  Future<Map<ContactFilter, int>> getContactStatusCounts(String userId) async {
+    try {
+      final allSavedProperties = await getAllSavedProperties(userId);
+      final contactedIds = await getContactedPropertyIds(userId);
+
+      final contactedCount = allSavedProperties
+          .where((property) => contactedIds.contains(property.id))
+          .length;
+      final notContactedCount = allSavedProperties.length - contactedCount;
+
+      return {
+        ContactFilter.all: allSavedProperties.length,
+        ContactFilter.contacted: contactedCount,
+        ContactFilter.notContacted: notContactedCount,
+      };
+    } catch (e) {
+      print('Error getting contact status counts: $e');
+      return {
+        ContactFilter.all: 0,
+        ContactFilter.contacted: 0,
+        ContactFilter.notContacted: 0,
+      };
     }
   }
 }

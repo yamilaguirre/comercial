@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
@@ -6,11 +7,13 @@ import '../../theme/theme.dart';
 // Importamos los nuevos componentes visuales
 import 'components/category_selector.dart';
 import 'components/property_card_list_item.dart';
+import 'components/compact_property_card.dart';
+import 'components/add_to_collection_dialog.dart';
 
 // Asumo que estos archivos existen en tu proyecto
 import '../../models/property.dart';
-// import '../../core/utils/amenity_helper.dart'; // Ya no es necesario aquí
-// import '../../core/utils/property_constants.dart'; // Ya no es necesario aquí
+import '../../services/saved_list_service.dart';
+import '../../providers/auth_provider.dart';
 
 class PropertyListScreen extends StatefulWidget {
   const PropertyListScreen({super.key});
@@ -26,6 +29,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   Position? _currentPosition;
   List<Property> _allProperties = [];
   List<Property> _filteredProperties = [];
+  final Set<String> _savedPropertyIds = {};
+  final SavedListService _savedListService = SavedListService();
 
   @override
   void initState() {
@@ -36,6 +41,47 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   Future<void> _initData() async {
     await _getCurrentLocation();
     await _fetchProperties();
+    await _checkSavedProperties();
+  }
+
+  Future<void> _checkSavedProperties() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final savedProperties = await _savedListService.getAllSavedProperties(
+      userId,
+    );
+    if (mounted) {
+      setState(() {
+        _savedPropertyIds.clear();
+        _savedPropertyIds.addAll(savedProperties.map((p) => p.id));
+      });
+    }
+  }
+
+  Future<void> _openCollectionDialog(Property property) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid ?? '';
+
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes iniciar sesión para guardar propiedades'),
+        ),
+      );
+      return;
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AddToCollectionDialog(propertyId: property.id),
+    );
+
+    if (result == true) {
+      // Refresh saved status
+      await _checkSavedProperties();
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -188,9 +234,6 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
 
   // Método para navegar al detalle (Migrado a Modular)
   void _goToDetail(Property property) {
-    // Usamos Modular.to.pushNamed o Modular.to.navigate con la ruta absoluta
-    // y enviamos el objeto 'Property' como argumento (data).
-    // Tu PropertyModule espera '/detail/:id'
     Modular.to.pushNamed(
       '/property/detail/${property.id}',
       arguments: property, // Pasa el objeto para carga rápida
@@ -201,199 +244,245 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // Quitamos el SafeArea principal ya que el Layout ya lo maneja
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Styles.primaryColor),
             )
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Espacio superior (corregido en el paso anterior)
-                  const SizedBox(height: 16),
-
-                  // Logo
-                  Padding(
-                    padding: EdgeInsets.all(Styles.spacingMedium),
-                    child: Image.asset(
-                      'assets/images/logoColor.png',
-                      height: 50,
-                      fit: BoxFit.contain,
-                    ),
+          : Column(
+              children: [
+                // HEADER FIJO
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-
-                  // Botones de Categoría (USANDO EL NUEVO COMPONENTE)
-                  CategorySelector(
-                    selectedCategory: selectedCategory,
-                    onCategorySelected: _onCategorySelected,
-                    isDetailedView: isDetailedView,
-                    onToggleView: _onToggleView,
-                  ),
-                  SizedBox(height: Styles.spacingSmall),
-
-                  // Search
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: Styles.spacingMedium,
-                    ),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Dirección: avenida, calle y número',
-                        hintStyle: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                        filled: true,
-                        fillColor: const Color(0xFFF5F5F5),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: Styles.spacingSmall,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: Styles.spacingLarge),
-
-                  // Título: Recomendados cerca de ti
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: Styles.spacingMedium,
-                    ),
-                    child: Text(
-                      'Recomendados cerca de ti (10 km aprox)',
-                      style: TextStyles.title.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: Styles.spacingMedium),
-
-                  // Lista de Propiedades Filtradas (Horizontal o Grid)
-                  if (_filteredProperties.isEmpty)
-                    Padding(
-                      padding: EdgeInsets.all(Styles.spacingMedium),
-                      child: const Text(
-                        'No se encontraron propiedades cercanas en esta categoría.',
-                      ),
-                    )
-                  else if (isDetailedView)
-                    // Vista Detallada Horizontal
-                    SizedBox(
-                      height: 420,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: Styles.spacingMedium,
-                        ),
-                        itemCount: _filteredProperties.length,
-                        itemBuilder: (context, index) {
-                          return PropertyCardListItem(
-                            property: _filteredProperties[index],
-                            style: PropertyCardStyle.detailed,
-                            onTap: () => _goToDetail(_filteredProperties[index]),
-                          );
-                        },
-                      ),
-                    )
-                  else
-                    // Vista de Cuadrícula Simple
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: Styles.spacingMedium,
-                      ),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.65,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: _filteredProperties.length,
-                        itemBuilder: (context, index) {
-                          return PropertyCardListItem(
-                            property: _filteredProperties[index],
-                            style: PropertyCardStyle.grid,
-                            onTap: () => _goToDetail(_filteredProperties[index]),
-                          );
-                        },
-                      ),
-                    ),
-                  SizedBox(height: Styles.spacingLarge),
-
-                  // Título: Últimas publicadas
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: Styles.spacingMedium,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.flash_on,
-                              color: Styles.primaryColor,
-                              size: 24,
-                            ),
-                            SizedBox(width: Styles.spacingXSmall),
-                            Text(
-                              'Últimas publicadas',
-                              style: TextStyles.title.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                        // Logo
+                        Padding(
+                          padding: EdgeInsets.all(Styles.spacingMedium),
+                          child: Image.asset(
+                            'assets/images/logoColor.png',
+                            height: 50,
+                            fit: BoxFit.contain,
+                          ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: Implementar navegación a 'Ver todo' (ej: /property/all)
-                          },
-                          child: Text(
-                            'Ver todo',
-                            style: TextStyle(
-                              color: Styles.primaryColor,
-                              fontWeight: FontWeight.w600,
+
+                        // Botones de Categoría
+                        CategorySelector(
+                          selectedCategory: selectedCategory,
+                          onCategorySelected: _onCategorySelected,
+                          isDetailedView: isDetailedView,
+                          onToggleView: _onToggleView,
+                        ),
+                        SizedBox(height: Styles.spacingSmall),
+
+                        // Search
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Styles.spacingMedium,
+                          ),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Dirección: avenida, calle y número',
+                              hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 14,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey[400],
+                              ),
+                              filled: true,
+                              fillColor: const Color(0xFFF5F5F5),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: Styles.spacingSmall,
+                              ),
                             ),
                           ),
                         ),
+                        SizedBox(height: Styles.spacingLarge),
                       ],
                     ),
                   ),
-                  SizedBox(height: Styles.spacingMedium),
+                ),
 
-                  // Lista de Últimas Propiedades (Horizontal)
-                  SizedBox(
-                    height: 200,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: Styles.spacingMedium,
-                      ),
-                      itemCount: _allProperties.length > 5
-                          ? 5
-                          : _allProperties.length,
-                      itemBuilder: (context, index) {
-                        return PropertyCardListItem(
-                          property: _allProperties[index],
-                          style: PropertyCardStyle.small,
-                          onTap: () => _goToDetail(_allProperties[index]),
-                        );
-                      },
+                // CONTENIDO SCROLLEABLE
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Título: Recomendados cerca de ti
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Styles.spacingMedium,
+                          ),
+                          child: Text(
+                            'Recomendados cerca de ti (10 km aprox)',
+                            style: TextStyles.title.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: Styles.spacingMedium),
+
+                        // Lista de Propiedades Filtradas (Horizontal o Grid)
+                        if (_filteredProperties.isEmpty)
+                          Padding(
+                            padding: EdgeInsets.all(Styles.spacingMedium),
+                            child: const Text(
+                              'No se encontraron propiedades cercanas en esta categoría.',
+                            ),
+                          )
+                        else if (isDetailedView)
+                          // Vista Detallada Horizontal
+                          SizedBox(
+                            height: 420,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: Styles.spacingMedium,
+                              ),
+                              itemCount: _filteredProperties.length,
+                              itemBuilder: (context, index) {
+                                return PropertyCardListItem(
+                                  property: _filteredProperties[index],
+                                  style: PropertyCardStyle.detailed,
+                                  isFavorite: _savedPropertyIds.contains(
+                                    _filteredProperties[index].id,
+                                  ),
+                                  onFavoriteToggle: () => _openCollectionDialog(
+                                    _filteredProperties[index],
+                                  ),
+                                  onTap: () =>
+                                      _goToDetail(_filteredProperties[index]),
+                                );
+                              },
+                            ),
+                          )
+                        else
+                          // Vista de Cuadrícula Simple
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: Styles.spacingMedium,
+                            ),
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 0.85,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                  ),
+                              itemCount: _filteredProperties.length,
+                              itemBuilder: (context, index) {
+                                return CompactPropertyCard(
+                                  property: _filteredProperties[index],
+                                  isFavorite: _savedPropertyIds.contains(
+                                    _filteredProperties[index].id,
+                                  ),
+                                  onFavoriteToggle: () => _openCollectionDialog(
+                                    _filteredProperties[index],
+                                  ),
+                                  onTap: () =>
+                                      _goToDetail(_filteredProperties[index]),
+                                );
+                              },
+                            ),
+                          ),
+                        SizedBox(height: Styles.spacingLarge),
+
+                        // Título: Últimas publicadas
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Styles.spacingMedium,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.flash_on,
+                                    color: Styles.primaryColor,
+                                    size: 24,
+                                  ),
+                                  SizedBox(width: Styles.spacingXSmall),
+                                  Text(
+                                    'Últimas publicadas',
+                                    style: TextStyles.title.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  // TODO: Implementar navegación a 'Ver todo'
+                                },
+                                child: Text(
+                                  'Ver todo',
+                                  style: TextStyle(
+                                    color: Styles.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: Styles.spacingMedium),
+
+                        // Lista de Últimas Propiedades (Horizontal)
+                        SizedBox(
+                          height: 200,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: Styles.spacingMedium,
+                            ),
+                            itemCount: _allProperties.length > 5
+                                ? 5
+                                : _allProperties.length,
+                            itemBuilder: (context, index) {
+                              return PropertyCardListItem(
+                                property: _allProperties[index],
+                                style: PropertyCardStyle.small,
+                                isFavorite: _savedPropertyIds.contains(
+                                  _allProperties[index].id,
+                                ),
+                                onFavoriteToggle: () => _openCollectionDialog(
+                                  _allProperties[index],
+                                ),
+                                onTap: () => _goToDetail(_allProperties[index]),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(height: Styles.spacingLarge),
+                      ],
                     ),
                   ),
-                  SizedBox(height: Styles.spacingLarge),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
