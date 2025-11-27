@@ -5,8 +5,10 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import '../../theme/theme.dart';
+
 import '../../providers/auth_provider.dart';
+import '../../widgets/map_drawing_detector.dart';
+import '../../utils/map_geometry_utils.dart';
 import 'premium_subscription_modal.dart';
 
 // Token de Mapbox
@@ -39,6 +41,10 @@ class _WorkerLocationSearchScreenState
   // Controlador para el PageView de trabajadores
   late PageController _pageController;
   int _selectedWorkerIndex = -1;
+
+  // Estado del modo de dibujo
+  bool _isDrawingMode = false;
+  List<LatLng>? _searchPolygon; // Polígono de búsqueda dibujado
 
   // Categorías disponibles con sus colores e iconos
   final Map<String, Map<String, dynamic>> _categoryStyles = {
@@ -124,12 +130,34 @@ class _WorkerLocationSearchScreenState
           final longitude = (location['longitude'] as num?)?.toDouble();
 
           if (latitude != null && longitude != null) {
+            // Extraer categorías de la lista de profesiones
+            List<String> categories = [];
+            final professions = data['professions'] as List<dynamic>?;
+
+            if (professions != null && professions.isNotEmpty) {
+              for (var p in professions) {
+                if (p is Map<String, dynamic> && p['category'] != null) {
+                  categories.add(p['category'].toString());
+                }
+              }
+            }
+
+            // Fallback si no hay profesiones o categorías
+            if (categories.isEmpty) {
+              final legacyCategory = data['category']?.toString();
+              if (legacyCategory != null && legacyCategory.isNotEmpty) {
+                categories.add(legacyCategory);
+              } else {
+                categories.add('Servicios');
+              }
+            }
+
             workers.add(
               WorkerData(
                 id: doc.id,
                 name: data['name'] ?? 'Sin nombre',
                 profession: data['profession'] ?? 'Profesional',
-                category: data['category'] ?? 'Servicios',
+                categories: categories,
                 latitude: latitude,
                 longitude: longitude,
                 photoUrl: data['photoUrl'],
@@ -155,10 +183,16 @@ class _WorkerLocationSearchScreenState
     if (_userLocation == null) return;
 
     final filtered = _workers.where((worker) {
-      // Filtrar por categoría
-      if (_selectedCategories.isNotEmpty &&
-          !_selectedCategories.contains(worker.category)) {
-        return false;
+      // Filtrar por categoría (ahora soporta múltiples categorías)
+      if (_selectedCategories.isNotEmpty) {
+        bool hasMatchingCategory = false;
+        for (var category in worker.categories) {
+          if (_selectedCategories.contains(category)) {
+            hasMatchingCategory = true;
+            break;
+          }
+        }
+        if (!hasMatchingCategory) return false;
       }
 
       // Filtrar por distancia desde la ubicación del usuario
@@ -205,6 +239,46 @@ class _WorkerLocationSearchScreenState
     });
   }
 
+  void _filterWorkersByPolygon() {
+    if (_searchPolygon == null || _searchPolygon!.isEmpty) return;
+
+    final filtered = _workers.where((worker) {
+      // Filtrar por categoría (ahora soporta múltiples categorías)
+      if (_selectedCategories.isNotEmpty) {
+        bool hasMatchingCategory = false;
+        for (var category in worker.categories) {
+          if (_selectedCategories.contains(category)) {
+            hasMatchingCategory = true;
+            break;
+          }
+        }
+        if (!hasMatchingCategory) return false;
+      }
+
+      // Verificar si el trabajador está dentro del polígono
+      final workerLocation = LatLng(worker.latitude, worker.longitude);
+      return MapGeometryUtils.isPointInPolygon(workerLocation, _searchPolygon!);
+    }).toList();
+
+    // Ordenar por distancia al centro del polígono
+    final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
+    filtered.sort((a, b) {
+      final distanceA = MapGeometryUtils.calculateDistance(
+        center,
+        LatLng(a.latitude, a.longitude),
+      );
+      final distanceB = MapGeometryUtils.calculateDistance(
+        center,
+        LatLng(b.latitude, b.longitude),
+      );
+      return distanceA.compareTo(distanceB);
+    });
+
+    setState(() {
+      _filteredWorkers = filtered;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -215,16 +289,16 @@ class _WorkerLocationSearchScreenState
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _mapCenter,
-              initialZoom: 14.0,
-              onPositionChanged: (camera, hasGesture) {
+              initialZoom: 14.5,
+              onPositionChanged: (position, hasGesture) {
                 if (hasGesture) {
-                  _mapCenter = camera.center;
+                  setState(() => _isLocating = false);
                 }
               },
               onTap: (_, __) {
-                setState(() {
-                  _selectedWorkerIndex = -1;
-                });
+                if (_selectedWorkerIndex != -1) {
+                  setState(() => _selectedWorkerIndex = -1);
+                }
               },
             ),
             children: [
@@ -234,22 +308,60 @@ class _WorkerLocationSearchScreenState
                 userAgentPackageName: 'com.mobiliaria.app',
               ),
 
-              // Radio de búsqueda
+              if (_searchPolygon != null && _searchPolygon!.isNotEmpty)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: _searchPolygon!,
+                      color: const Color(0xFF0033CC).withOpacity(0.15),
+                      borderColor: const Color(0xFF0033CC),
+                      borderStrokeWidth: 3.0,
+                      isFilled: true,
+                    ),
+                  ],
+                ),
+
+              // Círculo de radio de búsqueda (Usuario)
               if (_userLocation != null)
                 CircleLayer(
                   circles: [
                     CircleMarker(
                       point: _userLocation!,
                       radius: _searchRadius * 1000,
-                      color: Styles.primaryColor.withOpacity(0.08),
-                      borderColor: Styles.primaryColor.withOpacity(0.3),
+                      color: const Color(0xFF0033CC).withOpacity(0.05),
+                      borderColor: const Color(0xFF0033CC).withOpacity(0.2),
                       borderStrokeWidth: 1,
                       useRadiusInMeter: true,
                     ),
                   ],
                 ),
 
-              // Marcadores de trabajadores
+              // Marcador de ubicación del usuario
+              if (_userLocation != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: _userLocation!,
+                      width: 24,
+                      height: 24,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0033CC),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
               MarkerLayer(
                 markers: _filteredWorkers.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -262,10 +374,7 @@ class _WorkerLocationSearchScreenState
                     height: isSelected ? 70 : 55,
                     child: GestureDetector(
                       onTap: () {
-                        Modular.to.pushNamed(
-                          '/worker/public-profile',
-                          arguments: worker,
-                        );
+                        setState(() => _selectedWorkerIndex = index);
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
@@ -315,133 +424,135 @@ class _WorkerLocationSearchScreenState
                   );
                 }).toList(),
               ),
-
-              // Ubicación del Usuario
-              if (_userLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _userLocation!,
-                      width: 24,
-                      height: 24,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Marker(
-                      point: _userLocation!,
-                      width: 60,
-                      height: 60,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
 
-          // Barra superior con filtros
+          MapDrawingDetector(
+            isEnabled: _isDrawingMode,
+            mapController: _mapController,
+            onPolygonDrawn: (List<LatLng> polygon) {
+              setState(() {
+                _searchPolygon = polygon;
+                _mapCenter = MapGeometryUtils.calculateCentroid(polygon);
+                _isDrawingMode = false;
+              });
+              _mapController.move(_mapCenter, 14.5);
+              _filterWorkersByPolygon();
+
+              final area = MapGeometryUtils.calculatePolygonArea(polygon);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '¡Área de búsqueda definida! (~${area.toStringAsFixed(1)} km²)',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
+
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: SafeArea(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                ),
+              ),
               child: Column(
                 children: [
-                  Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Modular.to.pop(),
-                        ),
-                        const Expanded(
-                          child: Text(
-                            'Buscar trabajadores',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.search, color: Colors.grey),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Buscar servicios...',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.filter_list),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        height: 50,
+                        width: 50,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0033CC),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF0033CC).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.tune, color: Colors.white),
                           onPressed: () {
-                            // Mostrar opciones avanzadas de filtro
+                            // Mostrar modal de filtros avanzados
                           },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
-                      children: _categoryStyles.keys.map((category) {
+                      children: _categoryStyles.entries.map((entry) {
                         final isSelected = _selectedCategories.contains(
-                          category,
+                          entry.key,
                         );
-                        final style = _categoryStyles[category]!;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: FilterChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  style['icon'],
-                                  size: 16,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : style['color'],
-                                ),
-                                const SizedBox(width: 6),
-                                Text(category),
-                              ],
-                            ),
+                            label: Text(entry.key),
                             selected: isSelected,
-                            onSelected: (_) => _toggleCategory(category),
+                            onSelected: (_) => _toggleCategory(entry.key),
                             backgroundColor: Colors.white,
-                            selectedColor: style['color'],
+                            selectedColor: const Color(0xFF0033CC),
                             labelStyle: TextStyle(
                               color: isSelected ? Colors.white : Colors.black87,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
+                            ),
+                            avatar: Icon(
+                              entry.value['icon'],
+                              size: 18,
+                              color: isSelected
+                                  ? Colors.white
+                                  : entry.value['color'],
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -451,7 +562,6 @@ class _WorkerLocationSearchScreenState
                                     : Colors.grey[300]!,
                               ),
                             ),
-                            elevation: 2,
                             showCheckmark: false,
                           ),
                         );
@@ -463,25 +573,7 @@ class _WorkerLocationSearchScreenState
             ),
           ),
 
-          // Botón de ubicación
-          Positioned(
-            right: 16,
-            bottom: 300,
-            child: FloatingActionButton(
-              heroTag: 'location_btn',
-              backgroundColor: Colors.white,
-              onPressed: _isLocating ? null : _getCurrentLocation,
-              child: _isLocating
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location, color: Colors.blueAccent),
-            ),
-          ),
-
-          // Panel Inferior Fijo (Slider + Lista)
+          // Panel deslizable con lista de trabajadores
           DraggableScrollableSheet(
             initialChildSize: 0.35,
             minChildSize: 0.2,
@@ -490,23 +582,21 @@ class _WorkerLocationSearchScreenState
               return Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black12,
-                      blurRadius: 10,
+                      blurRadius: 20,
                       offset: Offset(0, -5),
                     ),
                   ],
                 ),
-                child: ListView(
-                  controller: scrollController,
-                  padding: EdgeInsets.zero,
+                child: Column(
                   children: [
-                    // Handle
+                    // Barra de arrastre
                     Center(
                       child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 12),
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
@@ -516,28 +606,42 @@ class _WorkerLocationSearchScreenState
                       ),
                     ),
 
-                    // Slider de Rango
+                    // Slider de radio
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 8,
+                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Rango',
+                                'Radio de búsqueda',
                                 style: TextStyle(
+                                  fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey,
                                 ),
                               ),
-                              Text(
-                                '${_searchRadius.toStringAsFixed(1)} Km',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFF0033CC,
+                                  ).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${_searchRadius.toStringAsFixed(1)} km',
+                                  style: const TextStyle(
+                                    color: Color(0xFF0033CC),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
@@ -549,25 +653,27 @@ class _WorkerLocationSearchScreenState
                               thumbColor: const Color(0xFF0033CC),
                               overlayColor: const Color(
                                 0xFF0033CC,
-                              ).withOpacity(0.1),
+                              ).withOpacity(0.2),
                               trackHeight: 4,
                             ),
                             child: Slider(
                               value: _searchRadius,
-                              min: 1,
-                              max: 20,
-                              divisions: 19,
+                              min: 1.0,
+                              max: 10.0,
+                              divisions: 18,
                               onChanged: (value) {
                                 if (value > 3.0) {
-                                  showDialog(
+                                  // Mostrar modal Premium si supera 3km
+                                  showModalBottomSheet(
                                     context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
                                     builder: (context) =>
                                         const PremiumSubscriptionModal(),
                                   );
-                                  setState(() {
-                                    _searchRadius = 3.0;
-                                    _filterWorkersByLocation();
-                                  });
+                                  // Resetear a 3.0
+                                  setState(() => _searchRadius = 3.0);
+                                  _filterWorkersByLocation();
                                 } else {
                                   setState(() {
                                     _searchRadius = value;
@@ -577,83 +683,118 @@ class _WorkerLocationSearchScreenState
                               },
                             ),
                           ),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                _filterWorkersByLocation();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0033CC),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text(
-                                'Iniciar búsqueda',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 16),
-                    const Divider(height: 1),
+                    const Divider(),
 
-                    // Lista de resultados
-                    if (_filteredWorkers.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Center(
-                          child: Text(
-                            'No hay trabajadores en este rango',
-                            style: TextStyle(color: Colors.grey[500]),
-                          ),
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filteredWorkers.length,
-                        itemBuilder: (context, index) {
-                          final worker = _filteredWorkers[index];
-                          String distanceDisplay = '';
-
-                          if (_userLocation != null) {
-                            final distanceInMeters = Geolocator.distanceBetween(
-                              _userLocation!.latitude,
-                              _userLocation!.longitude,
-                              worker.latitude,
-                              worker.longitude,
-                            );
-
-                            if (distanceInMeters < 1000) {
-                              distanceDisplay = '${distanceInMeters.toInt()} m';
-                            } else {
-                              final distanceKm = distanceInMeters / 1000;
-                              distanceDisplay =
-                                  '${distanceKm.toStringAsFixed(1)} km';
-                            }
-                          }
-
-                          return _buildWorkerCard(worker, distanceDisplay);
-                        },
-                      ),
+                    // Lista de trabajadores
+                    Expanded(
+                      child: _filteredWorkers.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 64,
+                                    color: Colors.grey[300],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No hay trabajadores cerca',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _filteredWorkers.length,
+                              itemBuilder: (context, index) {
+                                final worker = _filteredWorkers[index];
+                                String distanceDisplay = '';
+                                if (_userLocation != null) {
+                                  final d = Geolocator.distanceBetween(
+                                    _userLocation!.latitude,
+                                    _userLocation!.longitude,
+                                    worker.latitude,
+                                    worker.longitude,
+                                  );
+                                  distanceDisplay = d < 1000
+                                      ? '${d.toInt()} m'
+                                      : '${(d / 1000).toStringAsFixed(1)} km';
+                                }
+                                return _buildWorkerCard(
+                                  worker,
+                                  distanceDisplay,
+                                );
+                              },
+                            ),
+                    ),
                   ],
                 ),
               );
             },
+          ),
+
+          // Botones flotantes (Dibujo y Ubicación)
+          Positioned(
+            right: 16,
+            bottom: 300, // Ajustado para no tapar el panel
+            child: Column(
+              children: [
+                FloatingActionButton(
+                  heroTag: 'drawing_btn',
+                  backgroundColor: _isDrawingMode ? Colors.red : Colors.white,
+                  onPressed: () {
+                    setState(() {
+                      _isDrawingMode = !_isDrawingMode;
+                      if (_isDrawingMode) {
+                        _searchPolygon = null;
+                      }
+                    });
+                    if (_isDrawingMode) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Modo dibujo activado - Dibuja un área en el mapa',
+                          ),
+                          backgroundColor: Color(0xFF0033CC),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  child: Image.asset(
+                    'assets/images/icon/hand-draw.png',
+                    width: 24,
+                    height: 24,
+                    color: _isDrawingMode
+                        ? Colors.white
+                        : const Color(0xFF0033CC),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: 'location_btn',
+                  backgroundColor: Colors.white,
+                  onPressed: _getCurrentLocation,
+                  child: _isLocating
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location, color: Colors.black87),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -892,7 +1033,7 @@ class WorkerData {
   final String id;
   final String name;
   final String profession;
-  final String category;
+  final List<String> categories;
   final double latitude;
   final double longitude;
   final String? photoUrl;
@@ -904,7 +1045,7 @@ class WorkerData {
     required this.id,
     required this.name,
     required this.profession,
-    required this.category,
+    required this.categories,
     required this.latitude,
     required this.longitude,
     this.photoUrl,
@@ -912,4 +1053,7 @@ class WorkerData {
     required this.phone,
     required this.price,
   });
+
+  // Getter para compatibilidad
+  String get category => categories.isNotEmpty ? categories.first : 'Servicios';
 }
