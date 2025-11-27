@@ -46,7 +46,7 @@ class CollectionCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        height: 120,
+        height: 130,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -100,10 +100,11 @@ class CollectionCard extends StatelessWidget {
             // Contenido
             Positioned.fill(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Botones de acción
                     Row(
@@ -112,75 +113,88 @@ class CollectionCard extends StatelessWidget {
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: IconButton(
                             icon: const Icon(
                               Icons.edit,
-                              size: 20,
+                              size: 18,
                               color: Colors.white,
                             ),
                             onPressed: onEdit,
                             tooltip: 'Editar',
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(
+                              minWidth: 30,
+                              minHeight: 30,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.red.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: IconButton(
                             icon: const Icon(
                               Icons.delete,
-                              size: 20,
+                              size: 18,
                               color: Colors.white,
                             ),
                             onPressed: onDelete,
                             tooltip: 'Eliminar',
-                            padding: const EdgeInsets.all(8),
-                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(
+                              minWidth: 30,
+                              minHeight: 30,
+                            ),
                           ),
                         ),
                       ],
                     ),
 
                     // Información
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          collection.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            collection.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.home_work,
-                              size: 16,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${collection.propertyCount} ${collection.propertyCount == 1 ? 'propiedad' : 'propiedades'}',
-                              style: TextStyle(
-                                fontSize: 14,
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.home_work,
+                                size: 14,
                                 color: Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.w500,
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  '${collection.propertyCount} ${collection.propertyCount == 1 ? 'propiedad' : 'propiedades'}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
