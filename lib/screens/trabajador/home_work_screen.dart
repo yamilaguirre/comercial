@@ -11,7 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
 import '../../services/location_service.dart';
 import 'worker_location_search_screen.dart';
-import 'chat/chat_detail_screen.dart';
+
 import 'components/add_to_worker_collection_dialog.dart';
 
 class HomeWorkScreen extends StatefulWidget {
@@ -882,16 +882,14 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
       // Navegar a chat
       if (mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatDetailScreen(
-              chatId: chatId!,
-              otherUserId: workerId,
-              otherUserName: workerName,
-              otherUserPhoto: workerPhoto,
-            ),
-          ),
+        Modular.to.pushNamed(
+          '/worker/chat-detail',
+          arguments: {
+            'chatId': chatId,
+            'otherUserId': workerId,
+            'otherUserName': workerName,
+            'otherUserPhoto': workerPhoto,
+          },
         );
       }
     } catch (e) {
