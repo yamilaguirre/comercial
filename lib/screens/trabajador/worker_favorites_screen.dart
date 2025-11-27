@@ -11,6 +11,8 @@ import 'components/edit_worker_collection_dialog.dart';
 import 'components/worker_card_compact.dart';
 import 'worker_location_search_screen.dart'; // Para WorkerData
 
+import '../../models/contact_filter.dart';
+
 class WorkerFavoritesScreen extends StatefulWidget {
   const WorkerFavoritesScreen({super.key});
 
@@ -22,8 +24,14 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final WorkerSavedService _savedService = WorkerSavedService();
-  int _savedCount = 0;
-  int _contactedCount = 0;
+
+  // Contact filter state
+  ContactFilter _selectedFilter = ContactFilter.all;
+  Map<ContactFilter, int> _counts = {
+    ContactFilter.all: 0,
+    ContactFilter.contacted: 0,
+    ContactFilter.notContacted: 0,
+  };
 
   @override
   void initState() {
@@ -42,15 +50,19 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
     final authService = Provider.of<AuthService>(context, listen: false);
     final userId = authService.currentUser?.uid ?? '';
 
-    final count = await _savedService.getTotalSavedCount(userId);
-    final contacted = await _savedService.getContactedCount(userId);
+    final counts = await _savedService.getContactStatusCounts(userId);
 
     if (mounted) {
       setState(() {
-        _savedCount = count;
-        _contactedCount = contacted;
+        _counts = counts;
       });
     }
+  }
+
+  void _onFilterChanged(ContactFilter filter) {
+    setState(() {
+      _selectedFilter = filter;
+    });
   }
 
   Future<void> _createCollection() async {
@@ -209,24 +221,32 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
               // Contadores
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    _buildCounter(
-                      icon: Icons.favorite,
-                      label: 'Guardados',
-                      count: _savedCount,
-                      color: Styles.primaryColor,
-                      isSelected: true,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildCounter(
-                      icon: Icons.chat_bubble_outline,
-                      label: 'Contactados',
-                      count: _contactedCount,
-                      color: Colors.grey,
-                      isSelected: false,
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildCounter(
+                        filter: ContactFilter.all,
+                        icon: Icons.grid_view,
+                        label: 'Todos',
+                        count: _counts[ContactFilter.all] ?? 0,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildCounter(
+                        filter: ContactFilter.contacted,
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Contactados',
+                        count: _counts[ContactFilter.contacted] ?? 0,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildCounter(
+                        filter: ContactFilter.notContacted,
+                        icon: Icons.favorite_border,
+                        label: 'No contactados',
+                        count: _counts[ContactFilter.notContacted] ?? 0,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -242,51 +262,56 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
   }
 
   Widget _buildCounter({
+    required ContactFilter filter,
     required IconData icon,
     required String label,
     required int count,
-    required Color color,
-    required bool isSelected,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isSelected ? Styles.primaryColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? Styles.primaryColor : Colors.grey[300]!,
+    final isSelected = _selectedFilter == filter;
+    final color = isSelected ? Styles.primaryColor : Colors.grey[600]!;
+
+    return GestureDetector(
+      onTap: () => _onFilterChanged(filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Styles.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Styles.primaryColor : Colors.grey[300]!,
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: isSelected ? Colors.white : color),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? Colors.white : color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            count.toString(),
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            const SizedBox(width: 8),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAllSavedTab(String userId) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _savedService.getAllSavedWorkers(userId),
+      future: _savedService.getFilteredSavedWorkers(userId, _selectedFilter),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -302,7 +327,7 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
                 Icon(Icons.favorite_border, size: 80, color: Colors.grey[300]),
                 const SizedBox(height: 16),
                 Text(
-                  'No tienes trabajadores guardados',
+                  'No hay trabajadores en esta categoría',
                   style: TextStyle(
                     fontSize: 18,
                     color: Colors.grey[600],

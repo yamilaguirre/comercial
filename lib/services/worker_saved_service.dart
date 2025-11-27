@@ -1,6 +1,7 @@
 // services/worker_saved_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/saved_collection_model.dart';
+import '../models/contact_filter.dart';
 
 class WorkerSavedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -223,15 +224,99 @@ class WorkerSavedService {
     }
   }
 
-  // Contar trabajadores contactados (placeholder - implementar según lógica de chat)
-  Future<int> getContactedCount(String userId) async {
+  // Obtener IDs de trabajadores contactados (donde existe un chat)
+  Future<Set<String>> getContactedWorkerIds(String userId) async {
     try {
-      // TODO: Implementar contador de trabajadores contactados
-      // Esto podría venir de la colección de chats
-      return 0;
+      // Buscar chats donde el usuario es participante
+      final chatsSnapshot = await _firestore
+          .collection('chats')
+          .where('user_ids', arrayContains: userId)
+          .get();
+
+      final contactedIds = <String>{};
+      for (var doc in chatsSnapshot.docs) {
+        final data = doc.data();
+        final userIds = List<String>.from(data['user_ids'] ?? []);
+
+        // Encontrar el ID del otro usuario (el trabajador)
+        final otherUserId = userIds.firstWhere(
+          (id) => id != userId,
+          orElse: () => '',
+        );
+
+        if (otherUserId.isNotEmpty) {
+          contactedIds.add(otherUserId);
+        }
+      }
+      return contactedIds;
     } catch (e) {
-      print('Error getting contacted count: $e');
-      return 0;
+      print('Error getting contacted worker IDs: $e');
+      return {};
     }
+  }
+
+  // Obtener trabajadores guardados filtrados por estado de contacto
+  Future<List<Map<String, dynamic>>> getFilteredSavedWorkers(
+    String userId,
+    ContactFilter filter,
+  ) async {
+    try {
+      // Obtener todos los trabajadores guardados
+      final allSavedWorkers = await getAllSavedWorkers(userId);
+
+      if (filter == ContactFilter.all) {
+        return allSavedWorkers;
+      }
+
+      // Obtener IDs de trabajadores contactados
+      final contactedIds = await getContactedWorkerIds(userId);
+
+      // Filtrar según el tipo
+      if (filter == ContactFilter.contacted) {
+        return allSavedWorkers
+            .where((worker) => contactedIds.contains(worker['id']))
+            .toList();
+      } else {
+        // ContactFilter.notContacted
+        return allSavedWorkers
+            .where((worker) => !contactedIds.contains(worker['id']))
+            .toList();
+      }
+    } catch (e) {
+      print('Error getting filtered saved workers: $e');
+      return [];
+    }
+  }
+
+  // Contar trabajadores por estado de contacto
+  Future<Map<ContactFilter, int>> getContactStatusCounts(String userId) async {
+    try {
+      final allSavedWorkers = await getAllSavedWorkers(userId);
+      final contactedIds = await getContactedWorkerIds(userId);
+
+      final contactedCount = allSavedWorkers
+          .where((worker) => contactedIds.contains(worker['id']))
+          .length;
+      final notContactedCount = allSavedWorkers.length - contactedCount;
+
+      return {
+        ContactFilter.all: allSavedWorkers.length,
+        ContactFilter.contacted: contactedCount,
+        ContactFilter.notContacted: notContactedCount,
+      };
+    } catch (e) {
+      print('Error getting contact status counts: $e');
+      return {
+        ContactFilter.all: 0,
+        ContactFilter.contacted: 0,
+        ContactFilter.notContacted: 0,
+      };
+    }
+  }
+
+  // Contar trabajadores contactados (wrapper para compatibilidad)
+  Future<int> getContactedCount(String userId) async {
+    final counts = await getContactStatusCounts(userId);
+    return counts[ContactFilter.contacted] ?? 0;
   }
 }
