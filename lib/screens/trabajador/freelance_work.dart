@@ -367,7 +367,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Modular.to.navigate('/worker/home'),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
