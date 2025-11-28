@@ -58,22 +58,24 @@ enum NotificationType {
 
 class AppNotification {
   final String id;
-  final String userId;
   final NotificationType type;
   final String title;
   final String message;
   final String? propertyId;
+  final double? oldPrice;
+  final double? newPrice;
   final bool isRead;
   final DateTime createdAt;
   final Map<String, dynamic>? metadata;
 
   AppNotification({
     required this.id,
-    required this.userId,
     required this.type,
     required this.title,
     required this.message,
     this.propertyId,
+    this.oldPrice,
+    this.newPrice,
     required this.isRead,
     required this.createdAt,
     this.metadata,
@@ -83,12 +85,13 @@ class AppNotification {
     final data = doc.data() as Map<String, dynamic>;
     return AppNotification(
       id: doc.id,
-      userId: data['user_id'] ?? '',
       type: NotificationType.fromString(data['type'] ?? 'message'),
       title: data['title'] ?? '',
       message: data['message'] ?? '',
       propertyId: data['property_id'],
-      isRead: data['is_read'] ?? false,
+      oldPrice: data['old_price']?.toDouble(),
+      newPrice: data['new_price']?.toDouble(),
+      isRead: false, // Will be determined client-side
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       metadata: data['metadata'] as Map<String, dynamic>?,
     );
@@ -96,12 +99,12 @@ class AppNotification {
 
   Map<String, dynamic> toMap() {
     return {
-      'user_id': userId,
       'type': type.toFirestore(),
       'title': title,
       'message': message,
       'property_id': propertyId,
-      'is_read': isRead,
+      'old_price': oldPrice,
+      'new_price': newPrice,
       'created_at': Timestamp.fromDate(createdAt),
       'metadata': metadata,
     };
@@ -109,22 +112,24 @@ class AppNotification {
 
   AppNotification copyWith({
     String? id,
-    String? userId,
     NotificationType? type,
     String? title,
     String? message,
     String? propertyId,
+    double? oldPrice,
+    double? newPrice,
     bool? isRead,
     DateTime? createdAt,
     Map<String, dynamic>? metadata,
   }) {
     return AppNotification(
       id: id ?? this.id,
-      userId: userId ?? this.userId,
       type: type ?? this.type,
       title: title ?? this.title,
       message: message ?? this.message,
       propertyId: propertyId ?? this.propertyId,
+      oldPrice: oldPrice ?? this.oldPrice,
+      newPrice: newPrice ?? this.newPrice,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
       metadata: metadata ?? this.metadata,

@@ -1,44 +1,101 @@
 // services/notification_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/notification_model.dart';
+import 'saved_list_service.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SavedListService _savedListService = SavedListService();
 
-  // Obtener notificaciones del usuario
-  Stream<List<AppNotification>> getUserNotifications(String userId) {
-    return _firestore
-        .collection('notifications')
-        .where('user_id', isEqualTo: userId)
-        .orderBy('created_at', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => AppNotification.fromFirestore(doc))
-              .toList(),
-        );
+  // Obtener notificaciones para un usuario (filtrado dinámico)
+  Stream<List<AppNotification>> getNotificationsForUser(String userId) async* {
+    // 1. Obtener IDs de propiedades guardadas del usuario
+    final savedPropertyIds = await _getSavedPropertyIds(userId);
+
+    // 2. Obtener IDs de notificaciones leídas
+    final readNotificationIds = await _getReadNotificationIds(userId);
+
+    // 3. Stream de todas las notificaciones
+    await for (final snapshot
+        in _firestore
+            .collection('notifications')
+            .orderBy('created_at', descending: true)
+            .limit(100) // Limitar para rendimiento
+            .snapshots()) {
+      final allNotifications = snapshot.docs
+          .map((doc) => AppNotification.fromFirestore(doc))
+          .toList();
+
+      // 4. Filtrar notificaciones relevantes para el usuario
+      final userNotifications = allNotifications
+          .where((notification) {
+            // Mensajes de sistema: mostrar a todos
+            if (notification.type == NotificationType.message) {
+              return true;
+            }
+
+            // Notificaciones de propiedades: solo si el usuario tiene la propiedad guardada
+            if (notification.propertyId != null) {
+              return savedPropertyIds.contains(notification.propertyId);
+            }
+
+            return false;
+          })
+          .map((notification) {
+            // Agregar estado de leído
+            return notification.copyWith(
+              isRead: readNotificationIds.contains(notification.id),
+            );
+          })
+          .toList();
+
+      yield userNotifications;
+    }
   }
 
-  // Obtener notificaciones no leídas
-  Stream<List<AppNotification>> getUnreadNotifications(String userId) {
-    return _firestore
-        .collection('notifications')
-        .where('user_id', isEqualTo: userId)
-        .where('is_read', isEqualTo: false)
-        .orderBy('created_at', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => AppNotification.fromFirestore(doc))
-              .toList(),
-        );
+  // Obtener IDs de propiedades guardadas del usuario
+  Future<Set<String>> _getSavedPropertyIds(String userId) async {
+    try {
+      final properties = await _savedListService.getAllSavedProperties(userId);
+      return properties.map((p) => p.id).toSet();
+    } catch (e) {
+      print('Error getting saved property IDs: $e');
+      return {};
+    }
+  }
+
+  // Obtener IDs de notificaciones leídas por el usuario
+  Future<Set<String>> _getReadNotificationIds(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('notification_reads')
+          .where('user_id', isEqualTo: userId)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => doc.data()['notification_id'] as String)
+          .toSet();
+    } catch (e) {
+      print('Error getting read notification IDs: $e');
+      return {};
+    }
+  }
+
+  // Obtener contador de notificaciones no leídas
+  Stream<int> getUnreadCount(String userId) async* {
+    await for (final notifications in getNotificationsForUser(userId)) {
+      yield notifications.where((n) => !n.isRead).length;
+    }
   }
 
   // Marcar notificación como leída
-  Future<bool> markAsRead(String notificationId) async {
+  Future<bool> markAsRead(String userId, String notificationId) async {
     try {
-      await _firestore.collection('notifications').doc(notificationId).update({
-        'is_read': true,
+      final docId = '${userId}_$notificationId';
+      await _firestore.collection('notification_reads').doc(docId).set({
+        'user_id': userId,
+        'notification_id': notificationId,
+        'read_at': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {
@@ -48,17 +105,20 @@ class NotificationService {
   }
 
   // Marcar todas las notificaciones como leídas
-  Future<bool> markAllAsRead(String userId) async {
+  Future<bool> markAllAsRead(
+    String userId,
+    List<String> notificationIds,
+  ) async {
     try {
       final batch = _firestore.batch();
-      final snapshot = await _firestore
-          .collection('notifications')
-          .where('user_id', isEqualTo: userId)
-          .where('is_read', isEqualTo: false)
-          .get();
 
-      for (var doc in snapshot.docs) {
-        batch.update(doc.reference, {'is_read': true});
+      for (final notificationId in notificationIds) {
+        final docId = '${userId}_$notificationId';
+        batch.set(_firestore.collection('notification_reads').doc(docId), {
+          'user_id': userId,
+          'notification_id': notificationId,
+          'read_at': FieldValue.serverTimestamp(),
+        });
       }
 
       await batch.commit();
@@ -69,39 +129,51 @@ class NotificationService {
     }
   }
 
-  // Obtener contador de notificaciones no leídas
-  Stream<int> getUnreadCount(String userId) {
-    return _firestore
-        .collection('notifications')
-        .where('user_id', isEqualTo: userId)
-        .where('is_read', isEqualTo: false)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
-  }
-
-  // Crear nueva notificación
-  Future<String?> createNotification({
-    required String userId,
+  // Crear notificación de propiedad (bajada de precio, etc.)
+  Future<String?> createPropertyNotification({
     required NotificationType type,
     required String title,
     required String message,
-    String? propertyId,
+    required String propertyId,
+    double? oldPrice,
+    double? newPrice,
     Map<String, dynamic>? metadata,
   }) async {
     try {
       final docRef = await _firestore.collection('notifications').add({
-        'user_id': userId,
         'type': type.toFirestore(),
         'title': title,
         'message': message,
         'property_id': propertyId,
-        'is_read': false,
+        'old_price': oldPrice,
+        'new_price': newPrice,
         'created_at': FieldValue.serverTimestamp(),
         'metadata': metadata,
       });
       return docRef.id;
     } catch (e) {
-      print('Error creating notification: $e');
+      print('Error creating property notification: $e');
+      return null;
+    }
+  }
+
+  // Crear mensaje de sistema (visible para todos)
+  Future<String?> createSystemMessage({
+    required String title,
+    required String message,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final docRef = await _firestore.collection('notifications').add({
+        'type': NotificationType.message.toFirestore(),
+        'title': title,
+        'message': message,
+        'created_at': FieldValue.serverTimestamp(),
+        'metadata': metadata,
+      });
+      return docRef.id;
+    } catch (e) {
+      print('Error creating system message: $e');
       return null;
     }
   }

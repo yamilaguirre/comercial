@@ -16,8 +16,16 @@ class PropertyAlertsScreen extends StatefulWidget {
 class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
   final NotificationService _notificationService = NotificationService();
 
-  Future<void> _markAllAsRead(String userId) async {
-    final success = await _notificationService.markAllAsRead(userId);
+  Future<void> _markAllAsRead(
+    String userId,
+    List<String> notificationIds,
+  ) async {
+    if (notificationIds.isEmpty) return;
+
+    final success = await _notificationService.markAllAsRead(
+      userId,
+      notificationIds,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -57,17 +65,35 @@ class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => _markAllAsRead(userId),
-            child: Text(
-              'Marcar todo como leído',
-              style: TextStyle(color: Styles.primaryColor, fontSize: 14),
-            ),
+          StreamBuilder<List<AppNotification>>(
+            stream: _notificationService.getNotificationsForUser(userId),
+            builder: (context, snapshot) {
+              final notifications = snapshot.data ?? [];
+              final unreadIds = notifications
+                  .where((n) => !n.isRead)
+                  .map((n) => n.id)
+                  .toList();
+
+              return TextButton(
+                onPressed: unreadIds.isEmpty
+                    ? null
+                    : () => _markAllAsRead(userId, unreadIds),
+                child: Text(
+                  'Marcar todo como leído',
+                  style: TextStyle(
+                    color: unreadIds.isEmpty
+                        ? Colors.grey
+                        : Styles.primaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
       body: StreamBuilder<List<AppNotification>>(
-        stream: _notificationService.getUserNotifications(userId),
+        stream: _notificationService.getNotificationsForUser(userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

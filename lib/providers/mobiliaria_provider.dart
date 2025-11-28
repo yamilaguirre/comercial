@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/property.dart';
+import '../models/notification_model.dart';
+import '../services/notification_service.dart';
 
 class MobiliariaProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificationService _notificationService = NotificationService();
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -74,8 +77,36 @@ class MobiliariaProvider extends ChangeNotifier {
       data['updated_at'] = FieldValue.serverTimestamp();
 
       if (propertyId != null) {
+        // Obtener el precio anterior para comparar
+        final oldDoc = await _firestore
+            .collection('properties')
+            .doc(propertyId)
+            .get();
+
+        final oldPrice = oldDoc.data()?['price'];
+        final newPrice = data['price'];
+
         // Actualizar
         await _firestore.collection('properties').doc(propertyId).update(data);
+
+        // Crear notificación si el precio bajó
+        if (oldPrice != null && newPrice != null) {
+          final oldPriceNum = _parsePrice(oldPrice);
+          final newPriceNum = _parsePrice(newPrice);
+
+          if (newPriceNum < oldPriceNum) {
+            // El precio bajó, crear notificación
+            await _notificationService.createPropertyNotification(
+              type: NotificationType.priceDropHome,
+              title: '¡Rebaja de precio!',
+              message:
+                  '${data['name'] ?? 'Una propiedad'} bajó de Bs ${_formatPrice(oldPriceNum)} a Bs ${_formatPrice(newPriceNum)}',
+              propertyId: propertyId,
+              oldPrice: oldPriceNum,
+              newPrice: newPriceNum,
+            );
+          }
+        }
       } else {
         // Crear
         await _firestore.collection('properties').add(data);
@@ -89,6 +120,27 @@ class MobiliariaProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  // Helper para parsear precio (puede ser String o num)
+  double _parsePrice(dynamic price) {
+    if (price is num) return price.toDouble();
+    if (price is String) {
+      // Remover caracteres no numéricos excepto punto y coma
+      final cleaned = price.replaceAll(RegExp(r'[^0-9.]'), '');
+      return double.tryParse(cleaned) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  // Helper para formatear precio
+  String _formatPrice(double price) {
+    return price
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
   }
 
   // --- ELIMINAR PROPIEDAD ---

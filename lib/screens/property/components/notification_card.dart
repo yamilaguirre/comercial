@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:provider/provider.dart';
 import '../../../models/notification_model.dart';
 import '../../../core/utils/time_ago_helper.dart';
-import '../../../theme/theme.dart';
 import '../../../services/notification_service.dart';
+import '../../../providers/auth_provider.dart';
 
 class NotificationCard extends StatelessWidget {
   final AppNotification notification;
@@ -48,8 +49,13 @@ class NotificationCard extends StatelessWidget {
   Future<void> _handleTap(BuildContext context) async {
     // Marcar como leída si no lo está
     if (!notification.isRead) {
-      final notificationService = NotificationService();
-      await notificationService.markAsRead(notification.id);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userId = authService.currentUser?.uid ?? '';
+
+      if (userId.isNotEmpty) {
+        final notificationService = NotificationService();
+        await notificationService.markAsRead(userId, notification.id);
+      }
     }
 
     // Navegar a detalle de propiedad si existe propertyId
