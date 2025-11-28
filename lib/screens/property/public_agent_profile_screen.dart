@@ -33,7 +33,8 @@ class PublicAgentProfileScreen extends StatefulWidget {
   PublicAgentProfileScreen({super.key});
 
   @override
-  State<PublicAgentProfileScreen> createState() => _PublicAgentProfileScreenState();
+  State<PublicAgentProfileScreen> createState() =>
+      _PublicAgentProfileScreenState();
 }
 
 class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
@@ -51,18 +52,18 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
     try {
       final authService = Modular.get<AuthService>();
       final user = authService.currentUser;
-      
+
       if (user != null) {
         // Cargar datos del usuario
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         if (userDoc.exists) {
           userData = userDoc.data();
         }
-        
+
         // Cargar propiedades del usuario
         final mobiliariaProvider = Modular.get<MobiliariaProvider>();
         userProperties = await mobiliariaProvider.fetchUserProperties();
@@ -97,13 +98,13 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
         ),
       );
     }
-    
+
     final displayName = userData?['displayName'] ?? 'Usuario';
     final email = userData?['email'] ?? 'Sin correo';
     final phone = userData?['phoneNumber'] ?? 'Sin teléfono';
     final photoUrl = userData?['photoURL'];
     final userRole = userData?['role'] ?? 'cliente';
-    
+
     final Map<String, String> publicStats = {
       'Publicaciones': userProperties.length.toString(),
       'Activas': userProperties.length.toString(),
@@ -117,7 +118,9 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
           // 1. Cabecera (Parte Constante y No-Editable)
           ProfileHeaderSection(
             name: displayName,
-            role: userRole == 'inmobiliaria' ? 'Agente Inmobiliario' : 'Usuario',
+            role: userRole == 'inmobiliaria'
+                ? 'Agente Inmobiliario'
+                : 'Usuario',
             photoUrl: photoUrl,
             isVerified: true,
             stats: publicStats,
@@ -189,9 +192,11 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
                           value: 'Contactar por WhatsApp',
                           onTap: () {
                             final message = Uri.encodeComponent(
-                              'Hola, vi tu perfil en MobiliariaApp y me gustaría consultarte.',
+                              'Hola, vi tu perfil en la app Comercial y me gustaría consultarte.',
                             );
-                            final uri = Uri.parse("https://wa.me/$phone?text=$message");
+                            final uri = Uri.parse(
+                              "https://wa.me/$phone?text=$message",
+                            );
                             _launchUrl(uri, context);
                           },
                           isEditable: true,
@@ -223,14 +228,18 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
                       ),
                     ],
                   ),
-                  
+
                   if (userProperties.isEmpty)
                     Container(
                       padding: EdgeInsets.all(Styles.spacingLarge),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.home_outlined, size: 48, color: Colors.grey[400]),
+                            Icon(
+                              Icons.home_outlined,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'Aún no tienes propiedades publicadas',
@@ -241,7 +250,9 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
                       ),
                     )
                   else
-                    ...userProperties.take(6).map((property) => _buildPropertyCard(property)),
+                    ...userProperties
+                        .take(6)
+                        .map((property) => _buildPropertyCard(property)),
 
                   SizedBox(height: Styles.spacingLarge * 2),
                 ],
@@ -252,7 +263,7 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
       ),
     );
   }
-  
+
   Widget _buildPropertyCard(Property property) {
     return Card(
       margin: EdgeInsets.only(bottom: Styles.spacingMedium),
@@ -277,7 +288,11 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
                           property.imageUrl,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.home, size: 40, color: Colors.grey),
+                              const Icon(
+                                Icons.home,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
                         )
                       : const Icon(Icons.home, size: 40, color: Colors.grey),
                 ),
@@ -316,7 +331,8 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
               ),
               // Botón editar
               IconButton(
-                onPressed: () => Modular.to.pushNamed('/property/new', arguments: property),
+                onPressed: () =>
+                    Modular.to.pushNamed('/property/new', arguments: property),
                 icon: const Icon(Icons.edit, color: Styles.primaryColor),
                 tooltip: 'Editar',
               ),

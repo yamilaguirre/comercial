@@ -194,7 +194,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     Uri uri;
     if (type == 'whatsapp') {
       final message = Uri.encodeComponent(
-        'Hola ${_ownerData?['displayName'] ?? ''}, vi tu propiedad "${_property?.name}" en MobiliariaAPP y estoy interesado.',
+        'Hola ${_ownerData?['displayName'] ?? ''}, vi tu propiedad "${_property?.name}" en Comercial y estoy interesado.',
       );
       uri = Uri.parse("https://wa.me/$finalPhone?text=$message");
     } else {

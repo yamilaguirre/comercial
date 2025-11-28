@@ -34,7 +34,7 @@ class RegisterScreen extends StatelessWidget {
               SizedBox(height: Styles.spacingXLarge),
 
               Text(
-                '¡Bienvenido a MobiliariaAPP!',
+                '¡Bienvenido a Comercial!',
                 style: TextStyles.title.copyWith(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
