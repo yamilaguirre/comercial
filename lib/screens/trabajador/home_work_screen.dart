@@ -255,8 +255,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
-          .where('role', isEqualTo: 'trabajo')
-          .where('status', isEqualTo: 'trabajo')
+          // No filtramos por rol/status para que aparezcan trabajadores
+          // que estén navegando en el módulo inmobiliaria.
+          // El filtrado real se hace abajo verificando el perfil completo.
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -292,15 +293,32 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
           );
         }
 
-        // Filtrar por búsqueda Y excluir al usuario actual
+        // Filtrar por búsqueda, excluir al usuario actual Y verificar perfil completo
         final filteredWorkers = workers.where((doc) {
           // Excluir al usuario actual
           if (doc.id == currentUserId) return false;
 
-          if (_searchQuery.isEmpty) return true;
-
           final data = doc.data() as Map<String, dynamic>;
           final profile = data['profile'] as Map<String, dynamic>?;
+
+          // Verificar que tenga perfil completo de freelance (igual que en worker_account_screen)
+          final hasProfessions =
+              (data['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
+          final hasPortfolio =
+              (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ??
+              false;
+          final hasDescription =
+              (profile?['description'] as String?)?.isNotEmpty ?? false;
+
+          // Solo mostrar trabajadores con perfil completo
+          if (!hasProfessions || !hasPortfolio || !hasDescription) {
+            return false;
+          }
+
+          // Si no hay búsqueda, mostrar todos los que tengan perfil completo
+          if (_searchQuery.isEmpty) return true;
+
+          // Filtrar por búsqueda
           final name = (data['name'] ?? '').toString().toLowerCase();
           // Prefer top-level `profession` if exists; otherwise, check `profile.profession` or arrays
           String profession =
