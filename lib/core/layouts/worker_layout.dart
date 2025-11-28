@@ -182,7 +182,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         });
         break;
       case 4:
-        // Cuenta -> property_account_screen
+        // Cuenta -> worker_account_screen
         Modular.to.navigate('/worker/account');
         break;
     }

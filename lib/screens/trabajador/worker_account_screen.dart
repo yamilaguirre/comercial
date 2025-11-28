@@ -1,29 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_modular/flutter_modular.dart'; // Importación de Modular
+import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
-import '../../providers/mobiliaria_provider.dart'; // Importación necesaria
-import '../../core/utils/create_test_notifications.dart'; // TEMPORAL: Para pruebas
+import '../property/components/account_header.dart';
+import '../property/components/account_menu_section.dart';
 
-// Importamos los nuevos componentes
-import 'components/account_header.dart';
-import 'components/account_menu_section.dart';
-
-class PropertyAccountScreen extends StatefulWidget {
-  const PropertyAccountScreen({super.key});
+class WorkerAccountScreen extends StatefulWidget {
+  const WorkerAccountScreen({super.key});
 
   @override
-  State<PropertyAccountScreen> createState() => _PropertyAccountScreenState();
+  State<WorkerAccountScreen> createState() => _WorkerAccountScreenState();
 }
 
-class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
+class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
   bool showPremiumModal = false;
 
-  // --- FUNCIÓN: CAMBIAR DE MÓDULO (REDIRECCIÓN A TRABAJADOR) ---
+  // --- FUNCIÓN: CAMBIAR DE MÓDULO (REDIRECCIÓN A INMOBILIARIA) ---
   void _changeModule() async {
-    final authService = Modular.get<AuthService>();
+    final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
 
     if (user == null) {
@@ -32,42 +28,67 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
     }
 
     try {
-      // Cambiar el rol del usuario a 'trabajo' antes de navegar
-      await authService.updateUserRole('trabajo');
-      // Navegar al módulo de trabajador
-      Modular.to.navigate('/worker/home-worker');
+      // Cambiar el rol del usuario a 'inmobiliaria' antes de navegar
+      await authService.updateUserRole('inmobiliaria');
+      // Navegar al módulo de property (pantalla principal)
+      Modular.to.navigate('/property/home');
     } catch (e) {
       print('Error al cambiar de módulo: $e');
     }
   }
 
-  // --- Opciones de Gestión de Propiedades (ESTÁTICAS) ---
-  List<Widget> _buildPropertyManagementItems() {
-    return [
-      AccountMenuItem(
-        icon: Icons.add_home_work,
-        iconColor: Styles.primaryColor,
-        iconBgColor: Styles.primaryColor.withOpacity(0.1),
-        title: 'Publicar nueva propiedad',
-        subtitle: 'Crea un anuncio de venta/alquiler',
-        onTap: () => Modular.to.pushNamed('/property/new'),
-      ),
-      AccountMenuSection.buildDivider(),
-      AccountMenuItem(
-        icon: Icons.edit_note,
-        iconColor: Colors.blue,
-        iconBgColor: Colors.blue.withOpacity(0.1),
-        title: 'Mis Publicaciones',
-        subtitle: 'Edita o elimina tus anuncios',
-        onTap: () => Modular.to.pushNamed('/property/my'),
-      ),
-    ];
+  // --- FUNCIÓN: VERIFICAR Y NAVEGAR A VISTA DE TRABAJADOR ---
+  Future<void> _navigateToWorkerView() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) {
+      Modular.to.navigate('/login');
+      return;
+    }
+
+    try {
+      // Verificar si el usuario ya tiene perfil de trabajador
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        // No existe el documento, ir a crear perfil
+        Modular.to.pushNamed('/worker/edit-profile');
+        return;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final profile = userData['profile'] as Map<String, dynamic>?;
+
+      // Verificar si tiene profesión seleccionada (indicador de perfil completado)
+      final hasProfessions =
+          (userData['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
+      final hasPortfolio =
+          (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ?? false;
+      final hasDescription =
+          (profile?['description'] as String?)?.isNotEmpty ?? false;
+
+      // Si tiene los datos básicos completos, ir al módulo freelance
+      if (hasProfessions && hasPortfolio && hasDescription) {
+        Modular.to.pushNamed('/freelance/home');
+      } else {
+        // Si el perfil está incompleto, ir a completarlo (freelance_work)
+        Modular.to.pushNamed('/worker/edit-profile');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al verificar perfil: $e')));
+    }
   }
 
-  // --- Menú General (Extraído para limpieza) ---
-  Widget _buildGeneralMenu(Map<String, dynamic>? userData) {
+  // --- Menú General de Trabajador ---
+  Widget _buildWorkerMenu(Map<String, dynamic>? userData) {
     return AccountMenuSection(
-      hasTitle: false, // No necesita título de sección
+      hasTitle: false,
       items: [
         AccountMenuItem(
           icon: Icons.person_outline,
@@ -75,39 +96,19 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           iconBgColor: const Color(0xFFF3F4F6),
           title: 'Editar perfil',
           subtitle: 'Actualiza tu información personal',
-          onTap: () => Modular.to.pushNamed(
-            '/property/edit-profile',
-            arguments: userData,
-          ),
-        ),
-
-        AccountMenuSection.buildDivider(),
-
-        // NUEVO: Ver Perfil de Gestión (Vista interna del Agente/Dueño)
-        AccountMenuItem(
-          icon: Icons.leaderboard_outlined,
-          iconColor: Colors.indigo.shade600,
-          iconBgColor: Colors.indigo.shade600.withOpacity(0.1),
-          title: 'Ver Perfil de Gestión',
-          subtitle: 'Accede a tus estadísticas completas y herramientas',
           onTap: () =>
-              Modular.to.pushNamed('/property/agent-management-profile'),
+              Modular.to.pushNamed('/worker/edit-profile', arguments: userData),
         ),
-
         AccountMenuSection.buildDivider(),
-
-        // NUEVO: Ver Perfil Público (Vista del Cliente)
         AccountMenuItem(
           icon: Icons.visibility_outlined,
           iconColor: Colors.teal.shade600,
           iconBgColor: Colors.teal.shade600.withOpacity(0.1),
           title: 'Ver Perfil Público',
           subtitle: 'Simula cómo ven tu perfil los clientes',
-          onTap: () => Modular.to.pushNamed('/property/public-profile'),
+          onTap: () => Modular.to.pushNamed('/worker/public-profile'),
         ),
-
         AccountMenuSection.buildDivider(),
-
         AccountMenuItem(
           icon: Icons.workspace_premium,
           iconColor: const Color(0xFFFFB800),
@@ -146,11 +147,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              // 1. Navegar primero para salir de la pantalla protegida
               Modular.to.pushNamedAndRemoveUntil('/login', (p0) => false);
-
-              // 2. Cerrar sesión después de navegar
-              // Usamos el servicio directamente ya que el contexto podría no ser válido
               Modular.get<AuthService>().signOut();
             },
             style: ElevatedButton.styleFrom(
@@ -164,8 +161,6 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
     );
   }
 
-  // --- WIDGET PRINCIPAL BUILD ---
-
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -176,7 +171,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi Cuenta'),
+        title: const Text('Mi Cuenta - Trabajador'),
         backgroundColor: Styles.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -184,7 +179,6 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Escuchamos cambios en tiempo real del usuario
           StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
@@ -203,102 +197,48 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                   userData?['displayName'] ?? user.displayName ?? 'Usuario';
               final email = userData?['email'] ?? user.email ?? 'Sin correo';
               final photoUrl = userData?['photoURL'] ?? user.photoURL;
-              final userRole = userData?['role'] ?? 'cliente';
-
-              // ----------------------------------------------------
-              // 1. Opciones de Gestión (Propiedades + Botón de Módulo)
-              // ----------------------------------------------------
-              final List<Widget> managementItems = [];
-
-              // Añadir el botón de CAMBIAR MÓDULO (si el rol actual no es solo 'cliente' o si queremos que siempre esté disponible)
-              // Lo mantendremos visible si el rol es 'inmobiliaria' o 'cliente' para darle la opción de ir a trabajador.
-
-              managementItems.insertAll(0, [
-                AccountMenuItem(
-                  icon: Icons.swap_horiz, // Ícono genérico de cambio
-                  iconColor: Styles.infoColor,
-                  iconBgColor: Styles.infoColor.withOpacity(0.1),
-                  title: 'Cambiar de Módulo', // Título actualizado
-                  subtitle:
-                      'Ir a la selección de rol (Inmobiliaria/Trabajador)',
-                  onTap: _changeModule, // Llama a la nueva función
-                ),
-                AccountMenuSection.buildDivider(),
-                // TEMPORAL: Botón para crear notificaciones de prueba
-                AccountMenuItem(
-                  icon: Icons.bug_report,
-                  iconColor: Colors.orange.shade600,
-                  iconBgColor: Colors.orange.shade600.withOpacity(0.1),
-                  title: '🧪 Crear Notificaciones de Prueba',
-                  subtitle: 'Genera 5 notificaciones de ejemplo (TEMPORAL)',
-                  onTap: () async {
-                    final authService = Provider.of<AuthService>(
-                      context,
-                      listen: false,
-                    );
-                    final userId = authService.currentUser?.uid ?? '';
-
-                    if (userId.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Error: No hay usuario autenticado'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Mostrar loading
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Creando notificaciones de prueba...'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-
-                    // Crear notificaciones
-                    await TestNotifications.createAllTestNotifications(userId);
-
-                    // Confirmar
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            '✅ 5 notificaciones creadas! Ve a la pestaña Avisos',
-                          ),
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                AccountMenuSection.buildDivider(),
-              ]);
-
-              // Añadir opciones de gestión de propiedades (son estáticas ahora)
-              managementItems.addAll(_buildPropertyManagementItems());
 
               return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // A. Header (Componente externo)
+                    // Header
                     AccountHeader(
                       displayName: displayName,
                       email: email,
                       photoUrl: photoUrl,
-                      userRole: userRole,
+                      userRole: 'trabajo',
                     ),
 
-                    // B. Opciones de Gestión (Módulo Propiedades + Botón de Cambio)
+                    // Sección Principal - Cambiar Módulo + Vista de Trabajador
                     AccountMenuSection(
-                      title: 'Gestión de Propiedades',
-                      items: managementItems,
+                      title: 'Perfil de Trabajador',
+                      items: [
+                        AccountMenuItem(
+                          icon: Icons.swap_horiz,
+                          iconColor: Styles.infoColor,
+                          iconBgColor: Styles.infoColor.withOpacity(0.1),
+                          title: 'Cambiar de Módulo',
+                          subtitle: 'Ve a la sección de Inmobiliaria',
+                          onTap: _changeModule,
+                        ),
+                        AccountMenuSection.buildDivider(),
+                        AccountMenuItem(
+                          icon: Icons.work_outline,
+                          iconColor: Colors.purple.shade600,
+                          iconBgColor: Colors.purple.shade600.withOpacity(0.1),
+                          title: 'Mi Perfil de Trabajador',
+                          subtitle:
+                              'Administra tu perfil y servicios que ofreces',
+                          onTap: _navigateToWorkerView,
+                        ),
+                      ],
                     ),
 
-                    // C. Menú General (Componente externo)
-                    _buildGeneralMenu(userData),
+                    // Menú General
+                    _buildWorkerMenu(userData),
 
-                    // D. Botón Cerrar sesión (Mantenido aquí por el widget TextButton)
+                    // Botón Cerrar sesión
                     Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: Styles.spacingMedium,
@@ -343,9 +283,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
     );
   }
 
-  // Se mantienen solo los widgets auxiliares no transferidos (Modal y Dialogo)
   Widget _buildPremiumModal() {
-    // Código de _buildPremiumModal sin cambios
     return GestureDetector(
       onTap: () => setState(() => showPremiumModal = false),
       child: Container(
