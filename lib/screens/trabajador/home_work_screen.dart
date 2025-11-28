@@ -459,34 +459,44 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   }
                 }
 
-                return _buildWorkerCard(
-                  workerId: workerDoc.id,
-                  name: name,
-                  profession: profession,
-                  rating: (data['rating'] ?? 0.0).toDouble(),
-                  reviews: data['reviews'] as int? ?? 0,
-                  price: (data['price']?.toString() ?? '').trim(),
-                  distance: distance,
-                  services:
-                      (data['services'] as List<dynamic>?)
-                          ?.map((s) => s.toString())
-                          .toList() ??
-                      [],
-                  photoUrl: data['photoUrl'] as String?,
-                  phone: data['phoneNumber'] as String? ?? '',
-                  latitude: workerLocation?['latitude'] as double? ?? 0.0,
-                  longitude: workerLocation?['longitude'] as double? ?? 0.0,
-                  categories:
-                      professionsData
-                          ?.map(
-                            (p) =>
-                                (p as Map<String, dynamic>?)?['category']
-                                    ?.toString() ??
-                                '',
-                          )
-                          .where((c) => c.isNotEmpty)
-                          .toList() ??
-                      ['Servicios'],
+                return StreamBuilder<Map<String, dynamic>>(
+                  stream: LocationService.calculateWorkerRatingStream(
+                    workerDoc.id,
+                  ),
+                  builder: (context, ratingSnapshot) {
+                    final ratingData =
+                        ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+
+                    return _buildWorkerCard(
+                      workerId: workerDoc.id,
+                      name: name,
+                      profession: profession,
+                      rating: (ratingData['rating'] as num).toDouble(),
+                      reviews: ratingData['reviews'] as int,
+                      price: (data['price']?.toString() ?? '').trim(),
+                      distance: distance,
+                      services:
+                          (data['services'] as List<dynamic>?)
+                              ?.map((s) => s.toString())
+                              .toList() ??
+                          [],
+                      photoUrl: data['photoUrl'] as String?,
+                      phone: data['phoneNumber'] as String? ?? '',
+                      latitude: workerLocation?['latitude'] as double? ?? 0.0,
+                      longitude: workerLocation?['longitude'] as double? ?? 0.0,
+                      categories:
+                          professionsData
+                              ?.map(
+                                (p) =>
+                                    (p as Map<String, dynamic>?)?['category']
+                                        ?.toString() ??
+                                    '',
+                              )
+                              .where((c) => c.isNotEmpty)
+                              .toList() ??
+                          ['Servicios'],
+                    );
+                  },
                 );
               },
             );
@@ -908,7 +918,28 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required String workerName,
     required double currentRating,
   }) async {
+    final authService = context.read<AuthService>();
+    final currentUserId = authService.currentUser?.uid;
+
+    if (currentUserId == null) return;
+
+    // Verificar si ya existe una calificación de este usuario
+    final existingFeedback = await FirebaseFirestore.instance
+        .collection('feedback')
+        .where('workerId', isEqualTo: workerId)
+        .where('userId', isEqualTo: currentUserId)
+        .limit(1)
+        .get();
+
     int selectedRating = 0;
+    bool isEditing = false;
+
+    if (existingFeedback.docs.isNotEmpty) {
+      final existingRating =
+          (existingFeedback.docs.first.data()['rating'] as num?)?.toInt() ?? 0;
+      selectedRating = existingRating;
+      isEditing = true;
+    }
 
     await showDialog(
       context: context,
@@ -916,12 +947,16 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text('Calificar a $workerName'),
+              title: Text(
+                '${isEditing ? "Editar" : "Calificar a"} $workerName',
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    '¿Cómo calificarías este trabajador?',
+                  Text(
+                    isEditing
+                        ? 'Edita tu calificación anterior'
+                        : '¿Cómo calificarías este trabajador?',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -973,12 +1008,17 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           Navigator.pop(dialogContext);
                           await LocationService.updateWorkerRating(
                             workerId: workerId,
+                            ratingUserId: currentUserId,
                             newRating: selectedRating.toDouble(),
                           );
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('¡Calificación guardada!'),
+                              SnackBar(
+                                content: Text(
+                                  isEditing
+                                      ? '¡Calificación actualizada!'
+                                      : '¡Calificación guardada!',
+                                ),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -989,7 +1029,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     backgroundColor: const Color(0xFF0033CC),
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Calificar'),
+                  child: Text(isEditing ? 'Actualizar' : 'Calificar'),
                 ),
               ],
             );

@@ -116,7 +116,8 @@ class LocationService {
     }
   }
 
-  /// Inicializa los campos de ubicación y rating en el perfil del usuario
+  /// Inicializa solo el campo de ubicación en el perfil del usuario
+  /// Ya no inicializa rating ni reviews (se calculan dinámicamente)
   static Future<void> initializeWorkerProfile(String userId) async {
     try {
       final userRef = FirebaseFirestore.instance
@@ -125,7 +126,7 @@ class LocationService {
       final doc = await userRef.get();
       final data = doc.data();
 
-      // Solo inicializar si no existen
+      // Solo inicializar ubicación si no existe
       final updates = <String, dynamic>{};
 
       if (data?['location'] == null) {
@@ -143,18 +144,6 @@ class LocationService {
         }
       }
 
-      if (data?['rating'] == null) {
-        updates['rating'] = 0.0;
-      }
-
-      if (data?['reviews'] == null) {
-        updates['reviews'] = 0;
-      }
-
-      if (data?['totalRatingScore'] == null) {
-        updates['totalRatingScore'] = 0.0;
-      }
-
       if (updates.isNotEmpty) {
         await userRef.update(updates);
       }
@@ -163,39 +152,104 @@ class LocationService {
     }
   }
 
-  /// Actualiza la calificación del trabajador
+  /// Actualiza la calificación del trabajador usando solo la colección feedback
+  /// Los valores de rating y reviews se calculan dinámicamente, no se almacenan
   static Future<void> updateWorkerRating({
     required String workerId,
+    required String ratingUserId,
     required double newRating,
   }) async {
     try {
-      final userRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(workerId);
+      final feedbackRef = FirebaseFirestore.instance.collection('feedback');
 
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final snapshot = await transaction.get(userRef);
+      // Buscar si ya existe un feedback de este usuario para este trabajador
+      final existingFeedback = await feedbackRef
+          .where('workerId', isEqualTo: workerId)
+          .where('userId', isEqualTo: ratingUserId)
+          .limit(1)
+          .get();
 
-        if (!snapshot.exists) return;
+      if (existingFeedback.docs.isNotEmpty) {
+        // Ya existe una calificación, actualizar solo el documento de feedback
+        final feedbackId = existingFeedback.docs.first.id;
 
-        final data = snapshot.data()!;
-        final currentReviews = (data['reviews'] as int?) ?? 0;
-        final currentTotalScore =
-            (data['totalRatingScore'] as num?)?.toDouble() ?? 0.0;
-
-        final newReviews = currentReviews + 1;
-        final newTotalScore = currentTotalScore + newRating;
-        final newAverageRating = newTotalScore / newReviews;
-
-        transaction.update(userRef, {
-          'rating': newAverageRating,
-          'reviews': newReviews,
-          'totalRatingScore': newTotalScore,
-          'lastRatingUpdate': FieldValue.serverTimestamp(),
+        await feedbackRef.doc(feedbackId).update({
+          'rating': newRating,
+          'updatedAt': FieldValue.serverTimestamp(),
         });
-      });
+      } else {
+        // No existe, crear nuevo feedback
+        await feedbackRef.add({
+          'workerId': workerId,
+          'userId': ratingUserId,
+          'rating': newRating,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     } catch (e) {
       print('Error actualizando calificación: $e');
     }
+  }
+
+  /// Calcula el rating promedio de un trabajador desde la colección feedback
+  static Future<Map<String, dynamic>> calculateWorkerRating(
+    String workerId,
+  ) async {
+    try {
+      final feedbackSnapshot = await FirebaseFirestore.instance
+          .collection('feedback')
+          .where('workerId', isEqualTo: workerId)
+          .get();
+
+      if (feedbackSnapshot.docs.isEmpty) {
+        return {'rating': 0.0, 'reviews': 0};
+      }
+
+      double totalRating = 0.0;
+      int reviewCount = feedbackSnapshot.docs.length;
+
+      for (var doc in feedbackSnapshot.docs) {
+        final rating = (doc.data()['rating'] as num?)?.toDouble() ?? 0.0;
+        totalRating += rating;
+      }
+
+      final averageRating = reviewCount > 0 ? totalRating / reviewCount : 0.0;
+
+      return {'rating': averageRating, 'reviews': reviewCount};
+    } catch (e) {
+      print('Error calculando rating: $e');
+      return {'rating': 0.0, 'reviews': 0};
+    }
+  }
+
+  /// Stream que calcula el rating promedio de un trabajador en tiempo real
+  /// Se actualiza automáticamente cuando cambia la colección feedback
+  static Stream<Map<String, dynamic>> calculateWorkerRatingStream(
+    String workerId,
+  ) {
+    return FirebaseFirestore.instance
+        .collection('feedback')
+        .where('workerId', isEqualTo: workerId)
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isEmpty) {
+            return {'rating': 0.0, 'reviews': 0};
+          }
+
+          double totalRating = 0.0;
+          int reviewCount = snapshot.docs.length;
+
+          for (var doc in snapshot.docs) {
+            final rating = (doc.data()['rating'] as num?)?.toDouble() ?? 0.0;
+            totalRating += rating;
+          }
+
+          final averageRating = reviewCount > 0
+              ? totalRating / reviewCount
+              : 0.0;
+
+          return {'rating': averageRating, 'reviews': reviewCount};
+        });
   }
 }
