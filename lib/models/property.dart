@@ -114,4 +114,8 @@ class Property {
 
     return null;
   }
+
+  // Getters para acceder a latitud y longitud desde geopoint
+  double get latitude => geopoint?.latitude ?? 0.0;
+  double get longitude => geopoint?.longitude ?? 0.0;
 }
