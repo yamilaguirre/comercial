@@ -13,6 +13,7 @@ import 'components/add_to_collection_dialog.dart';
 // Asumo que estos archivos existen en tu proyecto
 import '../../models/property.dart';
 import '../../services/saved_list_service.dart';
+import 'property_location_search_screen.dart';
 import '../../providers/auth_provider.dart';
 
 class PropertyListScreen extends StatefulWidget {
@@ -277,6 +278,71 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                           ),
                         ),
 
+                        // Botón de búsqueda por ubicación
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Styles.spacingMedium,
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Styles.primaryColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const PropertyLocationSearchScreen(),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: const [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Buscar por ubicación',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            'Encuentra propiedades cerca de ti',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Icon(
+                                        Icons.map,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: Styles.spacingMedium),
+
                         // Botones de Categoría
                         CategorySelector(
                           selectedCategory: selectedCategory,
@@ -284,37 +350,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                           isDetailedView: isDetailedView,
                           onToggleView: _onToggleView,
                         ),
-                        SizedBox(height: Styles.spacingSmall),
-
-                        // Search
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: Styles.spacingMedium,
-                          ),
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: 'Dirección: avenida, calle y número',
-                              hintStyle: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 14,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: Colors.grey[400],
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF5F5F5),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: Styles.spacingSmall,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: Styles.spacingLarge),
+                        SizedBox(height: Styles.spacingMedium),
                       ],
                     ),
                   ),
