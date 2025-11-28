@@ -14,47 +14,26 @@
       },
       "oauth_client": [
         {
+          "client_id": "39000178233-jkdn3npd530bn94dkli9r2ed428u35rs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.comercial.app",
+            "certificate_hash": "01e40064874a3f4a6221347bbf61d34f7453ef7f"
+          }
+        },
+        {
+          "client_id": "39000178233-lsq0vjj1724m3t66qru7vckm7994o640.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.comercial.app",
+            "certificate_hash": "2108fbb6db16a7c1959bcddb4e1cb55202fd5cb8"
+          }
+        },
+        {
           "client_id": "39000178233-nqjth32enqsee63sa22jpjbekqtm8eea.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.comercial.app",
-            "certificate_hash": "fb03df93f281e9b784cfe99f713141a189cf2cd6"
-          }
-        },
-        {
-          "client_id": "39000178233-49otc3j8hdqrhq1oovrqg8fe8ggq6l30.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCQ59-_LGwiGpNJb1fCTIdiyFIbPCgwVqw"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "39000178233-49otc3j8hdqrhq1oovrqg8fe8ggq6l30.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:39000178233:android:a19aa430b4a8a755f0d7e8",
-        "android_client_info": {
-          "package_name": "com.example.my_firebase_google_login"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "39000178233-uh5du71ev45sfhh22graqv9d674qdldi.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.my_firebase_google_login",
             "certificate_hash": "fb03df93f281e9b784cfe99f713141a189cf2cd6"
           }
         },
