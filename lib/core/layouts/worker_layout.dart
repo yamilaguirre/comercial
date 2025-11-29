@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:provider/provider.dart';
 
 import 'package:my_first_app/theme/theme.dart';
+import '../../services/chat_service.dart';
+import '../../providers/auth_provider.dart';
 
 class WorkerLayout extends StatefulWidget {
   final Widget child;
@@ -77,8 +80,8 @@ class _WorkerLayoutState extends State<WorkerLayout> {
             label: 'Guardados',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('mensajes', false),
-            activeIcon: _buildNavIcon('mensajes', true),
+            icon: _buildNavIconWithBadge(context, 'mensajes', false),
+            activeIcon: _buildNavIconWithBadge(context, 'mensajes', true),
             label: 'Mensajes',
           ),
           BottomNavigationBarItem(
@@ -93,6 +96,64 @@ class _WorkerLayoutState extends State<WorkerLayout> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildNavIconWithBadge(
+    BuildContext context,
+    String iconName,
+    bool isActive,
+  ) {
+    if (iconName != 'mensajes') {
+      return _buildNavIcon(iconName, isActive);
+    }
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUser?.uid ?? '';
+
+    if (currentUserId.isEmpty) {
+      return _buildNavIcon(iconName, isActive);
+    }
+
+    final chatService = ChatService();
+
+    return StreamBuilder<int>(
+      stream: chatService.getTotalUnreadCount(currentUserId),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.data ?? 0;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _buildNavIcon(iconName, isActive),
+            if (unreadCount > 0)
+              Positioned(
+                right: -6,
+                top: -3,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    unreadCount > 9 ? '9+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

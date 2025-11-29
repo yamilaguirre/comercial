@@ -65,6 +65,8 @@ class Chat {
   final String lastMessage;
   final DateTime lastUpdated;
   final List<ChatMessage> messages;
+  final Map<String, DateTime>
+  lastRead; // Cuándo cada usuario leyó por última vez
 
   Chat({
     required this.id,
@@ -73,11 +75,24 @@ class Chat {
     required this.lastMessage,
     required this.lastUpdated,
     required this.messages,
-  });
+    Map<String, DateTime>? lastRead,
+  }) : lastRead = lastRead ?? {};
 
   factory Chat.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final messagesData = data['messages'] as List<dynamic>? ?? [];
+
+    // Parsear lastRead del documento
+    final lastReadData = data['last_read'] as Map<String, dynamic>?;
+    final Map<String, DateTime> lastReadMap = {};
+
+    if (lastReadData != null) {
+      lastReadData.forEach((userId, timestamp) {
+        if (timestamp is Timestamp) {
+          lastReadMap[userId] = timestamp.toDate();
+        }
+      });
+    }
 
     return Chat(
       id: doc.id,
@@ -86,6 +101,22 @@ class Chat {
       lastMessage: data['last_message'] ?? '',
       lastUpdated: (data['last_updated'] as Timestamp).toDate(),
       messages: messagesData.map((msg) => ChatMessage.fromMap(msg)).toList(),
+      lastRead: lastReadMap,
     );
+  }
+
+  // Calcular mensajes no leídos para un usuario específico
+  int getUnreadCount(String userId) {
+    final userLastRead = lastRead[userId];
+
+    // Si nunca ha leído, todos los mensajes del otro usuario son no leídos
+    if (userLastRead == null) {
+      return messages.where((msg) => msg.senderId != userId).length;
+    }
+
+    // Contar mensajes después del último leído que no son del usuario actual
+    return messages.where((msg) {
+      return msg.senderId != userId && msg.timestamp.isAfter(userLastRead);
+    }).length;
   }
 }

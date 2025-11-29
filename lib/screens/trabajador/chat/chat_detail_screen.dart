@@ -35,6 +35,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isUploading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _markChatAsRead();
+  }
+
+  Future<void> _markChatAsRead() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUser?.uid ?? '';
+
+    if (currentUserId.isNotEmpty) {
+      await _chatService.markChatAsRead(widget.chatId, currentUserId);
+    }
+  }
+
+  @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();

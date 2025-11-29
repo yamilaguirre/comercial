@@ -264,15 +264,16 @@ class _ChatListItem extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              // Indicador de mensaje no leído
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: Styles.primaryColor,
-                                  shape: BoxShape.circle,
+                              // Indicador de mensaje no leído - solo si hay no leídos
+                              if (chat.getUnreadCount(currentUserId) > 0)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: Styles.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ],

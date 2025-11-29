@@ -79,11 +79,18 @@ class ChatService {
     try {
       final now = Timestamp.now();
 
+      // Inicializar last_read para ambos usuarios
+      final Map<String, dynamic> lastReadMap = {};
+      for (final userId in userIds) {
+        lastReadMap[userId] = now;
+      }
+
       final docRef = await _firestore.collection('chats').add({
         'property_id': propertyId,
         'user_ids': userIds,
         'last_message': initialMessage,
         'last_updated': FieldValue.serverTimestamp(),
+        'last_read': lastReadMap,
         'messages': [
           {
             'sender_id': senderId,
@@ -125,5 +132,45 @@ class ChatService {
       print('Error finding existing chat: $e');
       return null;
     }
+  }
+
+  // Eliminar chat
+  Future<bool> deleteChat(String chatId) async {
+    try {
+      await _firestore.collection('chats').doc(chatId).delete();
+      return true;
+    } catch (e) {
+      print('Error deleting chat: $e');
+      return false;
+    }
+  }
+
+  // Marcar chat como leído para un usuario
+  Future<bool> markChatAsRead(String chatId, String userId) async {
+    try {
+      await _firestore.collection('chats').doc(chatId).update({
+        'last_read.$userId': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      print('Error marking chat as read: $e');
+      return false;
+    }
+  }
+
+  // Obtener total de mensajes no leídos para un usuario
+  Stream<int> getTotalUnreadCount(String userId) {
+    return _firestore
+        .collection('chats')
+        .where('user_ids', arrayContains: userId)
+        .snapshots()
+        .map((snapshot) {
+          int totalUnread = 0;
+          for (var doc in snapshot.docs) {
+            final chat = Chat.fromFirestore(doc);
+            totalUnread += chat.getUnreadCount(userId);
+          }
+          return totalUnread;
+        });
   }
 }
