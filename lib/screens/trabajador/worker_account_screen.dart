@@ -114,15 +114,272 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
           iconColor: const Color(0xFF6B7280),
           iconBgColor: const Color(0xFFF3F4F6),
           title: 'Configuración',
-          subtitle: 'Preferencias y notificaciones',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Próximamente: Configuración')),
-            );
-          },
+          subtitle: 'Preferencias y opciones de cuenta',
+          onTap: () => _showConfigurationOptions(userData),
         ),
       ],
     );
+  }
+
+  bool _hasWorkerProfile(Map<String, dynamic>? userData) {
+    if (userData == null) return false;
+
+    final profile = userData['profile'] as Map<String, dynamic>?;
+    final hasProfessions =
+        (userData['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
+    final hasPortfolio =
+        (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ?? false;
+    final hasDescription =
+        (profile?['description'] as String?)?.isNotEmpty ?? false;
+
+    return hasProfessions && hasPortfolio && hasDescription;
+  }
+
+  void _showConfigurationOptions(Map<String, dynamic>? userData) {
+    final hasWorkerProfile = _hasWorkerProfile(userData);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Configuración',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_outlined),
+              title: const Text('Preferencias'),
+              subtitle: const Text('Notificaciones y privacidad'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Próximamente: Preferencias')),
+                );
+              },
+            ),
+            if (hasWorkerProfile) ...[
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.person_remove, color: Colors.orange),
+                title: const Text(
+                  'Eliminar Cuenta de Trabajador',
+                  style: TextStyle(color: Colors.orange),
+                ),
+                subtitle: const Text('Solo eliminar perfil de trabajador'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteWorkerProfileDialog();
+                },
+              ),
+            ],
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text(
+                'Eliminar Cuenta',
+                style: TextStyle(color: Colors.red),
+              ),
+              subtitle: const Text('Eliminar todo de forma permanente'),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteAccountDialog();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteWorkerProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Cuenta de Trabajador'),
+        content: const Text(
+          'Esto eliminará tu perfil de trabajador, pero mantendrás tu cuenta de inmobiliaria.\n\n'
+          '¿Estás seguro de continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteWorkerProfile();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Eliminar Perfil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Cuenta'),
+        content: const Text(
+          'ADVERTENCIA: Esto eliminará permanentemente tu cuenta y todos tus datos:\n\n'
+          '• Perfil de trabajador\n'
+          '• Perfil de inmobiliaria\n'
+          '• Chats y mensajes\n'
+          '• Favoritos y guardados\n'
+          '• Toda tu información\n\n'
+          'Esta acción NO puede deshacerse.\n\n'
+          '¿Estás ABSOLUTAMENTE seguro?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteCompleteAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Eliminar Todo'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteWorkerProfile() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) return;
+
+    try {
+      // Mostrar loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Limpiar solo los campos de trabajador
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            'professions': FieldValue.delete(),
+            'profile.portfolioImages': FieldValue.delete(),
+            'profile.description': FieldValue.delete(),
+            'profile.experienceYears': FieldValue.delete(),
+            'profile.availability': FieldValue.delete(),
+          });
+
+      // Cerrar loading
+      if (mounted) Navigator.pop(context);
+
+      // Mostrar éxito y navegar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perfil de trabajador eliminado')),
+        );
+        // Navegar al módulo de inmobiliaria
+        _changeModule();
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _deleteCompleteAccount() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) return;
+
+    try {
+      // Mostrar loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final userId = user.uid;
+
+      // 1. Eliminar chats donde el usuario participa
+      final chatsQuery = await FirebaseFirestore.instance
+          .collection('chats')
+          .where('user_ids', arrayContains: userId)
+          .get();
+
+      for (var chatDoc in chatsQuery.docs) {
+        await chatDoc.reference.delete();
+      }
+
+      // 2. Eliminar documentos de usuario en diferentes colecciones
+      await Future.wait([
+        FirebaseFirestore.instance.collection('users').doc(userId).delete(),
+        FirebaseFirestore.instance
+            .collection('saved_lists')
+            .where('user_id', isEqualTo: userId)
+            .get()
+            .then((query) async {
+              for (var doc in query.docs) {
+                await doc.reference.delete();
+              }
+            }),
+        FirebaseFirestore.instance
+            .collection('notifications')
+            .where('user_id', isEqualTo: userId)
+            .get()
+            .then((query) async {
+              for (var doc in query.docs) {
+                await doc.reference.delete();
+              }
+            }),
+      ]);
+
+      // 3. Eliminar usuario de Firebase Auth
+      await user.delete();
+
+      // 4. Cerrar sesión y navegar a login
+      if (mounted) Navigator.pop(context);
+      await authService.signOut();
+      Modular.to.pushNamedAndRemoveUntil('/login', (p0) => false);
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al eliminar cuenta: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showLogoutDialog(BuildContext context, AuthService authService) {
