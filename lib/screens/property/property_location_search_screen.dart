@@ -220,11 +220,30 @@ class _PropertyLocationSearchScreenState
           return false;
         }
       }
+
       final propertyLocation = LatLng(property.latitude, property.longitude);
-      return MapGeometryUtils.isPointInPolygon(
+
+      // Verificar si está dentro del polígono
+      bool inPolygon = MapGeometryUtils.isPointInPolygon(
         propertyLocation,
         _searchPolygon!,
       );
+
+      // Verificar si está dentro del radio desde la ubicación del usuario
+      bool inRadius = false;
+      if (_userLocation != null) {
+        final distance = Geolocator.distanceBetween(
+          _userLocation!.latitude,
+          _userLocation!.longitude,
+          property.latitude,
+          property.longitude,
+        );
+        final distanceKm = distance / 1000;
+        inRadius = distanceKm <= _searchRadius;
+      }
+
+      // Incluir si está en el polígono O dentro del radio
+      return inPolygon || inRadius;
     }).toList();
     final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
     filtered.sort((a, b) {

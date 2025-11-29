@@ -122,6 +122,21 @@ class _WorkerLocationSearchScreenState
         if (doc.id == currentUserId) continue;
 
         final data = doc.data();
+        final profile = data['profile'] as Map<String, dynamic>?;
+
+        // Verificar que tenga perfil completo de freelance (igual que home_work_screen)
+        final hasProfessions =
+            (data['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
+        final hasPortfolio =
+            (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ??
+            false;
+        final hasDescription =
+            (profile?['description'] as String?)?.isNotEmpty ?? false;
+
+        // Solo mostrar trabajadores con perfil completo
+        if (!hasProfessions || !hasPortfolio || !hasDescription) {
+          continue;
+        }
 
         // Obtener ubicación del campo 'location'
         final location = data['location'] as Map<String, dynamic>?;
@@ -255,9 +270,29 @@ class _WorkerLocationSearchScreenState
         if (!hasMatchingCategory) return false;
       }
 
-      // Verificar si el trabajador está dentro del polígono
       final workerLocation = LatLng(worker.latitude, worker.longitude);
-      return MapGeometryUtils.isPointInPolygon(workerLocation, _searchPolygon!);
+
+      // Verificar si está dentro del polígono
+      bool inPolygon = MapGeometryUtils.isPointInPolygon(
+        workerLocation,
+        _searchPolygon!,
+      );
+
+      // Verificar si está dentro del radio desde la ubicación del usuario
+      bool inRadius = false;
+      if (_userLocation != null) {
+        final distance = Geolocator.distanceBetween(
+          _userLocation!.latitude,
+          _userLocation!.longitude,
+          worker.latitude,
+          worker.longitude,
+        );
+        final distanceKm = distance / 1000;
+        inRadius = distanceKm <= _searchRadius;
+      }
+
+      // Incluir si está en el polígono O dentro del radio
+      return inPolygon || inRadius;
     }).toList();
 
     // Ordenar por distancia al centro del polígono

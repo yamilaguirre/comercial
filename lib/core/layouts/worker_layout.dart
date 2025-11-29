@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
-import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 import 'package:my_first_app/theme/theme.dart';
 
 class WorkerLayout extends StatefulWidget {
@@ -84,9 +82,9 @@ class _WorkerLayoutState extends State<WorkerLayout> {
             label: 'Mensajes',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('regresar', false),
-            activeIcon: _buildNavIcon('regresar', true),
-            label: 'Regresar',
+            icon: _buildNavIcon('notificaciones', false),
+            activeIcon: _buildNavIcon('notificaciones', true),
+            label: 'Notificaciones',
           ),
           BottomNavigationBarItem(
             icon: _buildNavIcon('cuenta', false),
@@ -142,8 +140,8 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         return Icons.favorite_border;
       case 'inicio':
         return Icons.person;
-      case 'regresar':
-        return Icons.arrow_back;
+      case 'notificaciones':
+        return Icons.notifications_none;
       case 'cuenta':
         return Icons.account_circle_outlined;
       default:
@@ -155,7 +153,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
     if (location.contains('home-worker')) return 0;
     if (location.contains('favorites')) return 1;
     if (location.contains('messages')) return 2;
-    // Regresar (index 3) no mantiene estado activo ya que sale del módulo
+    if (location.contains('alerts')) return 3;
     if (location.contains('account')) return 4;
     return 0; // Default to Explorar
   }
@@ -175,11 +173,8 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         Modular.to.navigate('/worker/messages');
         break;
       case 3:
-        // Regresar - Resetear rol y navegar a selección
-        final authService = Provider.of<AuthService>(context, listen: false);
-        authService.resetRole().then((_) {
-          Modular.to.navigate('/select-role');
-        });
+        // Notificaciones -> worker_alerts_screen
+        Modular.to.navigate('/worker/alerts');
         break;
       case 4:
         // Cuenta -> worker_account_screen
