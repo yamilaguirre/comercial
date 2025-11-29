@@ -101,15 +101,6 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
         ),
         AccountMenuSection.buildDivider(),
         AccountMenuItem(
-          icon: Icons.visibility_outlined,
-          iconColor: Colors.teal.shade600,
-          iconBgColor: Colors.teal.shade600.withOpacity(0.1),
-          title: 'Ver Perfil Público',
-          subtitle: 'Simula cómo ven tu perfil los clientes',
-          onTap: () => Modular.to.pushNamed('/worker/public-profile'),
-        ),
-        AccountMenuSection.buildDivider(),
-        AccountMenuItem(
           icon: Icons.workspace_premium,
           iconColor: const Color(0xFFFFB800),
           iconBgColor: const Color(0xFFFFF7E6),
