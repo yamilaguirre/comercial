@@ -140,14 +140,29 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              widget.worker.name,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    widget.worker.name,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (data['verificationStatus'] ==
+                                    'verified') ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.verified,
+                                    color: Color(0xFF4CAF50),
+                                    size: 18,
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(

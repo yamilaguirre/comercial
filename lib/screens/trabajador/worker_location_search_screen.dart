@@ -1086,6 +1086,7 @@ class WorkerData {
   final double rating;
   final String phone;
   final String price;
+  final String verificationStatus;
 
   WorkerData({
     required this.id,
@@ -1098,6 +1099,7 @@ class WorkerData {
     required this.rating,
     required this.phone,
     required this.price,
+    this.verificationStatus = 'unverified',
   });
 
   // Getter para compatibilidad

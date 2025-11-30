@@ -12,6 +12,7 @@ import 'package:my_first_app/screens/trabajador/worker_account_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_favorites_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_collection_detail_screen.dart';
 import 'package:my_first_app/screens/trabajador/edit_account_screen.dart';
+import 'package:my_first_app/screens/trabajador/worker_verification_screen.dart';
 
 class WorkerModule extends Module {
   @override
@@ -78,6 +79,11 @@ class WorkerModule extends Module {
         otherUserName: r.args.data['otherUserName'],
         otherUserPhoto: r.args.data['otherUserPhoto'],
       ),
+    );
+
+    r.child(
+      '/verification',
+      child: (context) => const WorkerVerificationScreen(),
     );
   }
 }

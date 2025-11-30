@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
-import '../property/components/account_header.dart';
 import '../property/components/account_menu_section.dart';
 
 class WorkerAccountScreen extends StatefulWidget {
@@ -97,6 +96,15 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
           title: 'Editar perfil',
           subtitle: 'Actualiza tu información personal',
           onTap: () => Modular.to.pushNamed('/worker/edit-account'),
+        ),
+        AccountMenuSection.buildDivider(),
+        AccountMenuItem(
+          icon: Icons.verified_user_outlined,
+          iconColor: const Color(0xFF4CAF50),
+          iconBgColor: const Color(0xFFE8F5E9),
+          title: 'Solicitar Verificado',
+          subtitle: 'Verifica tu identidad y destaca',
+          onTap: () => Modular.to.pushNamed('/worker/verification'),
         ),
         AccountMenuSection.buildDivider(),
         AccountMenuItem(
@@ -418,7 +426,7 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi Cuenta - Trabajador'),
+        title: const Text('Mi Cuenta - Empleador'),
         backgroundColor: Styles.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -449,12 +457,254 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
-                    AccountHeader(
-                      displayName: displayName,
-                      email: email,
-                      photoUrl: photoUrl,
-                      userRole: 'trabajo',
+                    // Header personalizado con estado de verificación
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Styles.primaryColor,
+                            Styles.primaryColor.withOpacity(0.8),
+                          ],
+                        ),
+                      ),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 24,
+                          ),
+                          child: Column(
+                            children: [
+                              // Avatar con badge de verificación
+                              Stack(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 3,
+                                      ),
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 50,
+                                      backgroundColor: Colors.white,
+                                      backgroundImage: photoUrl != null
+                                          ? NetworkImage(photoUrl)
+                                          : null,
+                                      child: photoUrl == null
+                                          ? Icon(
+                                              Icons.person,
+                                              size: 50,
+                                              color: Colors.grey[400],
+                                            )
+                                          : null,
+                                    ),
+                                  ),
+                                  if (userData?['verificationStatus'] ==
+                                      'verified')
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.verified,
+                                          color: Color(0xFF4CAF50),
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Nombre
+                              Text(
+                                displayName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 4),
+
+                              // Email
+                              Text(
+                                email,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Chips de Plan y Verificación
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Plan Gratuito
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      'Plan Gratuito',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Estado de Verificación
+                                  const SizedBox(width: 8),
+                                  if (userData?['verificationStatus'] ==
+                                      'verified')
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF4CAF50),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(
+                                            Icons.check_circle,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Verificado',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else if (userData?['verificationStatus'] ==
+                                      'pending')
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(
+                                            Icons.schedule,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'En revisión',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else if (userData?['verificationStatus'] ==
+                                      'rejected')
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade400,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(
+                                            Icons.error_outline,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Rechazado',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          Icon(
+                                            Icons.info_outline,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Sin verificar',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
 
                     // Sección Principal - Cambiar Módulo + Vista de Trabajador
