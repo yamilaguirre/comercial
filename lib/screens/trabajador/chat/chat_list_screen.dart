@@ -264,14 +264,34 @@ class _ChatListItem extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              // Indicador de mensaje no leído - solo si hay no leídos
+                              // Badge de contador de mensajes no leídos
                               if (chat.getUnreadCount(currentUserId) > 0)
                                 Container(
-                                  width: 8,
-                                  height: 8,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 20,
+                                    minHeight: 20,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Styles.primaryColor,
-                                    shape: BoxShape.circle,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      chat.getUnreadCount(currentUserId) > 99
+                                          ? '99+'
+                                          : chat
+                                                .getUnreadCount(currentUserId)
+                                                .toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ),
                             ],
