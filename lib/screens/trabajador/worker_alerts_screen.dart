@@ -43,6 +43,8 @@ class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final userId = authService.currentUser?.uid ?? '';
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -50,16 +52,21 @@ class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
+        titleSpacing: 16,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.notifications, color: Styles.primaryColor, size: 24),
             const SizedBox(width: 8),
-            const Text(
-              'Notificaciones',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            Flexible(
+              child: Text(
+                'Notificaciones',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -74,17 +81,26 @@ class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
                   .map((n) => n.id)
                   .toList();
 
-              return TextButton(
-                onPressed: unreadIds.isEmpty
-                    ? null
-                    : () => _markAllAsRead(userId, unreadIds),
-                child: Text(
-                  'Marcar todo como leído',
-                  style: TextStyle(
-                    color: unreadIds.isEmpty
-                        ? Colors.grey
-                        : Styles.primaryColor,
-                    fontSize: 14,
+              return Flexible(
+                child: TextButton(
+                  onPressed: unreadIds.isEmpty
+                      ? null
+                      : () => _markAllAsRead(userId, unreadIds),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 8 : 12,
+                    ),
+                  ),
+                  child: Text(
+                    isSmallScreen ? 'Marcar leído' : 'Marcar todo como leído',
+                    style: TextStyle(
+                      color: unreadIds.isEmpty
+                          ? Colors.grey
+                          : Styles.primaryColor,
+                      fontSize: isSmallScreen ? 12 : 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               );
