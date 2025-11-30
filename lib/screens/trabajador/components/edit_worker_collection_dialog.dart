@@ -38,30 +38,53 @@ class _EditWorkerCollectionDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Editar colección'),
-      content: Form(
-        key: _formKey,
-        child: TextFormField(
-          controller: _nameController,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Nombre de la colección',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Styles.primaryColor, width: 2),
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      content: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            minWidth: 280,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Nombre de la colección',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Styles.primaryColor,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Por favor ingresa un nombre';
+                    }
+                    if (value.trim().length < 3) {
+                      return 'El nombre debe tener al menos 3 caracteres';
+                    }
+                    return null;
+                  },
+                  textCapitalization: TextCapitalization.words,
+                  onFieldSubmitted: (_) => _save(),
+                ),
+              ],
             ),
           ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Por favor ingresa un nombre';
-            }
-            if (value.trim().length < 3) {
-              return 'El nombre debe tener al menos 3 caracteres';
-            }
-            return null;
-          },
-          textCapitalization: TextCapitalization.words,
-          onFieldSubmitted: (_) => _save(),
         ),
       ),
       actions: [
@@ -74,6 +97,7 @@ class _EditWorkerCollectionDialogState
           style: ElevatedButton.styleFrom(
             backgroundColor: Styles.primaryColor,
             foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
