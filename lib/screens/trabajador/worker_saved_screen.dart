@@ -500,51 +500,66 @@ class _WorkerSavedScreenState extends State<WorkerSavedScreen> {
 
             const SizedBox(height: 18),
 
-            // Precio y distancia
+            // Precio y distancia (Responsivo)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Desde',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF616161)),
-                    ),
-                    Text(
-                      price.isNotEmpty ? 'Bs $price' : price,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF001BB7),
+                Flexible(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Desde',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF616161),
+                        ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        price.isNotEmpty ? 'Bs $price' : price,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF001BB7),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Color(0xFF616161),
-                    ),
-                    Text(
-                      distance,
-                      style: const TextStyle(
-                        fontSize: 14,
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 3,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        size: 16,
                         color: Color(0xFF616161),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.star, size: 16, color: Colors.amber),
-                    Text(
-                      rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF212121),
+                      Flexible(
+                        child: Text(
+                          distance,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF616161),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      const Icon(Icons.star, size: 16, color: Colors.amber),
+                      Text(
+                        rating.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF212121),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

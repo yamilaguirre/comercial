@@ -208,7 +208,7 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(120),
+          preferredSize: const Size.fromHeight(60),
           child: Column(
             children: [
               // Tabs
@@ -236,40 +236,7 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // Contadores
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildCounter(
-                        filter: ContactFilter.all,
-                        icon: Icons.grid_view,
-                        label: 'Todos',
-                        count: _counts[ContactFilter.all] ?? 0,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildCounter(
-                        filter: ContactFilter.contacted,
-                        icon: Icons.chat_bubble_outline,
-                        label: 'Contactados',
-                        count: _counts[ContactFilter.contacted] ?? 0,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildCounter(
-                        filter: ContactFilter.notContacted,
-                        icon: Icons.favorite_border,
-                        label: 'No contactados',
-                        count: _counts[ContactFilter.notContacted] ?? 0,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -330,166 +297,227 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
   }
 
   Widget _buildAllSavedTab(String userId) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _savedService.getFilteredSavedWorkers(userId, _selectedFilter),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final workers = snapshot.data ?? [];
-
-        if (workers.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        // Contadores
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
               children: [
-                Icon(Icons.favorite_border, size: 80, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text(
-                  'No hay trabajadores en esta categoría',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
+                _buildCounter(
+                  filter: ContactFilter.all,
+                  icon: Icons.grid_view,
+                  label: 'Todos',
+                  count: _counts[ContactFilter.all] ?? 0,
+                ),
+                const SizedBox(width: 12),
+                _buildCounter(
+                  filter: ContactFilter.contacted,
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Contactados',
+                  count: _counts[ContactFilter.contacted] ?? 0,
+                ),
+                const SizedBox(width: 12),
+                _buildCounter(
+                  filter: ContactFilter.notContacted,
+                  icon: Icons.favorite_border,
+                  label: 'No contactados',
+                  count: _counts[ContactFilter.notContacted] ?? 0,
                 ),
               ],
             ),
-          );
-        }
-
-        return StreamBuilder<Position>(
-          stream: Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 10,
-            ),
           ),
-          builder: (context, positionSnapshot) {
-            final userLocation = positionSnapshot.data;
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _savedService.getFilteredSavedWorkers(
+              userId,
+              _selectedFilter,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            return ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: Styles.spacingMedium),
-              itemCount: workers.length,
-              itemBuilder: (context, index) {
-                final data = workers[index];
-                final workerId = data['id'] as String;
-                final name = data['name'] ?? 'Sin nombre';
+              final workers = snapshot.data ?? [];
 
-                // Calcular distancia real si ambos tienen ubicación
-                String distance = '';
-                final workerLocation =
-                    data['location'] as Map<String, dynamic>?;
-
-                if (workerLocation != null && userLocation != null) {
-                  final workerLat = (workerLocation['latitude'] as num?)
-                      ?.toDouble();
-                  final workerLng = (workerLocation['longitude'] as num?)
-                      ?.toDouble();
-
-                  if (workerLat != null && workerLng != null) {
-                    final distanceInMeters = Geolocator.distanceBetween(
-                      userLocation.latitude,
-                      userLocation.longitude,
-                      workerLat,
-                      workerLng,
-                    );
-                    final distanceKm = distanceInMeters / 1000;
-
-                    if (distanceKm < 1) {
-                      distance = '${distanceInMeters.toInt()}m';
-                    } else {
-                      distance = '${distanceKm.toStringAsFixed(1)} km';
-                    }
-                  }
-                }
-
-                // Extraer profesión
-                final profileMap = data['profile'] as Map<String, dynamic>?;
-                String profession =
-                    (data['profession'] as String? ??
-                            profileMap?['profession'] as String? ??
-                            '')
-                        .toString();
-                final professionsData =
-                    (data['professions'] as List<dynamic>?) ??
-                    (profileMap?['professions'] as List<dynamic>?);
-                if (profession.isEmpty) {
-                  profession = 'Sin profesión especificada';
-                }
-                if (professionsData != null && professionsData.isNotEmpty) {
-                  final List<String> allSubcategories = [];
-                  for (var prof in professionsData) {
-                    final profMap = prof as Map<String, dynamic>?;
-                    final subcategories =
-                        profMap?['subcategories'] as List<dynamic>?;
-                    if (subcategories != null && subcategories.isNotEmpty) {
-                      allSubcategories.addAll(
-                        subcategories.map((s) => s.toString()),
-                      );
-                    }
-                  }
-                  if (profession == 'Sin profesión especificada') {
-                    if (allSubcategories.isNotEmpty) {
-                      profession = allSubcategories.take(2).join(' • ');
-                    } else {
-                      final firstProfession =
-                          professionsData[0] as Map<String, dynamic>?;
-                      final category =
-                          firstProfession?['category'] as String? ?? '';
-                      if (category.isNotEmpty) {
-                        profession = category;
-                      }
-                    }
-                  }
-                }
-
-                // Stream para el rating
-                return StreamBuilder<Map<String, dynamic>>(
-                  stream: LocationService.calculateWorkerRatingStream(workerId),
-                  builder: (context, ratingSnapshot) {
-                    final ratingData =
-                        ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
-                    final rating = (ratingData['rating'] as num).toDouble();
-                    final reviews = ratingData['reviews'] as int;
-
-                    return _buildWorkerCard(
-                      workerId: workerId,
-                      name: name,
-                      profession: profession,
-                      rating: rating,
-                      reviews: reviews,
-                      price: (data['price']?.toString() ?? '').trim(),
-                      distance: distance,
-                      services:
-                          (data['services'] as List<dynamic>?)
-                              ?.map((s) => s.toString())
-                              .toList() ??
-                          [],
-                      photoUrl: data['photoUrl'] as String?,
-                      phone: data['phoneNumber'] as String? ?? '',
-                      latitude: workerLocation?['latitude'] as double? ?? 0.0,
-                      longitude: workerLocation?['longitude'] as double? ?? 0.0,
-                      categories:
-                          professionsData
-                              ?.map(
-                                (p) =>
-                                    (p as Map<String, dynamic>?)?['category']
-                                        ?.toString() ??
-                                    '',
-                              )
-                              .where((c) => c.isNotEmpty)
-                              .toList() ??
-                          ['Servicios'],
-                    );
-                  },
+              if (workers.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.favorite_border,
+                        size: 80,
+                        color: Colors.grey[300],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No hay trabajadores en esta categoría',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
-              },
-            );
-          },
-        );
-      },
+              }
+
+              return StreamBuilder<Position>(
+                stream: Geolocator.getPositionStream(
+                  locationSettings: const LocationSettings(
+                    accuracy: LocationAccuracy.high,
+                    distanceFilter: 10,
+                  ),
+                ),
+                builder: (context, positionSnapshot) {
+                  final userLocation = positionSnapshot.data;
+
+                  return ListView.builder(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: Styles.spacingMedium,
+                    ),
+                    itemCount: workers.length,
+                    itemBuilder: (context, index) {
+                      final data = workers[index];
+                      final workerId = data['id'] as String;
+                      final name = data['name'] ?? 'Sin nombre';
+
+                      // Calcular distancia real si ambos tienen ubicación
+                      String distance = '';
+                      final workerLocation =
+                          data['location'] as Map<String, dynamic>?;
+
+                      if (workerLocation != null && userLocation != null) {
+                        final workerLat = (workerLocation['latitude'] as num?)
+                            ?.toDouble();
+                        final workerLng = (workerLocation['longitude'] as num?)
+                            ?.toDouble();
+
+                        if (workerLat != null && workerLng != null) {
+                          final distanceInMeters = Geolocator.distanceBetween(
+                            userLocation.latitude,
+                            userLocation.longitude,
+                            workerLat,
+                            workerLng,
+                          );
+                          final distanceKm = distanceInMeters / 1000;
+
+                          if (distanceKm < 1) {
+                            distance = '${distanceInMeters.toInt()}m';
+                          } else {
+                            distance = '${distanceKm.toStringAsFixed(1)} km';
+                          }
+                        }
+                      }
+
+                      // Extraer profesión
+                      final profileMap =
+                          data['profile'] as Map<String, dynamic>?;
+                      String profession =
+                          (data['profession'] as String? ??
+                                  profileMap?['profession'] as String? ??
+                                  '')
+                              .toString();
+                      final professionsData =
+                          (data['professions'] as List<dynamic>?) ??
+                          (profileMap?['professions'] as List<dynamic>?);
+                      if (profession.isEmpty) {
+                        profession = 'Sin profesión especificada';
+                      }
+                      if (professionsData != null &&
+                          professionsData.isNotEmpty) {
+                        final List<String> allSubcategories = [];
+                        for (var prof in professionsData) {
+                          final profMap = prof as Map<String, dynamic>?;
+                          final subcategories =
+                              profMap?['subcategories'] as List<dynamic>?;
+                          if (subcategories != null &&
+                              subcategories.isNotEmpty) {
+                            allSubcategories.addAll(
+                              subcategories.map((s) => s.toString()),
+                            );
+                          }
+                        }
+                        if (profession == 'Sin profesión especificada') {
+                          if (allSubcategories.isNotEmpty) {
+                            profession = allSubcategories.take(2).join(' • ');
+                          } else {
+                            final firstProfession =
+                                professionsData[0] as Map<String, dynamic>?;
+                            final category =
+                                firstProfession?['category'] as String? ?? '';
+                            if (category.isNotEmpty) {
+                              profession = category;
+                            }
+                          }
+                        }
+                      }
+
+                      // Stream para el rating
+                      return StreamBuilder<Map<String, dynamic>>(
+                        stream: LocationService.calculateWorkerRatingStream(
+                          workerId,
+                        ),
+                        builder: (context, ratingSnapshot) {
+                          final ratingData =
+                              ratingSnapshot.data ??
+                              {'rating': 0.0, 'reviews': 0};
+                          final rating = (ratingData['rating'] as num)
+                              .toDouble();
+                          final reviews = ratingData['reviews'] as int;
+
+                          return _buildWorkerCard(
+                            workerId: workerId,
+                            name: name,
+                            profession: profession,
+                            rating: rating,
+                            reviews: reviews,
+                            price: (data['price']?.toString() ?? '').trim(),
+                            distance: distance,
+                            services:
+                                (data['services'] as List<dynamic>?)
+                                    ?.map((s) => s.toString())
+                                    .toList() ??
+                                [],
+                            photoUrl: data['photoUrl'] as String?,
+                            phone: data['phoneNumber'] as String? ?? '',
+                            latitude:
+                                workerLocation?['latitude'] as double? ?? 0.0,
+                            longitude:
+                                workerLocation?['longitude'] as double? ?? 0.0,
+                            categories:
+                                professionsData
+                                    ?.map(
+                                      (p) =>
+                                          (p
+                                                  as Map<
+                                                    String,
+                                                    dynamic
+                                                  >?)?['category']
+                                              ?.toString() ??
+                                          '',
+                                    )
+                                    .where((c) => c.isNotEmpty)
+                                    .toList() ??
+                                ['Servicios'],
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -497,7 +525,7 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: OutlinedButton.icon(
             onPressed: _createCollection,
             icon: const Icon(Icons.add),
@@ -505,7 +533,7 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
             style: OutlinedButton.styleFrom(
               foregroundColor: Styles.primaryColor,
               side: BorderSide(color: Styles.primaryColor),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
