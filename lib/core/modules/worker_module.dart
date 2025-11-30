@@ -11,6 +11,7 @@ import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_account_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_favorites_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_collection_detail_screen.dart';
+import 'package:my_first_app/screens/trabajador/edit_account_screen.dart';
 
 class WorkerModule extends Module {
   @override
@@ -66,6 +67,8 @@ class WorkerModule extends Module {
     );
 
     r.child('/edit-profile', child: (context) => const FreelanceWorkScreen());
+
+    r.child('/edit-account', child: (context) => const EditAccountScreen());
 
     r.child(
       '/chat-detail',

@@ -115,110 +115,140 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(Styles.spacingLarge),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Image.asset(
-                  'assets/images/logoColor.png',
-                  height: 60,
-                  fit: BoxFit.contain,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Detectar orientación y ajustar tamaños
+            final isLandscape = constraints.maxWidth > constraints.maxHeight;
+            final screenHeight = constraints.maxHeight;
+
+            // Tamaños adaptativos
+            final logoHeight = isLandscape ? 40.0 : 60.0;
+            final imageHeight = isLandscape
+                ? screenHeight *
+                      0.35 // 35% de la altura en horizontal
+                : 250.0;
+            final verticalSpacing = isLandscape
+                ? Styles.spacingMedium
+                : Styles.spacingXLarge;
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.all(Styles.spacingLarge),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - (Styles.spacingLarge * 2),
                 ),
-              ),
-
-              SizedBox(height: Styles.spacingXLarge),
-
-              Text(
-                '¿Con qué quieres empezar?',
-                style: TextStyles.title.copyWith(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Styles.textPrimary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: Styles.spacingMedium),
-
-              Text(
-                'Puedes explorar inmuebles o freelancers cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
-                style: TextStyles.body.copyWith(color: Styles.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-
-              SizedBox(height: Styles.spacingXLarge),
-
-              Center(
-                child: Image.asset(
-                  'assets/images/conQueQuieresEmpesar.png',
-                  height: 250,
-                  fit: BoxFit.contain,
-                ),
-              ),
-
-              const Spacer(),
-
-              // Botones de Selección
-              Row(
-                children: [
-                  // Botón 1: Inmobiliaria
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: _isLoading
-                            ? null
-                            : () => _updateRoleAndNavigate('inmobiliaria'),
-                        icon: const Icon(Icons.home_work, size: 24),
-                        label: _isLoading && isInmobiliariaSelected
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text('Inmobiliaria'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Styles.primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 4,
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Image.asset(
+                          'assets/images/logoColor.png',
+                          height: logoHeight,
+                          fit: BoxFit.contain,
                         ),
                       ),
-                    ),
-                  ),
-                  SizedBox(width: Styles.spacingMedium),
 
-                  // Botón 2: Trabajo
-                  Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: _isLoading
-                            ? null
-                            : () => _updateRoleAndNavigate('trabajo'),
-                        icon: const Icon(Icons.work_outline, size: 24),
-                        label: _isLoading && isWorkerSelected
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
-                              )
-                            : const Text('Trabajo'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Styles.textPrimary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 4,
+                      SizedBox(height: verticalSpacing),
+
+                      Text(
+                        '¿Con qué quieres empezar?',
+                        style: TextStyles.title.copyWith(
+                          fontSize: isLandscape ? 20 : 24,
+                          fontWeight: FontWeight.bold,
+                          color: Styles.textPrimary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: Styles.spacingMedium),
+
+                      Text(
+                        'Puedes explorar inmuebles o freelancers cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
+                        style: TextStyles.body.copyWith(
+                          color: Styles.textSecondary,
+                          fontSize: isLandscape ? 13 : 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      SizedBox(height: verticalSpacing),
+
+                      Center(
+                        child: Image.asset(
+                          'assets/images/conQueQuieresEmpesar.png',
+                          height: imageHeight,
+                          fit: BoxFit.contain,
                         ),
                       ),
-                    ),
+
+                      const Spacer(),
+
+                      // Botones de Selección
+                      Row(
+                        children: [
+                          // Botón 1: Inmobiliaria
+                          Expanded(
+                            child: SizedBox(
+                              height: 56,
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _updateRoleAndNavigate(
+                                        'inmobiliaria',
+                                      ),
+                                icon: const Icon(Icons.home_work, size: 24),
+                                label: _isLoading && isInmobiliariaSelected
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                    : const Text('Inmobiliaria'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Styles.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 4,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: Styles.spacingMedium),
+
+                          // Botón 2: Trabajo
+                          Expanded(
+                            child: SizedBox(
+                              height: 56,
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _updateRoleAndNavigate('trabajo'),
+                                icon: const Icon(Icons.work_outline, size: 24),
+                                label: _isLoading && isWorkerSelected
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                    : const Text('Trabajo'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Styles.textPrimary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 4,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: Styles.spacingMedium),
+                    ],
                   ),
-                ],
+                ),
               ),
-              SizedBox(height: Styles.spacingMedium),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

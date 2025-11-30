@@ -96,8 +96,7 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
           iconBgColor: const Color(0xFFF3F4F6),
           title: 'Editar perfil',
           subtitle: 'Actualiza tu información personal',
-          onTap: () =>
-              Modular.to.pushNamed('/worker/edit-profile', arguments: userData),
+          onTap: () => Modular.to.pushNamed('/worker/edit-account'),
         ),
         AccountMenuSection.buildDivider(),
         AccountMenuItem(
