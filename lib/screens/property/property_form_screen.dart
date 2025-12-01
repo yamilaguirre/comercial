@@ -422,6 +422,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                     _buildLabel('Título'),
                     TextFormField(
                       controller: _titleController,
+                      maxLength: 100,
                       decoration: _buildInputDecoration(
                         'Ej: Casa moderna en el centro',
                       ),
@@ -432,6 +433,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                     TextFormField(
                       controller: _descriptionController,
                       maxLines: 4,
+                      maxLength: 500,
                       decoration: _buildInputDecoration(
                         'Detalla los puntos fuertes...',
                       ),

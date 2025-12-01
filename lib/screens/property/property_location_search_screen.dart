@@ -506,6 +506,8 @@ class _PropertyLocationSearchScreenState
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],

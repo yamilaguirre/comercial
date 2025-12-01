@@ -302,102 +302,110 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
       child: Container(
         color: Colors.black.withOpacity(0.5),
         alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () {},
-          child: Container(
-            margin: EdgeInsets.all(Styles.spacingLarge),
-            padding: EdgeInsets.all(Styles.spacingLarge),
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFF6B00),
-                  Color(0xFFFF8C00),
-                  Color(0xFFFF3B9A),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                margin: EdgeInsets.all(Styles.spacingLarge),
+                padding: EdgeInsets.all(Styles.spacingLarge),
+                constraints: const BoxConstraints(maxWidth: 400),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFFF6B00),
+                      Color(0xFFFF8C00),
+                      Color(0xFFFF3B9A),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'VIP',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () =>
+                              setState(() => showPremiumModal = false),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const Icon(
+                      Icons.workspace_premium,
+                      color: Colors.white,
+                      size: 60,
+                    ),
+                    SizedBox(height: Styles.spacingMedium),
+                    const Text(
+                      'Hazte Premium',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Accede a más resultados y\nfunciones exclusivas',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                    SizedBox(height: Styles.spacingLarge),
+                    ElevatedButton(
+                      onPressed: () => setState(() => showPremiumModal = false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFFFF6B00),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
                       ),
                       child: const Text(
-                        'VIP',
+                        'Suscribirme ahora',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => setState(() => showPremiumModal = false),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                    ),
                   ],
                 ),
-                const Icon(
-                  Icons.workspace_premium,
-                  color: Colors.white,
-                  size: 60,
-                ),
-                SizedBox(height: Styles.spacingMedium),
-                const Text(
-                  'Hazte Premium',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Accede a más resultados y\nfunciones exclusivas',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 14),
-                ),
-                SizedBox(height: Styles.spacingLarge),
-                ElevatedButton(
-                  onPressed: () => setState(() => showPremiumModal = false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFFF6B00),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Suscribirme ahora',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

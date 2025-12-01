@@ -292,6 +292,8 @@ class _AgentManagementProfileScreenState
                   fontWeight: FontWeight.w600,
                   fontSize: 11,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

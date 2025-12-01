@@ -385,6 +385,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 child: Text(
                   _property!.location,
                   style: TextStyles.body.copyWith(color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -436,6 +438,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               color: Colors.grey[800],
               height: 1.5,
             ),
+            maxLines: 20,
+            overflow: TextOverflow.fade,
           ),
           const SizedBox(height: 24),
           if (_property!.amenities.isNotEmpty) ...[

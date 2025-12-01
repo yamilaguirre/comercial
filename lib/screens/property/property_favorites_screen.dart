@@ -99,7 +99,7 @@ class _PropertyFavoritesScreenState extends State<PropertyFavoritesScreen>
                   ),
                   const SizedBox(height: 20),
 
-                  // Tabs
+                  // Tabs - Optimizado
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -111,19 +111,53 @@ class _PropertyFavoritesScreenState extends State<PropertyFavoritesScreen>
                       indicator: BoxDecoration(
                         color: Styles.primaryColor,
                         borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Styles.primaryColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelColor: Colors.white,
-                      unselectedLabelColor: Colors.grey[600],
+                      unselectedLabelColor: Colors.grey[700],
                       labelStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
                       ),
-                      labelPadding: EdgeInsets.zero,
+                      unselectedLabelStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                       dividerColor: Colors.transparent,
+                      splashFactory: NoSplash.splashFactory,
+                      overlayColor: MaterialStateProperty.all(
+                        Colors.transparent,
+                      ),
                       tabs: const [
-                        Tab(text: 'Todo Guardado'),
-                        Tab(text: 'Mis Colecciones'),
+                        Tab(
+                          height: 44,
+                          child: Center(
+                            child: Text(
+                              'Todo Guardado',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        Tab(
+                          height: 44,
+                          child: Center(
+                            child: Text(
+                              'Mis Colecciones',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

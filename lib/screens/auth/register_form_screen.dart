@@ -1,5 +1,6 @@
 // filepath: lib/screens/auth/register_form_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -21,6 +22,8 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
   final TextEditingController _confirmController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   bool _acceptedTerms = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   // Obtenemos la instancia del AuthService
   final AuthService _authService = Modular.get<AuthService>();
@@ -108,7 +111,7 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
-          onPressed: () => Modular.to.pop(),
+          onPressed: () => Modular.to.navigate('/login'),
         ),
         title: Text(
           _userTypeTitle,
@@ -152,7 +155,16 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                 TextFormField(
                   controller: _nameController,
                   decoration: _buildInputDecoration(hintText: 'ej: Juan Pérez'),
-                  validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]'),
+                    ),
+                  ],
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'El nombre es requerido';
+                    if (v.trim().length < 5) return 'Mínimo 5 caracteres';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingLarge),
 
@@ -164,8 +176,20 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                     hintText: 'ej: juan@email.com',
                   ),
                   keyboardType: TextInputType.emailAddress,
-                  validator: (v) =>
-                      !v!.contains('@') ? 'Correo inválido' : null,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9@._-]'),
+                    ),
+                  ],
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'El correo es requerido';
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(v)) {
+                      return 'Ingrese un correo válido';
+                    }
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingLarge),
 
@@ -175,7 +199,17 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                   controller: _phoneController,
                   decoration: _buildInputDecoration(hintText: 'ej: 70123456'),
                   keyboardType: TextInputType.phone,
-                  validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(20),
+                  ],
+                  validator: (v) {
+                    if (v == null || v.isEmpty)
+                      return 'El teléfono es requerido';
+                    if (v.length < 8) return 'Mínimo 8 dígitos';
+                    if (v.length > 20) return 'Máximo 20 dígitos';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingLarge),
 
@@ -183,10 +217,26 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                 SizedBox(height: Styles.spacingSmall),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: _buildInputDecoration(hintText: '••••••••'),
-                  obscureText: true,
-                  validator: (v) =>
-                      v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                  decoration: _buildInputDecoration(
+                    hintText: '••••••••',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.grey[600],
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                  obscureText: _obscurePassword,
+                  validator: (v) {
+                    if (v == null || v.isEmpty)
+                      return 'La contraseña es requerida';
+                    if (v.length < 6) return 'Mínimo 6 caracteres';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingLarge),
 
@@ -194,10 +244,28 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                 SizedBox(height: Styles.spacingSmall),
                 TextFormField(
                   controller: _confirmController,
-                  decoration: _buildInputDecoration(hintText: '••••••••'),
-                  obscureText: true,
-                  validator: (v) =>
-                      v != _passwordController.text ? 'No coinciden' : null,
+                  decoration: _buildInputDecoration(
+                    hintText: '••••••••',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.grey[600],
+                      ),
+                      onPressed: () => setState(
+                        () =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword,
+                      ),
+                    ),
+                  ),
+                  obscureText: _obscureConfirmPassword,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Confirme su contraseña';
+                    if (v != _passwordController.text)
+                      return 'Las contraseñas no coinciden';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingLarge),
 
@@ -307,12 +375,16 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
     ),
   );
 
-  InputDecoration _buildInputDecoration({required String hintText}) {
+  InputDecoration _buildInputDecoration({
+    required String hintText,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(color: Color(0xFFD9D9D9), fontSize: 14),
       filled: true,
       fillColor: Colors.white,
+      suffixIcon: suffixIcon,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Color(0xFFE0E0E0)),

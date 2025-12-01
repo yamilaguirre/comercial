@@ -373,6 +373,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         SizedBox(height: Styles.spacingMedium),
@@ -383,6 +385,9 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                             padding: EdgeInsets.all(Styles.spacingMedium),
                             child: const Text(
                               'No se encontraron propiedades cercanas en esta categoría.',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                             ),
                           )
                         else if (isDetailedView)
@@ -417,28 +422,34 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                             padding: EdgeInsets.symmetric(
                               horizontal: Styles.spacingMedium,
                             ),
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 0.85,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                  ),
-                              itemCount: _filteredProperties.length,
-                              itemBuilder: (context, index) {
-                                return CompactPropertyCard(
-                                  property: _filteredProperties[index],
-                                  isFavorite: _savedPropertyIds.contains(
-                                    _filteredProperties[index].id,
-                                  ),
-                                  onFavoriteToggle: () => _openCollectionDialog(
-                                    _filteredProperties[index],
-                                  ),
-                                  onTap: () =>
-                                      _goToDetail(_filteredProperties[index]),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        childAspectRatio: 0.85,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 12,
+                                      ),
+                                  itemCount: _filteredProperties.length,
+                                  itemBuilder: (context, index) {
+                                    return CompactPropertyCard(
+                                      property: _filteredProperties[index],
+                                      isFavorite: _savedPropertyIds.contains(
+                                        _filteredProperties[index].id,
+                                      ),
+                                      onFavoriteToggle: () =>
+                                          _openCollectionDialog(
+                                            _filteredProperties[index],
+                                          ),
+                                      onTap: () => _goToDetail(
+                                        _filteredProperties[index],
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -467,6 +478,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
@@ -480,6 +493,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                     color: Styles.primaryColor,
                                     fontWeight: FontWeight.w600,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],

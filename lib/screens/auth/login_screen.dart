@@ -161,27 +161,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _goToRegister() {
-    // Ruta relativa dentro del AuthModule: /auth/register
-    Modular.to.navigate('/register');
+    // Navegar directo al formulario de registro
+    Modular.to.navigate('/register-form', arguments: 'cliente');
   }
 
   // --- WIDGETS DE CONSTRUCCIÓN ---
-
-  Widget _buildSocialButton(IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(child: Icon(icon, size: 28, color: color)),
-      ),
-    );
-  }
 
   Widget _buildSocialButtonWithImage(String imagePath, VoidCallback onTap) {
     return GestureDetector(
@@ -434,25 +418,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 SizedBox(height: Styles.spacingLarge),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildSocialButtonWithImage(
-                      'assets/images/google.png',
-                      _handleGoogleLogin, // Llama al método de Google
-                    ),
-                    SizedBox(width: Styles.spacingMedium),
-                    _buildSocialButtonWithImage(
-                      'assets/images/facebook.png',
-                      () {
-                        // TODO: Implementar login con Facebook
-                      },
-                    ),
-                    SizedBox(width: Styles.spacingMedium),
-                    _buildSocialButton(Icons.chat, const Color(0xFF1DA1F2), () {
-                      // TODO: Implementar login con Twitter
-                    }),
-                  ],
+                Center(
+                  child: _buildSocialButtonWithImage(
+                    'assets/images/google.png',
+                    _handleGoogleLogin, // Llama al método de Google
+                  ),
                 ),
                 SizedBox(height: Styles.spacingXLarge),
                 Row(
