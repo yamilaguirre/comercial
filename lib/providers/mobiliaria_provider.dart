@@ -73,6 +73,7 @@ class MobiliariaProvider extends ChangeNotifier {
       if (propertyId == null) {
         data['created_at'] = FieldValue.serverTimestamp();
         data['is_active'] = true; // Por defecto activa al crear
+        data['favorites'] = 0; // Inicializar contador de favoritos
       }
       data['updated_at'] = FieldValue.serverTimestamp();
 
@@ -172,6 +173,32 @@ class MobiliariaProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // --- ANALYTICS (VISTAS Y CONSULTAS) ---
+
+  // Incrementar contador de vistas
+  Future<void> incrementPropertyView(String propertyId) async {
+    try {
+      await _firestore.collection('properties').doc(propertyId).update({
+        'views': FieldValue.increment(1),
+      });
+    } catch (e) {
+      print('Error incrementing views for property $propertyId: $e');
+      // No mostramos error al usuario por esto, es silencioso
+    }
+  }
+
+  // Incrementar contador de consultas (Chat/WhatsApp)
+  Future<void> incrementPropertyInquiry(String propertyId) async {
+    try {
+      await _firestore.collection('properties').doc(propertyId).update({
+        'inquiries': FieldValue.increment(1),
+      });
+    } catch (e) {
+      print('Error incrementing inquiries for property $propertyId: $e');
+      // No mostramos error al usuario por esto, es silencioso
     }
   }
 }

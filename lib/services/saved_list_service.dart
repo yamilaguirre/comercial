@@ -145,6 +145,17 @@ class SavedListService {
           'updated_at': FieldValue.serverTimestamp(),
         },
       );
+
+      // Incrementar contador de favoritos en la propiedad
+      try {
+        await _firestore.collection('properties').doc(propertyId).update({
+          'favorites': FieldValue.increment(1),
+        });
+      } catch (e) {
+        print('Error incrementing favorites count: $e');
+        // No fallamos toda la operación si esto falla
+      }
+
       return true;
     } catch (e) {
       print('Error adding property to collection: $e');
@@ -164,6 +175,17 @@ class SavedListService {
           'updated_at': FieldValue.serverTimestamp(),
         },
       );
+
+      // Decrementar contador de favoritos en la propiedad
+      try {
+        await _firestore.collection('properties').doc(propertyId).update({
+          'favorites': FieldValue.increment(-1),
+        });
+      } catch (e) {
+        print('Error decrementing favorites count: $e');
+        // No fallamos toda la operación si esto falla
+      }
+
       return true;
     } catch (e) {
       print('Error removing property from collection: $e');

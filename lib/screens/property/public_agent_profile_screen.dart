@@ -7,6 +7,7 @@ import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/mobiliaria_provider.dart';
 import '../../models/property.dart';
+import '../../services/agent_stats_service.dart';
 
 import 'components/profile_header_section.dart';
 import 'components/profile_components.dart';
@@ -40,7 +41,9 @@ class PublicAgentProfileScreen extends StatefulWidget {
 class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
   Map<String, dynamic>? userData;
   List<Property> userProperties = [];
+  Map<String, dynamic> stats = {};
   bool isLoading = true;
+  final AgentStatsService _statsService = AgentStatsService();
 
   @override
   void initState() {
@@ -67,6 +70,9 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
         // Cargar propiedades del usuario
         final mobiliariaProvider = Modular.get<MobiliariaProvider>();
         userProperties = await mobiliariaProvider.fetchUserProperties();
+
+        // Cargar estadísticas
+        stats = await _statsService.getAgentStats(user.uid);
       }
     } catch (e) {
       print('Error loading user data: $e');
@@ -106,9 +112,9 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
     final userRole = userData?['role'] ?? 'cliente';
 
     final Map<String, String> publicStats = {
-      'Publicaciones': userProperties.length.toString(),
-      'Activas': userProperties.length.toString(),
-      'Contactos': '0',
+      'Publicaciones': (stats['totalProperties'] ?? 0).toString(),
+      'Vistas': _formatNumber(stats['totalViews'] ?? 0),
+      'Consultas': (stats['totalInquiries'] ?? 0).toString(),
     };
 
     return Scaffold(
@@ -341,5 +347,12 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
   }
 }

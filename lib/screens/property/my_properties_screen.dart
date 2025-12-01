@@ -43,7 +43,9 @@ class _MyPropertiesScreenState extends State<MyPropertiesScreen> {
 
   // Llama al provider para eliminar una propiedad y actualiza la UI.
   void _deleteProperty(String propertyId) async {
-    final success = await Modular.get<MobiliariaProvider>().deleteProperty(propertyId);
+    final success = await Modular.get<MobiliariaProvider>().deleteProperty(
+      propertyId,
+    );
 
     if (mounted) {
       if (success) {
@@ -93,8 +95,8 @@ class _MyPropertiesScreenState extends State<MyPropertiesScreen> {
         iconTheme: const IconThemeData(color: Styles.textPrimary),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          // Modular: Usamos pop para volver atrás
-          onPressed: () => Modular.to.pop(),
+          // Modular: Navegamos a la pantalla de cuenta
+          onPressed: () => Modular.to.navigate('/property/account'),
         ),
       ),
       body: FutureBuilder<List<Property>>(

@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../theme/theme.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../services/agent_stats_service.dart';
 
 import 'components/profile_header_section.dart';
 import 'components/profile_components.dart';
@@ -21,43 +22,29 @@ class AgentManagementProfileScreen extends StatefulWidget {
 
 class _AgentManagementProfileScreenState
     extends State<AgentManagementProfileScreen> {
-  // Simulación de datos de estadísticas y actividad
-  final Map<String, String> _mockStats = {
-    'Activas': '12',
-    'Consultas': '8',
-    'Visitas': '2.8K',
-  };
+  final AgentStatsService _statsService = AgentStatsService();
+  Map<String, dynamic> _stats = {};
+  bool _isLoadingStats = true;
 
-  final List<Map<String, dynamic>> _mockActivity = [
-    {
-      'title': 'Casa en Calacoto',
-      'subtitle': 'Mensaje de María G.',
-      'time': 'Hace 5 min',
-      'icon': Icons.chat_bubble_outline,
-      'color': Styles.infoColor,
-    },
-    {
-      'title': 'Departamento en Sopocachi',
-      'subtitle': 'Favorito de 3 personas',
-      'time': 'Hace 1 hora',
-      'icon': Icons.favorite_border,
-      'color': Colors.red,
-    },
-    {
-      'title': 'Suite en San Miguel',
-      'subtitle': '24 visitas nuevas',
-      'time': 'Hoy',
-      'icon': Icons.visibility_outlined,
-      'color': Styles.primaryColor,
-    },
-    {
-      'title': 'Casa en Calacoto',
-      'subtitle': 'Mensaje de Jorge L.',
-      'time': 'Ayer',
-      'icon': Icons.chat_bubble_outline,
-      'color': Styles.infoColor,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final authService = Modular.get<AuthService>();
+    final user = authService.currentUser;
+    if (user != null) {
+      final stats = await _statsService.getAgentStats(user.uid);
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _isLoadingStats = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +52,6 @@ class _AgentManagementProfileScreenState
     final user = authService.currentUser;
 
     if (user == null) {
-      // Redirigir si no hay usuario
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -90,6 +76,12 @@ class _AgentManagementProfileScreenState
         final phone = userData['phoneNumber'] ?? '+591 7XXX-XXXX';
         final photoUrl = userData['photoURL'] ?? user.photoURL;
 
+        final headerStats = {
+          'Activas': (_stats['activeProperties'] ?? 0).toString(),
+          'Consultas': (_stats['totalInquiries'] ?? 0).toString(),
+          'Visitas': _formatNumber(_stats['totalViews'] ?? 0),
+        };
+
         return Scaffold(
           backgroundColor: Colors.white,
           body: Column(
@@ -97,12 +89,10 @@ class _AgentManagementProfileScreenState
               // 1. Cabecera (Parte Constante)
               ProfileHeaderSection(
                 name: name,
-                role:
-                    'Agente Inmobiliario', // Rol fijo para esta vista de gestión
+                role: 'Agente Inmobiliario',
                 photoUrl: photoUrl,
-                stats: _mockStats,
+                stats: headerStats,
                 onSettingsTap: () {
-                  // Navegar a la configuración de la cuenta (Ya existe en PropertyAccountScreen)
                   Modular.to.pushNamed('/property/account');
                 },
               ),
@@ -149,43 +139,17 @@ class _AgentManagementProfileScreenState
                         ),
                       ),
                       SizedBox(height: Styles.spacingMedium),
-                      _buildStatsGrid(),
+                      _isLoadingStats
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Styles.primaryColor,
+                              ),
+                            )
+                          : _buildStatsGrid(),
                       SizedBox(height: Styles.spacingLarge),
 
                       // --- Información de Contacto (Editable) ---
                       _buildContactInfo(email, phone, userData),
-
-                      SizedBox(height: Styles.spacingLarge),
-
-                      // --- Actividad Reciente ---
-                      Text(
-                        'Actividad Reciente',
-                        style: TextStyles.subtitle.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: Styles.spacingMedium),
-                      _buildRecentActivity(),
-
-                      // Botón para ver toda la actividad
-                      TextButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Cargando historial de actividad...',
-                              ),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Ver toda la actividad',
-                          style: TextStyle(
-                            color: Styles.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
 
                       SizedBox(height: Styles.spacingLarge * 2),
                     ],
@@ -199,7 +163,6 @@ class _AgentManagementProfileScreenState
     );
   }
 
-  // Grid de Estadísticas Detalladas (image_3decd4.png)
   Widget _buildStatsGrid() {
     return GridView.count(
       shrinkWrap: true,
@@ -211,38 +174,38 @@ class _AgentManagementProfileScreenState
       children: [
         _buildStatTile(
           'Publicaciones activas',
-          '12',
+          (_stats['activeProperties'] ?? 0).toString(),
           Icons.home_work_outlined,
           Styles.primaryColor,
-          '+2 esta semana',
+          'Total: ${_stats['totalProperties'] ?? 0}',
         ),
         _buildStatTile(
           'Publicaciones pausadas',
-          '3',
+          (_stats['pausedProperties'] ?? 0).toString(),
           Icons.pause_circle_outline,
           Colors.orange,
-          'Ver detalles',
+          'Inactivas',
         ),
         _buildStatTile(
           'Total de visitas',
-          '2,847',
+          _formatNumber(_stats['totalViews'] ?? 0),
           Icons.visibility_outlined,
           Colors.purple,
-          '+18% vs semana anterior',
+          'Todas tus propiedades',
         ),
         _buildStatTile(
           'Contactos recibidos',
-          '47',
+          (_stats['totalInquiries'] ?? 0).toString(),
           Icons.chat_bubble_outline,
           Colors.teal,
-          '+5 nuevos hoy',
+          'Consultas por chat',
         ),
         _buildStatTile(
           'Favoritos obtenidos',
-          '156',
+          (_stats['totalFavorites'] ?? 0).toString(),
           Icons.favorite_border,
           Colors.pink,
-          '+3 esta semana',
+          'Guardados por usuarios',
         ),
       ],
     );
@@ -370,18 +333,10 @@ class _AgentManagementProfileScreenState
     );
   }
 
-  // Lista de Actividad Reciente
-  Widget _buildRecentActivity() {
-    return Column(
-      children: _mockActivity.map((activity) {
-        return ProfileActivityItem(
-          title: activity['title'],
-          subtitle: activity['subtitle'],
-          time: activity['time'],
-          icon: activity['icon'],
-          iconColor: activity['color'],
-        );
-      }).toList(),
-    );
+  String _formatNumber(int number) {
+    if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
   }
 }

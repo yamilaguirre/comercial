@@ -27,6 +27,11 @@ class Property {
   final String? department;
   final String? zone;
 
+  // Analytics
+  final int views;
+  final int inquiries;
+  final int favorite;
+
   Property({
     required this.id,
     required this.name,
@@ -46,6 +51,9 @@ class Property {
     this.imageUrls = const [],
     this.department,
     this.zone,
+    this.views = 0,
+    this.inquiries = 0,
+    this.favorite = 0,
   });
 
   factory Property.fromFirestore(DocumentSnapshot doc) {
@@ -93,6 +101,9 @@ class Property {
       imageUrls: urls,
       department: data['department'],
       zone: data['zone_key'],
+      views: data['views'] ?? 0,
+      inquiries: data['inquiries'] ?? 0,
+      favorite: data['favorite'] ?? 0,
     );
   }
 

@@ -19,6 +19,7 @@ class Property {
   final GeoPoint geopoint;
   final bool isActive;
   final DateTime createdAt;
+  final int favorites;
 
   Property({
     required this.id,
@@ -38,6 +39,7 @@ class Property {
     required this.geopoint,
     required this.isActive,
     required this.createdAt,
+    this.favorites = 0,
   });
 
   factory Property.fromFirestore(DocumentSnapshot doc) {
@@ -60,6 +62,7 @@ class Property {
       geopoint: data['geopoint'] ?? const GeoPoint(0, 0),
       isActive: data['is_active'] ?? true,
       createdAt: (data['created_at'] as Timestamp).toDate(),
+      favorites: data['favorites'] ?? 0,
     );
   }
 }

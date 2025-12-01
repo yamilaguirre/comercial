@@ -15,6 +15,7 @@ import '../../core/utils/property_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
 import '../../services/saved_list_service.dart';
+import '../../providers/mobiliaria_provider.dart';
 
 import 'components/detail_feature_item.dart';
 import 'components/detail_owner_contact_card.dart';
@@ -168,6 +169,16 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       debugPrint("Error cargando detalle: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
+
+      // Incrementar vistas si la carga fue exitosa
+      if (_property != null) {
+        // Usamos Modular.get o Provider.of, pero como estamos en un método async,
+        // es mejor asegurar que el contexto siga montado o usar Modular.get si es seguro.
+        // Aquí usamos Modular.get<MobiliariaProvider>() ya que es un singleton lazy.
+        Modular.get<MobiliariaProvider>().incrementPropertyView(
+          widget.propertyId,
+        );
+      }
     }
   }
 
@@ -199,6 +210,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       uri = Uri.parse("https://wa.me/$finalPhone?text=$message");
     } else {
       uri = Uri.parse("tel:$finalPhone");
+    }
+
+    // Incrementar consultas si es WhatsApp (teléfono también podría contar si se desea)
+    if (type == 'whatsapp') {
+      Modular.get<MobiliariaProvider>().incrementPropertyInquiry(
+        widget.propertyId,
+      );
     }
 
     try {
@@ -283,6 +301,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             'otherUserPhoto': _ownerData?['photoURL'],
             'propertyId': _property!.id,
           },
+        );
+
+        // Incrementar consultas al iniciar chat exitosamente
+        Modular.get<MobiliariaProvider>().incrementPropertyInquiry(
+          widget.propertyId,
         );
       } else {
         if (mounted) {
