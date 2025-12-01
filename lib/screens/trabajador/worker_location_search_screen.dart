@@ -501,128 +501,137 @@ class _WorkerLocationSearchScreenState
             top: 0,
             left: 0,
             right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+            child: SafeArea(
+              child: Container(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  MediaQuery.of(context).size.height * 0.01,
+                  16,
+                  16,
                 ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.search, color: Colors.grey),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Buscar servicios...',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
                           height: 50,
+                          width: 50,
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
+                            color: const Color(0xFF0033CC),
+                            shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 10,
+                                color: const Color(0xFF0033CC).withOpacity(0.3),
+                                blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.search, color: Colors.grey),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  'Buscar servicios...',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
-                                  ),
+                          child: IconButton(
+                            icon: const Icon(Icons.tune, color: Colors.white),
+                            onPressed: () {
+                              // Mostrar modal de filtros avanzados
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _categoryStyles.entries.map((entry) {
+                          final isSelected = _selectedCategories.contains(
+                            entry.key,
+                          );
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text(entry.key),
+                              selected: isSelected,
+                              onSelected: (_) => _toggleCategory(entry.key),
+                              backgroundColor: Colors.white,
+                              selectedColor: const Color(0xFF0033CC),
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                              avatar: Icon(
+                                entry.value['icon'],
+                                size: 18,
+                                color: isSelected
+                                    ? Colors.white
+                                    : entry.value['color'],
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? Colors.transparent
+                                      : Colors.grey[300]!,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
+                              showCheckmark: false,
+                            ),
+                          );
+                        }).toList(),
                       ),
-                      const SizedBox(width: 12),
-                      Container(
-                        height: 50,
-                        width: 50,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0033CC),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF0033CC).withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.tune, color: Colors.white),
-                          onPressed: () {
-                            // Mostrar modal de filtros avanzados
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _categoryStyles.entries.map((entry) {
-                        final isSelected = _selectedCategories.contains(
-                          entry.key,
-                        );
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(entry.key),
-                            selected: isSelected,
-                            onSelected: (_) => _toggleCategory(entry.key),
-                            backgroundColor: Colors.white,
-                            selectedColor: const Color(0xFF0033CC),
-                            labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black87,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                            avatar: Icon(
-                              entry.value['icon'],
-                              size: 18,
-                              color: isSelected
-                                  ? Colors.white
-                                  : entry.value['color'],
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? Colors.transparent
-                                    : Colors.grey[300]!,
-                              ),
-                            ),
-                            showCheckmark: false,
-                          ),
-                        );
-                      }).toList(),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
 
           // Panel deslizable con lista de trabajadores
           DraggableScrollableSheet(
-            initialChildSize: 0.35,
-            minChildSize: 0.2,
-            maxChildSize: 0.8,
+            initialChildSize: 0.3,
+            minChildSize: 0.15,
+            maxChildSize: 0.75,
             builder: (context, scrollController) {
               return Container(
                 decoration: const BoxDecoration(
@@ -636,153 +645,176 @@ class _WorkerLocationSearchScreenState
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    // Barra de arrastre
-                    Center(
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 12, bottom: 8),
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      controller: scrollController,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                      ),
-                    ),
-
-                    // Slider de radio
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 8,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Radio de búsqueda',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Barra de arrastre
+                            Center(
+                              child: Container(
+                                margin: const EdgeInsets.only(
+                                  top: 12,
+                                  bottom: 8,
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
+                                width: 40,
+                                height: 4,
                                 decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF0033CC,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${_searchRadius.toStringAsFixed(1)} km',
-                                  style: const TextStyle(
-                                    color: Color(0xFF0033CC),
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  color: Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
-                            ],
-                          ),
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: const Color(0xFF0033CC),
-                              inactiveTrackColor: Colors.grey[200],
-                              thumbColor: const Color(0xFF0033CC),
-                              overlayColor: const Color(
-                                0xFF0033CC,
-                              ).withOpacity(0.2),
-                              trackHeight: 4,
                             ),
-                            child: Slider(
-                              value: _searchRadius,
-                              min: 1.0,
-                              max: 10.0,
-                              divisions: 18,
-                              onChanged: (value) {
-                                if (value > 3.0) {
-                                  // Mostrar modal Premium si supera 3km
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (context) =>
-                                        const PremiumSubscriptionModal(),
-                                  );
-                                  // Resetear a 3.0
-                                  setState(() => _searchRadius = 3.0);
-                                  _filterWorkersByLocation();
-                                } else {
-                                  setState(() {
-                                    _searchRadius = value;
-                                    _filterWorkersByLocation();
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
 
-                    const Divider(),
-
-                    // Lista de trabajadores
-                    Expanded(
-                      child: _filteredWorkers.isEmpty
-                          ? Center(
+                            // Slider de radio
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 8,
+                              ),
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.search_off,
-                                    size: 64,
-                                    color: Colors.grey[300],
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Radio de búsqueda',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                            0xFF0033CC,
+                                          ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${_searchRadius.toStringAsFixed(1)} km',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0033CC),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No hay trabajadores cerca',
-                                    style: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontSize: 16,
+                                  SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      activeTrackColor: const Color(0xFF0033CC),
+                                      inactiveTrackColor: Colors.grey[200],
+                                      thumbColor: const Color(0xFF0033CC),
+                                      overlayColor: const Color(
+                                        0xFF0033CC,
+                                      ).withOpacity(0.2),
+                                      trackHeight: 4,
+                                    ),
+                                    child: Slider(
+                                      value: _searchRadius,
+                                      min: 1.0,
+                                      max: 10.0,
+                                      divisions: 18,
+                                      onChanged: (value) {
+                                        if (value > 3.0) {
+                                          // Mostrar modal Premium si supera 3km
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (context) =>
+                                                const PremiumSubscriptionModal(),
+                                          );
+                                          // Resetear a 3.0
+                                          setState(() => _searchRadius = 3.0);
+                                          _filterWorkersByLocation();
+                                        } else {
+                                          setState(() {
+                                            _searchRadius = value;
+                                            _filterWorkersByLocation();
+                                          });
+                                        }
+                                      },
                                     ),
                                   ),
                                 ],
                               ),
-                            )
-                          : ListView.builder(
-                              controller: scrollController,
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _filteredWorkers.length,
-                              itemBuilder: (context, index) {
-                                final worker = _filteredWorkers[index];
-                                String distanceDisplay = '';
-                                if (_userLocation != null) {
-                                  final d = Geolocator.distanceBetween(
-                                    _userLocation!.latitude,
-                                    _userLocation!.longitude,
-                                    worker.latitude,
-                                    worker.longitude,
-                                  );
-                                  distanceDisplay = d < 1000
-                                      ? '${d.toInt()} m'
-                                      : '${(d / 1000).toStringAsFixed(1)} km';
-                                }
-                                return _buildWorkerCard(
-                                  worker,
-                                  distanceDisplay,
-                                );
-                              },
                             ),
-                    ),
-                  ],
+
+                            const Divider(),
+
+                            // Lista de trabajadores
+                            _filteredWorkers.isEmpty
+                                ? SizedBox(
+                                    height: constraints.maxHeight * 0.5,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.search_off,
+                                            size: 64,
+                                            color: Colors.grey[300],
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'No hay trabajadores cerca',
+                                            style: TextStyle(
+                                              color: Colors.grey[500],
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: _filteredWorkers.length,
+                                    itemBuilder: (context, index) {
+                                      final worker = _filteredWorkers[index];
+                                      String distanceDisplay = '';
+                                      if (_userLocation != null) {
+                                        final d = Geolocator.distanceBetween(
+                                          _userLocation!.latitude,
+                                          _userLocation!.longitude,
+                                          worker.latitude,
+                                          worker.longitude,
+                                        );
+                                        distanceDisplay = d < 1000
+                                            ? '${d.toInt()} m'
+                                            : '${(d / 1000).toStringAsFixed(1)} km';
+                                      }
+                                      return _buildWorkerCard(
+                                        worker,
+                                        distanceDisplay,
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               );
             },
@@ -791,7 +823,7 @@ class _WorkerLocationSearchScreenState
           // Botones flotantes (Dibujo y Ubicación)
           Positioned(
             right: 16,
-            bottom: 300, // Ajustado para no tapar el panel
+            bottom: MediaQuery.of(context).size.height * 0.35,
             child: Column(
               children: [
                 FloatingActionButton(
@@ -1052,8 +1084,8 @@ class _WorkerLocationSearchScreenState
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Text(
+                    children: [
+                      const Text(
                         'Ver perfil completo',
                         style: TextStyle(
                           color: Colors.white,
@@ -1061,8 +1093,12 @@ class _WorkerLocationSearchScreenState
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, color: Colors.white, size: 16),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.arrow_forward,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ],
                   ),
                 ),
