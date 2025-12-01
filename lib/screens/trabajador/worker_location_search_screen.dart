@@ -179,6 +179,9 @@ class _WorkerLocationSearchScreenState
                 rating: (data['rating'] ?? 0.0).toDouble(),
                 phone: data['phone'] ?? '',
                 price: (data['price']?.toString() ?? '').trim(),
+                locationName: location['locationName'] as String?,
+                isFixedLocation: location['isFixed'] as bool? ?? false,
+                locationType: location['locationType'] as String?,
               ),
             );
           }
@@ -953,15 +956,56 @@ class _WorkerLocationSearchScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            worker.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF212121),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          // Nombre y ubicación en la misma línea
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  worker.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF212121),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Mostrar nombre de taller/domicilio si existe
+                              if (worker.locationName != null &&
+                                  worker.locationName!.isNotEmpty) ...[
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 6),
+                                  child: Text(
+                                    '|',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  worker.locationType == 'home'
+                                      ? Icons.home
+                                      : Icons.store,
+                                  size: 14,
+                                  color: const Color(0xFF0033CC),
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    worker.locationName!,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF0033CC),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -1123,6 +1167,9 @@ class WorkerData {
   final String phone;
   final String price;
   final String verificationStatus;
+  final String? locationName;
+  final bool isFixedLocation;
+  final String? locationType;
 
   WorkerData({
     required this.id,
@@ -1136,6 +1183,9 @@ class WorkerData {
     required this.phone,
     required this.price,
     this.verificationStatus = 'unverified',
+    this.locationName,
+    this.isFixedLocation = false,
+    this.locationType,
   });
 
   // Getter para compatibilidad

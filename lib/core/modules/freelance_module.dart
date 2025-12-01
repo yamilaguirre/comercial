@@ -3,6 +3,8 @@ import 'package:my_first_app/core/layouts/freelance_layout.dart';
 import 'package:my_first_app/screens/trabajador/worker_profile_screen.dart';
 import 'package:my_first_app/screens/trabajador/chat/chat_list_screen.dart';
 import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
+import 'package:my_first_app/screens/trabajador/worker_location_config_screen.dart';
+import 'package:my_first_app/screens/common/map_picker_screen.dart';
 
 class FreelanceModule extends Module {
   @override
@@ -22,6 +24,10 @@ class FreelanceModule extends Module {
           'messages',
           child: (context) => const ChatListScreen(),
         ),
+        ParallelRoute.child(
+          'location-config',
+          child: (context) => const WorkerLocationConfigScreen(),
+        ),
       ],
     );
 
@@ -33,6 +39,14 @@ class FreelanceModule extends Module {
         otherUserId: r.args.data['otherUserId'],
         otherUserName: r.args.data['otherUserName'],
         otherUserPhoto: r.args.data['otherUserPhoto'],
+      ),
+    );
+
+    r.child(
+      '/map-picker',
+      child: (context) => MapPickerScreen(
+        initialLat: r.args.data?['lat'],
+        initialLng: r.args.data?['lng'],
       ),
     );
   }

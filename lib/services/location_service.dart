@@ -28,6 +28,22 @@ class LocationService {
       _lastPosition = position;
       _isTracking = true;
 
+      // Verificar configuración de ubicación del usuario
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      final locationSettings =
+          userDoc.data()?['locationSettings'] as Map<String, dynamic>?;
+
+      if (locationSettings != null) {
+        final type = locationSettings['locationType'] as String?;
+        // Si es fija, NO iniciar tracking ni actualizar ubicación
+        if (type == 'fixed') {
+          return true;
+        }
+      }
+
       // Guardar en Firebase
       await _updateUserLocation(userId, position);
 

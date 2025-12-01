@@ -80,6 +80,11 @@ class _FreelanceLayoutState extends State<FreelanceLayout> {
             label: 'Chat',
           ),
           BottomNavigationBarItem(
+            icon: _buildNavIcon('ubicacion', false),
+            activeIcon: _buildNavIcon('ubicacion', true),
+            label: 'Ubicación',
+          ),
+          BottomNavigationBarItem(
             icon: _buildNavIcon('regresar', false),
             activeIcon: _buildNavIcon('regresar', true),
             label: 'Regresar',
@@ -187,6 +192,8 @@ class _FreelanceLayoutState extends State<FreelanceLayout> {
         return Icons.person;
       case 'mensajes':
         return Icons.message;
+      case 'ubicacion':
+        return Icons.location_on;
       case 'regresar':
         return Icons.arrow_back;
       default:
@@ -197,7 +204,8 @@ class _FreelanceLayoutState extends State<FreelanceLayout> {
   int _getSelectedIndex(String location) {
     if (location.contains('home')) return 0;
     if (location.contains('messages')) return 1;
-    // Regresar (index 2) no mantiene estado activo ya que sale del módulo
+    if (location.contains('location-config')) return 2;
+    // Regresar (index 3) no mantiene estado activo ya que sale del módulo
     return 0; // Default to Inicio
   }
 
@@ -205,13 +213,17 @@ class _FreelanceLayoutState extends State<FreelanceLayout> {
     switch (index) {
       case 0:
         // Inicio -> worker_profile_screen
-        Modular.to.navigate('/freelance/home');
+        Modular.to.navigate('home');
         break;
       case 1:
         // Chat -> messages
-        Modular.to.navigate('/freelance/messages');
+        Modular.to.navigate('messages');
         break;
       case 2:
+        // Ubicación -> location-config
+        Modular.to.navigate('location-config');
+        break;
+      case 3:
         // Regresar - Resetear rol y navegar a selección
         final authService = Provider.of<AuthService>(context, listen: false);
         authService.resetRole().then((_) {

@@ -310,14 +310,6 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
           final hasDescription =
               (profile?['description'] as String?)?.isNotEmpty ?? false;
 
-          // Solo mostrar trabajadores con perfil completo
-          if (!hasProfessions || !hasPortfolio || !hasDescription) {
-            return false;
-          }
-
-          // Si no hay búsqueda, mostrar todos los que tengan perfil completo
-          if (_searchQuery.isEmpty) return true;
-
           // Filtrar por búsqueda
           final name = (data['name'] ?? '').toString().toLowerCase();
           // Prefer top-level `profession` if exists; otherwise, check `profile.profession` or arrays
@@ -405,7 +397,15 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                 final workerLocation =
                     data['location'] as Map<String, dynamic>?;
 
-                if (workerLocation != null && userLocation != null) {
+                // Verificar si debe mostrarse en el mapa (para decidir si mostrar distancia)
+                final locationSettings =
+                    data['locationSettings'] as Map<String, dynamic>?;
+                final showOnMap =
+                    locationSettings?['showOnMap'] as bool? ?? true;
+
+                if (workerLocation != null &&
+                    userLocation != null &&
+                    showOnMap) {
                   final workerLat = (workerLocation['latitude'] as num?)
                       ?.toDouble();
                   final workerLng = (workerLocation['longitude'] as num?)
@@ -513,6 +513,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                               .where((c) => c.isNotEmpty)
                               .toList() ??
                           ['Servicios'],
+                      workerLocation: workerLocation,
                     );
                   },
                 );
@@ -538,6 +539,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required double latitude,
     required double longitude,
     required List<String> categories,
+    Map<String, dynamic>? workerLocation,
   }) {
     final authService = context.read<AuthService>();
     final currentUserId = authService.currentUser?.uid ?? '';
@@ -735,29 +737,50 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     ),
                   ],
                 ),
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Color(0xFF616161),
+                    Row(
+                      children: [
+                        if (distance.isNotEmpty) ...[
+                          const Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: Color(0xFF616161),
+                          ),
+                          Text(
+                            distance,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF616161),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Icon(Icons.star, size: 16, color: Colors.amber),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF212121),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      distance,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF616161),
+                    // Mostrar nombre del lugar si es fijo
+                    if (workerLocation?['isFixed'] == true &&
+                        workerLocation?['locationName'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          workerLocation!['locationName'],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.star, size: 16, color: Colors.amber),
-                    Text(
-                      rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF212121),
-                      ),
-                    ),
                   ],
                 ),
               ],
