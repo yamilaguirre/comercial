@@ -183,7 +183,14 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
     if (user == null)
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Modular.to.navigate('/property/home');
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Mi Cuenta'),
         backgroundColor: Styles.primaryColor,
@@ -300,7 +307,8 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
 
           // Modal Premium
           if (showPremiumModal) _buildPremiumModal(),
-        ],
+          ],
+        ),
       ),
     );
   }

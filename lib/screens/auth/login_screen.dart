@@ -141,7 +141,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _goToRegister() {
-    // Navegar directo al formulario de registro
     Modular.to.navigate('/register-form', arguments: 'cliente');
   }
 
@@ -425,6 +424,46 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ],
+                ),
+                SizedBox(height: Styles.spacingMedium),
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    children: [
+                      Text(
+                        '¿Eres una empresa inmobiliaria? ',
+                        style: TextStyles.body.copyWith(
+                          color: Styles.textSecondary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Modular.to.navigate('/inmobiliaria-login'),
+                        child: Text(
+                          'Ingresa aquí',
+                          style: TextStyles.body.copyWith(
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' o ',
+                        style: TextStyles.body.copyWith(
+                          color: Styles.textSecondary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Modular.to.navigate('/inmobiliaria-register'),
+                        child: Text(
+                          'Regístrate aquí',
+                          style: TextStyles.body.copyWith(
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

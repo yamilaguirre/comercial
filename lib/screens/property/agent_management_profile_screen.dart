@@ -83,9 +83,16 @@ class _AgentManagementProfileScreenState
           'Visitas': _formatNumber(_stats['totalViews'] ?? 0),
         };
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: Stack(
+        return PopScope(
+          canPop: false,
+          onPopInvoked: (didPop) {
+            if (!didPop) {
+              Modular.to.navigate('/property/account');
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: Stack(
             children: [
               Column(
                 children: [
@@ -180,7 +187,8 @@ class _AgentManagementProfileScreenState
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         );
       },

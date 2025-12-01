@@ -5,8 +5,11 @@ import 'package:my_first_app/screens/auth/login_screen.dart';
 import 'package:my_first_app/screens/auth/register_screen.dart';
 import 'package:my_first_app/screens/auth/register_form_screen.dart';
 import 'package:my_first_app/screens/auth/role_selection_screen.dart';
+import 'package:my_first_app/screens/auth/inmobiliaria_register_screen.dart';
+import 'package:my_first_app/screens/auth/inmobiliaria_login_screen.dart';
+import 'package:my_first_app/screens/inmobiliaria/inmobiliaria_dashboard_screen.dart';
 import 'package:my_first_app/core/guards/auth_guard.dart';
-import 'package:my_first_app/core/guards/onboarding_guard.dart'; // <-- Nueva importación
+import 'package:my_first_app/core/guards/onboarding_guard.dart';
 
 class AuthModule extends Module {
   @override
@@ -36,5 +39,10 @@ class AuthModule extends Module {
       '/select-role',
       child: (context) => const RoleSelectionScreen(),
     );
+
+    // 4. Rutas de Inmobiliaria
+    r.child('/inmobiliaria-register', child: (context) => const InmobiliariaRegisterScreen());
+    r.child('/inmobiliaria-login', child: (context) => const InmobiliariaLoginScreen());
+    r.child('/inmobiliaria-dashboard', child: (context) => const InmobiliariaDashboardScreen());
   }
 }
