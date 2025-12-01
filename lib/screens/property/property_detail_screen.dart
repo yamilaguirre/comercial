@@ -775,33 +775,26 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // 1. Carrusel Estático (350 de altura)
-          _buildCarouselSection(imagesToShow),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Carrusel (350 de altura)
+            _buildCarouselSection(imagesToShow),
 
-          // 2. Card de Contacto del Dueño Estático (Usando el nuevo componente)
-          DetailOwnerContactCard(
-            ownerData: _ownerData,
-            propertyName: _property!.name,
-            callbacks: this, // Pasamos la propia clase como callbacks
-          ),
-
-          // 3. Contenido Principal Deslizable (toma el espacio restante)
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildPrimaryDetailsHeader(), // Información básica de la propiedad
-                  _buildScrollableContent(), // Descripción, Mapa, Comodidades
-                ],
-              ),
+            // 2. Card de Contacto del Dueño
+            DetailOwnerContactCard(
+              ownerData: _ownerData,
+              propertyName: _property!.name,
+              callbacks: this,
             ),
-          ),
-        ],
+
+            // 3. Contenido Principal
+            _buildPrimaryDetailsHeader(),
+            _buildScrollableContent(),
+          ],
+        ),
       ),
-      // bottomNavigationBar ya no es necesario, los botones están en DetailOwnerContactCard
     );
   }
 }

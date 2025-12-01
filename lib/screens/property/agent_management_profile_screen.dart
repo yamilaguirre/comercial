@@ -75,6 +75,7 @@ class _AgentManagementProfileScreenState
         final email = userData['email'] ?? user.email ?? 'Sin correo';
         final phone = userData['phoneNumber'] ?? '+591 7XXX-XXXX';
         final photoUrl = userData['photoURL'] ?? user.photoURL;
+        final createdAt = userData['createdAt'] as Timestamp?;
 
         final headerStats = {
           'Activas': (_stats['activeProperties'] ?? 0).toString(),
@@ -84,75 +85,98 @@ class _AgentManagementProfileScreenState
 
         return Scaffold(
           backgroundColor: Colors.white,
-          body: Column(
+          body: Stack(
             children: [
-              // 1. Cabecera (Parte Constante)
-              ProfileHeaderSection(
-                name: name,
-                role: 'Agente Inmobiliario',
-                photoUrl: photoUrl,
-                stats: headerStats,
-                onSettingsTap: () {
-                  Modular.to.pushNamed('/property/account');
-                },
-              ),
+              Column(
+                children: [
+                  // 1. Cabecera (Parte Constante)
+                  ProfileHeaderSection(
+                    name: name,
+                    role: 'Agente Inmobiliario',
+                    photoUrl: photoUrl,
+                    stats: headerStats,
+                    memberSince: createdAt != null
+                        ? _formatDate(createdAt.toDate())
+                        : null,
+                    onSettingsTap: () {
+                      Modular.to.pushNamed('/property/account');
+                    },
+                  ),
 
-              // 2. Contenido Deslizable
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(Styles.spacingMedium),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Botón de Creación ---
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: Styles.spacingMedium,
-                        ),
-                        child: ElevatedButton.icon(
-                          onPressed: () =>
-                              Modular.to.pushNamed('/property/new'),
-                          icon: const Icon(Icons.add_circle_outline, size: 24),
-                          label: const Text(
-                            'Crear nueva publicación',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                  // 2. Contenido Deslizable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(Styles.spacingMedium),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // --- Botón de Creación ---
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: Styles.spacingMedium,
                             ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Styles.primaryColor,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // --- Estadísticas Generales (Detalle) ---
-                      Text(
-                        'Estadísticas Generales',
-                        style: TextStyles.subtitle.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: Styles.spacingMedium),
-                      _isLoadingStats
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                color: Styles.primaryColor,
+                            child: ElevatedButton.icon(
+                              onPressed: () =>
+                                  Modular.to.pushNamed('/property/new'),
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                size: 24,
                               ),
-                            )
-                          : _buildStatsGrid(),
-                      SizedBox(height: Styles.spacingLarge),
+                              label: const Text(
+                                'Crear nueva publicación',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Styles.primaryColor,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
 
-                      // --- Información de Contacto (Editable) ---
-                      _buildContactInfo(email, phone, userData),
+                          // --- Estadísticas Generales (Detalle) ---
+                          Text(
+                            'Estadísticas Generales',
+                            style: TextStyles.subtitle.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: Styles.spacingMedium),
+                          _isLoadingStats
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Styles.primaryColor,
+                                  ),
+                                )
+                              : _buildStatsGrid(),
+                          SizedBox(height: Styles.spacingLarge),
 
-                      SizedBox(height: Styles.spacingLarge * 2),
-                    ],
+                          // --- Información de Contacto (Editable) ---
+                          _buildContactInfo(email, phone, userData),
+
+                          SizedBox(height: Styles.spacingLarge * 2),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              // Botón de retroceso
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Modular.to.navigate('/property/account'),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withOpacity(0.5),
+                    ),
                   ),
                 ),
               ),
@@ -338,5 +362,23 @@ class _AgentManagementProfileScreenState
       return '${(number / 1000).toStringAsFixed(1)}K';
     }
     return number.toString();
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
+    return '${months[date.month - 1]} ${date.year}';
   }
 }

@@ -13,6 +13,7 @@ class ProfileHeaderSection extends StatelessWidget {
   final Map<String, String> stats;
   final VoidCallback onSettingsTap;
   final bool showPlanBadge;
+  final String? memberSince;
 
   const ProfileHeaderSection({
     super.key,
@@ -23,6 +24,7 @@ class ProfileHeaderSection extends StatelessWidget {
     required this.stats,
     required this.onSettingsTap,
     this.showPlanBadge = true,
+    this.memberSince,
   });
 
   @override
@@ -34,11 +36,10 @@ class ProfileHeaderSection extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      // CORRECCIÓN: Aumentamos el padding superior (Styles.spacingLarge) para bajar el contenido.
       padding: EdgeInsets.fromLTRB(
         Styles.spacingLarge,
         Styles.spacingLarge,
-        Styles.spacingLarge,
+        Styles.spacingSmall,
         Styles.spacingLarge,
       ),
       decoration: BoxDecoration(
@@ -55,11 +56,9 @@ class ProfileHeaderSection extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            // Fila Superior (Avatar, Nombre, Botón de Configuración)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // Avatar y Nombre centrados
+            Column(
               children: [
-                // Avatar
                 Stack(
                   children: [
                     CircleAvatar(
@@ -79,7 +78,6 @@ class ProfileHeaderSection extends StatelessWidget {
                             )
                           : null,
                     ),
-                    // Badge de Plan Gratuito (Ejemplo)
                     if (showPlanBadge)
                       Positioned(
                         right: 0,
@@ -103,70 +101,70 @@ class ProfileHeaderSection extends StatelessWidget {
                       ),
                   ],
                 ),
-                SizedBox(width: Styles.spacingMedium),
-                // Nombre y Rol
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyles.title.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                const SizedBox(height: 12),
+                Text(
+                  name,
+                  style: TextStyles.title.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      role,
+                      style: TextStyles.body.copyWith(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (isVerified)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade600,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Verificado',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Text(
-                            role,
-                            style: TextStyles.body.copyWith(
-                              fontSize: 14,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (isVerified)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade600,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.check_circle_outline,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Verificado',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                  ],
+                ),
+                if (memberSince != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Miembro desde $memberSince',
+                    style: TextStyles.caption.copyWith(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                // Botón de Configuración
-                IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white),
-                  onPressed: onSettingsTap,
-                ),
+                ],
               ],
             ),
 

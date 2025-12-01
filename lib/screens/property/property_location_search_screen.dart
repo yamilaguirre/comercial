@@ -30,8 +30,7 @@ class _PropertyLocationSearchScreenState
   LatLng? _userLocation;
   bool _isLocating = false;
   double _searchRadius = 5.0;
-  final Set<String> _selectedCategories = {};
-  final Set<String> _selectedTransactionTypes = {};
+
   List<Property> _properties = [];
   List<Property> _filteredProperties = [];
   int _selectedPropertyIndex = -1;
@@ -167,18 +166,6 @@ class _PropertyLocationSearchScreenState
   void _filterPropertiesByLocation() {
     if (_userLocation == null) return;
     final filtered = _properties.where((property) {
-      if (_selectedCategories.isNotEmpty) {
-        if (!_selectedCategories.contains(
-          property.propertyTypeRaw.toLowerCase(),
-        )) {
-          return false;
-        }
-      }
-      if (_selectedTransactionTypes.isNotEmpty) {
-        if (!_selectedTransactionTypes.contains(property.type.toLowerCase())) {
-          return false;
-        }
-      }
       final distance = Geolocator.distanceBetween(
         _userLocation!.latitude,
         _userLocation!.longitude,
@@ -208,42 +195,13 @@ class _PropertyLocationSearchScreenState
   void _filterPropertiesByPolygon() {
     if (_searchPolygon == null || _searchPolygon!.isEmpty) return;
     final filtered = _properties.where((property) {
-      if (_selectedCategories.isNotEmpty) {
-        if (!_selectedCategories.contains(
-          property.propertyTypeRaw.toLowerCase(),
-        )) {
-          return false;
-        }
-      }
-      if (_selectedTransactionTypes.isNotEmpty) {
-        if (!_selectedTransactionTypes.contains(property.type.toLowerCase())) {
-          return false;
-        }
-      }
-
       final propertyLocation = LatLng(property.latitude, property.longitude);
 
-      // Verificar si está dentro del polígono
-      bool inPolygon = MapGeometryUtils.isPointInPolygon(
+      // Solo verificar si está dentro del polígono
+      return MapGeometryUtils.isPointInPolygon(
         propertyLocation,
         _searchPolygon!,
       );
-
-      // Verificar si está dentro del radio desde la ubicación del usuario
-      bool inRadius = false;
-      if (_userLocation != null) {
-        final distance = Geolocator.distanceBetween(
-          _userLocation!.latitude,
-          _userLocation!.longitude,
-          property.latitude,
-          property.longitude,
-        );
-        final distanceKm = distance / 1000;
-        inRadius = distanceKm <= _searchRadius;
-      }
-
-      // Incluir si está en el polígono O dentro del radio
-      return inPolygon || inRadius;
     }).toList();
     final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
     filtered.sort((a, b) {
@@ -260,27 +218,7 @@ class _PropertyLocationSearchScreenState
     setState(() => _filteredProperties = filtered);
   }
 
-  void _toggleCategory(String category) {
-    setState(() {
-      if (_selectedCategories.contains(category)) {
-        _selectedCategories.remove(category);
-      } else {
-        _selectedCategories.add(category);
-      }
-      _applyFilters();
-    });
-  }
 
-  void _toggleTransactionType(String transactionType) {
-    setState(() {
-      if (_selectedTransactionTypes.contains(transactionType)) {
-        _selectedTransactionTypes.remove(transactionType);
-      } else {
-        _selectedTransactionTypes.add(transactionType);
-      }
-      _applyFilters();
-    });
-  }
 
   Color _getPropertyColor(String propertyType) {
     final typeKey = propertyType.toLowerCase();
@@ -302,6 +240,8 @@ class _PropertyLocationSearchScreenState
             options: MapOptions(
               initialCenter: _mapCenter,
               initialZoom: 14.5,
+              minZoom: 10.0,
+              maxZoom: 18.0,
               onPositionChanged: (position, hasGesture) {
                 if (hasGesture) setState(() => _isLocating = false);
               },
@@ -310,12 +250,20 @@ class _PropertyLocationSearchScreenState
                   setState(() => _selectedPropertyIndex = -1);
                 }
               },
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
             ),
             children: [
               TileLayer(
                 urlTemplate:
-                    'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
+                    'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}?access_token=$_mapboxAccessToken',
                 userAgentPackageName: 'com.mobiliaria.app',
+                tileProvider: NetworkTileProvider(),
+                maxNativeZoom: 18,
+                maxZoom: 18,
+                minZoom: 10,
+                keepBuffer: 2,
               ),
               if (_searchPolygon != null && _searchPolygon!.isNotEmpty)
                 PolygonLayer(
@@ -480,121 +428,32 @@ class _PropertyLocationSearchScreenState
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                  child: ElevatedButton.icon(
+                    onPressed: () => Modular.to.pushNamed('/worker/location-search'),
+                    icon: const Icon(Icons.work_outline, size: 20),
+                    label: const Text(
+                      'Buscar Trabajadores',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.search, color: Colors.grey),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            '${_filteredProperties.length} ${_filteredProperties.length == 1 ? 'propiedad encontrada' : 'propiedades encontradas'}',
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Styles.primaryColor,
+                      elevation: 4,
+                      shadowColor: Colors.black.withOpacity(0.1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
                     ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 16),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _categoryStyles.entries.map((entry) {
-                  final isSelected = _selectedCategories.contains(entry.key);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(entry.value['label']),
-                      selected: isSelected,
-                      onSelected: (_) => _toggleCategory(entry.key),
-                      backgroundColor: Colors.white,
-                      selectedColor: entry.value['color'],
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                      avatar: Icon(
-                        entry.value['icon'],
-                        size: 18,
-                        color: isSelected ? Colors.white : entry.value['color'],
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(
-                          color: isSelected
-                              ? Colors.transparent
-                              : Colors.grey[300]!,
-                        ),
-                      ),
-                      showCheckmark: false,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _transactionStyles.entries.map((entry) {
-                  final isSelected = _selectedTransactionTypes.contains(
-                    entry.key,
-                  );
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(entry.value['label']),
-                      selected: isSelected,
-                      onSelected: (_) => _toggleTransactionType(entry.key),
-                      backgroundColor: Colors.white,
-                      selectedColor: entry.value['color'],
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                      avatar: Icon(
-                        entry.value['icon'],
-                        size: 18,
-                        color: isSelected ? Colors.white : entry.value['color'],
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(
-                          color: isSelected
-                              ? Colors.transparent
-                              : Colors.grey[300]!,
-                        ),
-                      ),
-                      showCheckmark: false,
-                    ),
-                  );
-                }).toList(),
-              ),
             ),
           ],
         ),

@@ -119,10 +119,12 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
+      body: Stack(
         children: [
-          // 1. Cabecera (Parte Constante y No-Editable)
-          ProfileHeaderSection(
+          Column(
+            children: [
+              // 1. Cabecera (Parte Constante y No-Editable)
+              ProfileHeaderSection(
             name: displayName,
             role: userRole == 'inmobiliaria'
                 ? 'Agente Inmobiliario'
@@ -130,9 +132,8 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
             photoUrl: photoUrl,
             isVerified: true,
             stats: publicStats,
-            showPlanBadge: false, // El cliente no ve el plan interno
-            onSettingsTap: () =>
-                Modular.to.pop(), // Reemplazamos ajustes por botón de volver
+            showPlanBadge: false,
+            onSettingsTap: () {},
           ),
 
           // 2. Contenido Deslizable (Información Pública)
@@ -262,6 +263,21 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen> {
 
                   SizedBox(height: Styles.spacingLarge * 2),
                 ],
+              ),
+            ),
+          ),
+            ],
+          ),
+          // Botón de retroceso
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Modular.to.navigate('/property/account'),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withOpacity(0.5),
+                ),
               ),
             ),
           ),
