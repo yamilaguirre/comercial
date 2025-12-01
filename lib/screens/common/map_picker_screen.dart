@@ -5,7 +5,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:geolocator/geolocator.dart'; // Importante para GPS
 import '../../theme/theme.dart';
 
-// --- CONSTANTES DE MAPA (TOKEN REAL) ---
+// --- CONSTANTES DE MAPA OPTIMIZADAS ---
 const String _mapboxAccessToken =
     'pk.eyJ1IjoibXVqZXJlc2Fsdm9sYW50ZSIsImEiOiJjbWFoZTR1ZzEwYXdvMmtxMHg5ZXZneXgyIn0.9aNpyQyi5wP1qKi0SjiR5Q';
 const String _mapboxStyleId = 'mapbox/streets-v12';
@@ -72,7 +72,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        timeLimit: const Duration(seconds: 5),
       );
 
       final newLocation = LatLng(position.latitude, position.longitude);
@@ -126,20 +126,29 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       ),
       body: Stack(
         children: [
+          // Fondo mientras carga el mapa
+          Container(color: Colors.grey[200]),
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              // Usamos _center en la inicialización
               initialCenter: _center,
               initialZoom: 15.0,
+              minZoom: 10.0,
+              maxZoom: 18.0,
               onPositionChanged: _onMapPositionChanged,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
             ),
             children: [
-              // --- MAPBOX TILE LAYER ---
               TileLayer(
                 urlTemplate:
-                    'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
+                    'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}?access_token=$_mapboxAccessToken',
                 userAgentPackageName: 'com.mobiliaria.app',
+                tileProvider: NetworkTileProvider(),
+                maxNativeZoom: 18,
+                maxZoom: 18,
+                keepBuffer: 2,
               ),
             ],
           ),
