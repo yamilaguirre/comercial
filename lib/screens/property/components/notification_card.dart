@@ -24,6 +24,16 @@ class NotificationCard extends StatelessWidget {
         return Icons.new_releases;
       case NotificationType.message:
         return Icons.message;
+      case NotificationType.profilePasswordChanged:
+        return Icons.lock;
+      case NotificationType.profilePhotoChanged:
+        return Icons.person;
+      case NotificationType.profileNameChanged:
+        return Icons.badge;
+      case NotificationType.profilePhoneChanged:
+        return Icons.phone;
+      case NotificationType.profileEmailChanged:
+        return Icons.email;
     }
   }
 
@@ -39,6 +49,16 @@ class NotificationCard extends StatelessWidget {
         return const Color(0xFFFF9800); // Naranja
       case NotificationType.message:
         return const Color(0xFF757575); // Gris
+      case NotificationType.profilePasswordChanged:
+        return const Color(0xFFD32F2F); // Rojo oscuro
+      case NotificationType.profilePhotoChanged:
+        return const Color(0xFF1976D2); // Azul
+      case NotificationType.profileNameChanged:
+        return const Color(0xFF0097A7); // Cyan
+      case NotificationType.profilePhoneChanged:
+        return const Color(0xFF388E3C); // Verde
+      case NotificationType.profileEmailChanged:
+        return const Color(0xFFFF6F00); // Naranja oscuro
     }
   }
 

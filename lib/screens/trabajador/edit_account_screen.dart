@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
+import '../../models/notification_model.dart';
 
 class EditAccountScreen extends StatefulWidget {
   const EditAccountScreen({super.key});
@@ -32,6 +34,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   bool _obscureConfirmPassword = true;
 
   String? _originalEmail;
+  String? _originalName;
+  String? _originalPhone;
   String? _userId;
 
   @override
@@ -79,6 +83,9 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
               userData['displayName'] ?? user.displayName ?? '';
           _emailController.text = userData['email'] ?? user.email ?? '';
           _phoneController.text = userData['phone'] ?? '';
+          // Guardar valores originales para comparar cambios
+          _originalName = _nameController.text;
+          _originalPhone = _phoneController.text;
           _isLoading = false;
         });
       } else {
@@ -138,12 +145,41 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
         'phone': _phoneController.text.trim(),
       });
 
+      // Notificar si cambió el teléfono
+      if (_originalPhone != null &&
+          _phoneController.text.trim() != _originalPhone) {
+        await NotificationService().createProfileChangeNotification(
+          userId: _userId!,
+          type: NotificationType.profilePhoneChanged,
+          title: 'Teléfono actualizado',
+          message: 'Tu teléfono se cambió a ${_phoneController.text.trim()}',
+        );
+      }
+
       // Actualizar displayName en Firebase Auth
       await user.updateDisplayName(_nameController.text.trim());
+
+      // Notificar si cambió el nombre
+      if (_originalName != null &&
+          _nameController.text.trim() != _originalName) {
+        await NotificationService().createProfileChangeNotification(
+          userId: _userId!,
+          type: NotificationType.profileNameChanged,
+          title: 'Nombre actualizado',
+          message: 'Tu nombre se cambió a "${_nameController.text.trim()}"',
+        );
+      }
 
       // Actualizar email si cambió
       if (_emailController.text.trim() != _originalEmail) {
         await user.verifyBeforeUpdateEmail(_emailController.text.trim());
+        // Notificar cambio de email
+        await NotificationService().createProfileChangeNotification(
+          userId: _userId!,
+          type: NotificationType.profileEmailChanged,
+          title: 'Email en proceso de cambio',
+          message: 'Se envió verificación a ${_emailController.text.trim()}',
+        );
         _showInfoSnackBar(
           'Se ha enviado un correo de verificación a ${_emailController.text.trim()}',
         );
@@ -152,6 +188,17 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       // Actualizar contraseña si se proporcionó una nueva
       if (wantsPasswordChange) {
         await user.updatePassword(_newPasswordController.text);
+        // Notificar cambio de contraseña
+        await NotificationService().createProfileChangeNotification(
+          userId: _userId!,
+          type: NotificationType.profilePasswordChanged,
+          title: '🔒 Contraseña actualizada',
+          message: 'Tu contraseña fue cambiada exitosamente',
+          metadata: {
+            'changed_at': DateTime.now().toIso8601String(),
+            'device': 'app',
+          },
+        );
         _showSuccessSnackBar('Contraseña actualizada exitosamente');
       }
 

@@ -15,6 +15,7 @@ class WorkerAlertsScreen extends StatefulWidget {
 
 class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
   final NotificationService _notificationService = NotificationService();
+  bool _hasMarkedAsRead = false;
 
   Future<void> _markAllAsRead(
     String userId,
@@ -149,6 +150,21 @@ class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
           }
 
           final notifications = snapshot.data ?? [];
+
+          // Marcar automáticamente como leídas al cargar la pantalla (solo una vez)
+          if (!_hasMarkedAsRead && notifications.isNotEmpty) {
+            _hasMarkedAsRead = true;
+            final unreadIds = notifications
+                .where((n) => !n.isRead)
+                .map((n) => n.id)
+                .toList();
+            if (unreadIds.isNotEmpty) {
+              // Marcar como leídas en background sin mostrar snackbar
+              Future.microtask(
+                () => _notificationService.markAllAsRead(userId, unreadIds),
+              );
+            }
+          }
 
           if (notifications.isEmpty) {
             return Center(

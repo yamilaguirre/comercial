@@ -39,6 +39,11 @@ class NotificationService {
               return savedPropertyIds.contains(notification.propertyId);
             }
 
+            // Notificaciones de perfil: solo si son para este usuario específico
+            if (notification.userId != null) {
+              return notification.userId == userId;
+            }
+
             return false;
           })
           .map((notification) {
@@ -174,6 +179,30 @@ class NotificationService {
       return docRef.id;
     } catch (e) {
       print('Error creating system message: $e');
+      return null;
+    }
+  }
+
+  // Crear notificación de cambio de perfil (solo para el usuario específico)
+  Future<String?> createProfileChangeNotification({
+    required String userId,
+    required NotificationType type,
+    required String title,
+    required String message,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final docRef = await _firestore.collection('notifications').add({
+        'type': type.toFirestore(),
+        'title': title,
+        'message': message,
+        'user_id': userId,
+        'created_at': FieldValue.serverTimestamp(),
+        'metadata': metadata,
+      });
+      return docRef.id;
+    } catch (e) {
+      print('Error creating profile change notification: $e');
       return null;
     }
   }

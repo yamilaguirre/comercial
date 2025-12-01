@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:my_first_app/theme/theme.dart';
 import '../../services/chat_service.dart';
+import '../../services/notification_service.dart';
 import '../../providers/auth_provider.dart';
 
 class WorkerLayout extends StatefulWidget {
@@ -85,8 +86,8 @@ class _WorkerLayoutState extends State<WorkerLayout> {
             label: 'Mensajes',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('notificaciones', false),
-            activeIcon: _buildNavIcon('notificaciones', true),
+            icon: _buildNavIconWithBadge(context, 'notificaciones', false),
+            activeIcon: _buildNavIconWithBadge(context, 'notificaciones', true),
             label: 'Notificaciones',
           ),
           BottomNavigationBarItem(
@@ -104,7 +105,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
     String iconName,
     bool isActive,
   ) {
-    if (iconName != 'mensajes') {
+    if (iconName != 'mensajes' && iconName != 'notificaciones') {
       return _buildNavIcon(iconName, isActive);
     }
 
@@ -115,46 +116,95 @@ class _WorkerLayoutState extends State<WorkerLayout> {
       return _buildNavIcon(iconName, isActive);
     }
 
-    final chatService = ChatService();
+    // Badge para mensajes
+    if (iconName == 'mensajes') {
+      final chatService = ChatService();
 
-    return StreamBuilder<int>(
-      stream: chatService.getTotalUnreadCount(currentUserId),
-      builder: (context, snapshot) {
-        final unreadCount = snapshot.data ?? 0;
+      return StreamBuilder<int>(
+        stream: chatService.getTotalUnreadCount(currentUserId),
+        builder: (context, snapshot) {
+          final unreadCount = snapshot.data ?? 0;
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _buildNavIcon(iconName, isActive),
-            if (unreadCount > 0)
-              Positioned(
-                right: -6,
-                top: -3,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 16,
-                    minHeight: 16,
-                  ),
-                  child: Text(
-                    unreadCount > 9 ? '9+' : '$unreadCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _buildNavIcon(iconName, isActive),
+              if (unreadCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
                     ),
-                    textAlign: TextAlign.center,
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
-              ),
-          ],
-        );
-      },
-    );
+            ],
+          );
+        },
+      );
+    }
+
+    // Badge para notificaciones
+    if (iconName == 'notificaciones') {
+      final notificationService = NotificationService();
+
+      return StreamBuilder<int>(
+        stream: notificationService.getUnreadCount(currentUserId),
+        builder: (context, snapshot) {
+          final unreadCount = snapshot.data ?? 0;
+
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _buildNavIcon(iconName, isActive),
+              if (unreadCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      );
+    }
+
+    return _buildNavIcon(iconName, isActive);
   }
 
   Widget _buildNavIcon(String iconName, bool isActive) {
