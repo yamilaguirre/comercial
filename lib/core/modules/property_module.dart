@@ -5,7 +5,8 @@ import '../../screens/property/property_favorites_screen.dart';
 import '../../screens/property/property_messages_screen.dart';
 import '../../screens/property/property_account_screen.dart';
 import '../../screens/property/property_alerts_screen.dart';
-import '../../screens/property/property_form_screen.dart';
+import '../../screens/property/property_form_wrapper.dart';
+import '../../screens/property/property_verification_screen.dart';
 import '../../screens/property/my_properties_screen.dart';
 import '../../screens/property/property_detail_screen.dart';
 import '../../screens/property/agent_management_profile_screen.dart';
@@ -58,9 +59,10 @@ class PropertyModule extends Module {
     );
 
     // 2. RUTAS SECUNDARIAS
-    r.child('/new', child: (context) => const PropertyFormScreen());
+    r.child('/new', child: (context) => const PropertyFormWrapper());
     r.child('/my', child: (context) => const MyPropertiesScreen());
     r.child('/map-picker', child: (context) => const MapPickerScreen());
+    r.child('/verification', child: (context) => const PropertyVerificationScreen());
     r.child(
       '/edit-profile',
       child: (context) => EditProfileScreen(userData: Modular.args.data),

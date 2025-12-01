@@ -80,15 +80,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
     try {
       await _authService.updateUserRole(newRole);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Cambiando a modo $newRole. Redirigiendo...'),
-            backgroundColor: Styles.successColor,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
+      if (mounted) {}
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

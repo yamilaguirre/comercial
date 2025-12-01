@@ -67,19 +67,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null && mounted) {
-        // 1. Mostrar mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '¡Inicio de sesión exitoso! Bienvenido ${user.displayName ?? user.email}',
-            ),
-            backgroundColor: Styles.successColor,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-
-        // 2. SOLUCIÓN ROBUSTA: Ejecutar la navegación después de que el microtask
-        // de la cola de eventos se complete (garantiza que el SnackBar se muestre).
         Future.microtask(() {
           // Redirección inmediata a /select-role
           Modular.to.navigate('/select-role');
@@ -126,13 +113,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = await _authService.signInWithGoogle();
 
       if (user != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Bienvenido ${user!.displayName}'),
-            backgroundColor: Styles.successColor,
-          ),
-        );
-        // Redirección exitosa (AuthGuard manejará si va a /select-role o al Home)
         Future.microtask(() {
           Modular.to.navigate('/select-role');
         });

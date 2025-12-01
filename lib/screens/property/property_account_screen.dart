@@ -108,6 +108,16 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
         AccountMenuSection.buildDivider(),
 
         AccountMenuItem(
+          icon: Icons.verified_user_outlined,
+          iconColor: const Color(0xFF4CAF50),
+          iconBgColor: const Color(0xFFE8F5E9),
+          title: 'Solicitar Verificado',
+          subtitle: 'Verifica tu identidad y destaca',
+          onTap: () => Modular.to.pushNamed('/property/verification'),
+        ),
+        AccountMenuSection.buildDivider(),
+
+        AccountMenuItem(
           icon: Icons.workspace_premium,
           iconColor: const Color(0xFFFFB800),
           iconBgColor: const Color(0xFFFFF7E6),
@@ -238,6 +248,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                       email: email,
                       photoUrl: photoUrl,
                       userRole: userRole,
+                      verificationStatus: userData?['verificationStatus'],
                     ),
 
                     // B. Opciones de Gestión (Módulo Propiedades + Botón de Cambio)

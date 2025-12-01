@@ -25,7 +25,6 @@ class PropertyListScreen extends StatefulWidget {
 
 class _PropertyListScreenState extends State<PropertyListScreen> {
   String selectedCategory = 'Comprar';
-  bool isDetailedView = true;
   bool _isLoading = true;
   Position? _currentPosition;
   List<Property> _allProperties = [];
@@ -226,13 +225,6 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     });
   }
 
-  // Método callback para cambiar la vista desde CategorySelector
-  void _onToggleView(bool detailed) {
-    setState(() {
-      isDetailedView = detailed;
-    });
-  }
-
   // Método para navegar al detalle (Migrado a Modular)
   void _goToDetail(Property property) {
     Modular.to.pushNamed(
@@ -347,8 +339,6 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                         CategorySelector(
                           selectedCategory: selectedCategory,
                           onCategorySelected: _onCategorySelected,
-                          isDetailedView: isDetailedView,
-                          onToggleView: _onToggleView,
                         ),
                         SizedBox(height: Styles.spacingMedium),
                       ],
@@ -379,7 +369,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                         ),
                         SizedBox(height: Styles.spacingMedium),
 
-                        // Lista de Propiedades Filtradas (Horizontal o Grid)
+                        // Lista de Propiedades Filtradas (Grid)
                         if (_filteredProperties.isEmpty)
                           Padding(
                             padding: EdgeInsets.all(Styles.spacingMedium),
@@ -390,20 +380,25 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                               textAlign: TextAlign.center,
                             ),
                           )
-                        else if (isDetailedView)
-                          // Vista Detallada Horizontal
-                          SizedBox(
-                            height: 420,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: Styles.spacingMedium,
-                              ),
+                        else
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: Styles.spacingMedium,
+                            ),
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 0.85,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                  ),
                               itemCount: _filteredProperties.length,
                               itemBuilder: (context, index) {
-                                return PropertyCardListItem(
+                                return CompactPropertyCard(
                                   property: _filteredProperties[index],
-                                  style: PropertyCardStyle.detailed,
                                   isFavorite: _savedPropertyIds.contains(
                                     _filteredProperties[index].id,
                                   ),
@@ -415,119 +410,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                 );
                               },
                             ),
-                          )
-                        else
-                          // Vista de Cuadrícula Simple
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: Styles.spacingMedium,
-                            ),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                return GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        childAspectRatio: 0.85,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                      ),
-                                  itemCount: _filteredProperties.length,
-                                  itemBuilder: (context, index) {
-                                    return CompactPropertyCard(
-                                      property: _filteredProperties[index],
-                                      isFavorite: _savedPropertyIds.contains(
-                                        _filteredProperties[index].id,
-                                      ),
-                                      onFavoriteToggle: () =>
-                                          _openCollectionDialog(
-                                            _filteredProperties[index],
-                                          ),
-                                      onTap: () => _goToDetail(
-                                        _filteredProperties[index],
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
                           ),
-                        SizedBox(height: Styles.spacingLarge),
-
-                        // Título: Últimas publicadas
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: Styles.spacingMedium,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.flash_on,
-                                    color: Styles.primaryColor,
-                                    size: 24,
-                                  ),
-                                  SizedBox(width: Styles.spacingXSmall),
-                                  Text(
-                                    'Últimas publicadas',
-                                    style: TextStyles.title.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  // TODO: Implementar navegación a 'Ver todo'
-                                },
-                                child: Text(
-                                  'Ver todo',
-                                  style: TextStyle(
-                                    color: Styles.primaryColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: Styles.spacingMedium),
-
-                        // Lista de Últimas Propiedades (Horizontal)
-                        SizedBox(
-                          height: 200,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: Styles.spacingMedium,
-                            ),
-                            itemCount: _allProperties.length > 5
-                                ? 5
-                                : _allProperties.length,
-                            itemBuilder: (context, index) {
-                              return PropertyCardListItem(
-                                property: _allProperties[index],
-                                style: PropertyCardStyle.small,
-                                isFavorite: _savedPropertyIds.contains(
-                                  _allProperties[index].id,
-                                ),
-                                onFavoriteToggle: () => _openCollectionDialog(
-                                  _allProperties[index],
-                                ),
-                                onTap: () => _goToDetail(_allProperties[index]),
-                              );
-                            },
-                          ),
-                        ),
                         SizedBox(height: Styles.spacingLarge),
                       ],
                     ),

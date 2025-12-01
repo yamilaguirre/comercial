@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '39000178233',
     projectId: 'comercial-785c5',
     storageBucket: 'comercial-785c5.firebasestorage.app',
-    iosBundleId: 'com.comercial.app',
+    iosBundleId: 'com.chaski.comercial',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -75,6 +75,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '39000178233',
     projectId: 'comercial-785c5',
     storageBucket: 'comercial-785c5.firebasestorage.app',
-    iosBundleId: 'com.comercial.app',
+    iosBundleId: 'com.chaski.comercial',
   );
 }
