@@ -195,8 +195,8 @@ class _WorkerCollectionDetailScreenState
 
               return GridView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 200,
                   childAspectRatio: 0.62,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,

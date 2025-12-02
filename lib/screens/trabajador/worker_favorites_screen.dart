@@ -382,8 +382,8 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
                   return GridView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 200,
                           childAspectRatio: 0.62,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
