@@ -301,6 +301,12 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
           final data = doc.data() as Map<String, dynamic>;
           final profile = data['profile'] as Map<String, dynamic>?;
 
+          // NUEVO: Verificar que el trabajador esté VERIFICADO
+          final verificationStatus = data['verificationStatus'] as String?;
+          if (verificationStatus != 'verified') {
+            return false;
+          }
+
           // Verificar que tenga datos básicos para evitar perfiles vacíos/invisibles
           final name = data['name'] as String?;
           if (name == null || name.isEmpty || name.trim().isEmpty) {

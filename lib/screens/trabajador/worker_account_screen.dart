@@ -60,6 +60,40 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
       }
 
       final userData = userDoc.data() as Map<String, dynamic>;
+      final verificationStatus = userData['verificationStatus'] as String?;
+
+      // NUEVO: Verificar si está verificado antes de permitir acceso
+      if (verificationStatus != 'verified') {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Verificación Requerida'),
+            content: const Text(
+              'Para crear y acceder a tu perfil de trabajador, primero debes verificar tu identidad.\n\n'
+              'Ve a la opción "Solicitar Verificado" en el menú para comenzar.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Modular.to.pushNamed('/worker/verification');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Styles.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Ir a Verificar'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
       final profile = userData['profile'] as Map<String, dynamic>?;
 
       // Verificar si tiene profesión seleccionada (indicador de perfil completado)

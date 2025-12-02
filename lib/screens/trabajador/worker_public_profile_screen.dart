@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../theme/theme.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
+import '../../services/location_service.dart';
 import 'worker_location_search_screen.dart';
 
 class WorkerPublicProfileScreen extends StatefulWidget {
@@ -514,124 +515,583 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                     ),
                   ),
 
+                const SizedBox(height: 16),
+                const Divider(height: 1, thickness: 1),
+
+                // Sección de Trabajadores Similares
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF001BB7), Color(0xFF0033CC)],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Trabajadores Similares',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF212121),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildSimilarWorkersVertical(),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 100),
               ],
             ),
           ),
-          bottomNavigationBar: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
+          bottomNavigationBar: _buildBottomButtons(),
+        );
+      },
+    );
+  }
+
+  // Bottom buttons with gradients
+  Widget _buildBottomButtons() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Botón Llamar con degradado azul
+            _buildActionButton(
+              icon: Icons.phone,
+              label: 'Llamar',
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF448AFF),
+                  Color(0xFF001BB7),
+                ], // Azul más claro a oscuro
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              textColor: Colors.white,
+              onPressed: () {
+                if (widget.worker.phone.isNotEmpty) {
+                  launchUrl(
+                    Uri.parse('tel:${widget.worker.phone}'),
+                    mode: LaunchMode.externalApplication,
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Número de teléfono no disponible'),
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(width: 12),
+
+            // Botón WhatsApp (Central y destacado)
+            Expanded(
+              flex: 2,
+              child: _buildActionButton(
+                icon: Icons.chat,
+                label: 'WhatsApp',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                textColor: Colors.white,
+                onPressed: () async {
+                  if (widget.worker.phone.isNotEmpty) {
+                    String phone = widget.worker.phone
+                        .replaceAll(' ', '')
+                        .replaceAll('-', '')
+                        .replaceAll('(', '')
+                        .replaceAll(')', '');
+
+                    if (!phone.startsWith('+')) {
+                      phone = '+591$phone';
+                    }
+
+                    final whatsappUrl = Uri.parse(
+                      'https://wa.me/$phone?text=Hola, vi tu perfil en Job Chasky y me interesa tu servicio.',
+                    );
+
+                    if (await canLaunchUrl(whatsappUrl)) {
+                      await launchUrl(
+                        whatsappUrl,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No se pudo abrir WhatsApp'),
+                          ),
+                        );
+                      }
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Número de teléfono no disponible'),
+                      ),
+                    );
+                  }
+                },
+                isLarge: true,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Botón Contactar con degradado azul
+            _buildActionButton(
+              icon: Icons.chat_bubble_outline,
+              label: 'Contactar\nmediante app',
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF448AFF),
+                  Color(0xFF001BB7),
+                ], // Azul más claro a oscuro
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              textColor: Colors.white,
+              onPressed: () async {
+                final authService = Provider.of<AuthService>(
+                  context,
+                  listen: false,
+                );
+                final currentUser = authService.currentUser;
+                if (currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Debes iniciar sesión')),
+                  );
+                  return;
+                }
+
+                try {
+                  final chatService = ChatService();
+                  final userIds = [currentUser.uid, widget.worker.id];
+                  String? chatId = await chatService.findExistingChat(
+                    'general',
+                    userIds,
+                  );
+
+                  if (chatId == null) {
+                    chatId = await chatService.createChat(
+                      propertyId: 'general',
+                      userIds: userIds,
+                      initialMessage:
+                          'Hola, vi tu perfil y me interesa tu servicio.',
+                      senderId: currentUser.uid,
+                    );
+                  }
+
+                  if (chatId != null && mounted) {
+                    Modular.to.pushNamed(
+                      '/worker/chat-detail',
+                      arguments: {
+                        'chatId': chatId,
+                        'otherUserId': widget.worker.id,
+                        'otherUserName': widget.worker.name,
+                        'otherUserPhoto': widget.worker.photoUrl,
+                      },
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Helper method to build action buttons with consistent styling
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    Color? color,
+    Color? borderColor,
+    Color? textColor,
+    Gradient? gradient,
+    bool isLarge = false,
+  }) {
+    return Expanded(
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: color,
+          gradient: gradient,
+          border: borderColor != null
+              ? Border.all(color: borderColor, width: 1.5)
+              : null,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: gradient != null
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: isLarge ? 24 : 20, color: textColor),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isLarge ? 13 : 11,
+                    fontWeight: isLarge ? FontWeight.w600 : FontWeight.w500,
+                    color: textColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        if (widget.worker.phone.isNotEmpty) {
-                          launchUrl(Uri.parse('tel:${widget.worker.phone}'));
-                        }
-                      },
-                      icon: const Icon(Icons.phone_outlined, size: 18),
-                      label: const Text(
-                        'Llamar',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: Colors.grey[300]!),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        foregroundColor: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final authService = Provider.of<AuthService>(
-                          context,
-                          listen: false,
-                        );
-                        final currentUser = authService.currentUser;
-                        if (currentUser == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Debes iniciar sesión'),
-                            ),
-                          );
-                          return;
-                        }
+          ),
+        ),
+      ),
+    );
+  }
 
-                        try {
-                          final chatService = ChatService();
-                          final userIds = [currentUser.uid, widget.worker.id];
-                          String? chatId = await chatService.findExistingChat(
-                            'general',
-                            userIds,
-                          );
+  /// Build similar workers section with VERTICAL scroll
+  Widget _buildSimilarWorkersVertical() {
+    final authService = Provider.of<AuthService>(context);
+    final currentUserId = authService.currentUser?.uid;
 
-                          if (chatId == null) {
-                            chatId = await chatService.createChat(
-                              propertyId: 'general',
-                              userIds: userIds,
-                              initialMessage:
-                                  'Hola, vi tu perfil y me interesa tu servicio.',
-                              senderId: currentUser.uid,
-                            );
-                          }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
-                          if (chatId != null && mounted) {
-                            Modular.to.pushNamed(
-                              '/worker/chat-detail',
-                              arguments: {
-                                'chatId': chatId,
-                                'otherUserId': widget.worker.id,
-                                'otherUserName': widget.worker.name,
-                                'otherUserPhoto': widget.worker.photoUrl,
-                              },
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                      label: const Text(
-                        'Contactar',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: Styles.primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                ],
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final workers = snapshot.data!.docs;
+
+        // Filtrar trabajadores similares
+        final similarWorkers = workers
+            .where((doc) {
+              if (doc.id == widget.worker.id || doc.id == currentUserId) {
+                return false;
+              }
+
+              final data = doc.data() as Map<String, dynamic>;
+              final name = data['name'] as String?;
+              if (name == null || name.isEmpty || name.trim().isEmpty) {
+                return false;
+              }
+
+              final professions = data['professions'] as List<dynamic>?;
+              final workerCategories = widget.worker.categories
+                  .map((e) => e.toLowerCase())
+                  .toSet();
+
+              if (professions != null && professions.isNotEmpty) {
+                for (var prof in professions) {
+                  final profMap = prof as Map<String, dynamic>?;
+                  final category = profMap?['category']
+                      ?.toString()
+                      .toLowerCase();
+                  if (category != null && workerCategories.contains(category)) {
+                    return true;
+                  }
+                }
+              }
+
+              return false;
+            })
+            .take(8)
+            .toList();
+
+        if (similarWorkers.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                'No hay trabajadores similares disponibles',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
             ),
+          );
+        }
+
+        // VERTICAL scroll usando GridView
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 200,
+            childAspectRatio: 0.62,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: similarWorkers.length,
+          itemBuilder: (context, index) {
+            final workerDoc = similarWorkers[index];
+            final data = workerDoc.data() as Map<String, dynamic>;
+
+            final name = data['name'] as String? ?? '';
+            final photoUrl = data['photoUrl'] as String?;
+            final workerLocation = data['location'] as Map<String, dynamic>?;
+
+            // Obtener profesión
+            String profession =
+                (data['profession'] as String? ??
+                        (data['profile']
+                                as Map<String, dynamic>?)?['profession']
+                            as String? ??
+                        '')
+                    .toString();
+            final professionsData =
+                (data['professions'] as List<dynamic>?) ??
+                ((data['profile'] as Map<String, dynamic>?)?['professions']
+                    as List<dynamic>?);
+            if (profession.isEmpty &&
+                professionsData != null &&
+                professionsData.isNotEmpty) {
+              final List<String> allSubcategories = [];
+              for (var prof in professionsData) {
+                final profMap = prof as Map<String, dynamic>?;
+                final subcategories =
+                    profMap?['subcategories'] as List<dynamic>?;
+                if (subcategories != null && subcategories.isNotEmpty) {
+                  allSubcategories.addAll(
+                    subcategories.map((s) => s.toString()),
+                  );
+                }
+              }
+              if (allSubcategories.isNotEmpty) {
+                profession = allSubcategories.take(2).join(' • ');
+              }
+            }
+
+            final price = (data['price']?.toString() ?? '').trim();
+
+            return StreamBuilder<Map<String, dynamic>>(
+              stream: LocationService.calculateWorkerRatingStream(workerDoc.id),
+              builder: (context, ratingSnapshot) {
+                final ratingData =
+                    ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+
+                return _buildCompactWorkerCard(
+                  workerId: workerDoc.id,
+                  name: name,
+                  profession: profession,
+                  rating: (ratingData['rating'] as num).toDouble(),
+                  reviews: ratingData['reviews'] as int,
+                  price: price,
+                  photoUrl: photoUrl,
+                  phone: data['phoneNumber'] as String? ?? '',
+                  latitude: workerLocation?['latitude'] as double? ?? 0.0,
+                  longitude: workerLocation?['longitude'] as double? ?? 0.0,
+                  categories:
+                      professionsData
+                          ?.map(
+                            (p) =>
+                                (p as Map<String, dynamic>?)?['category']
+                                    ?.toString() ??
+                                '',
+                          )
+                          .where((c) => c.isNotEmpty)
+                          .toList() ??
+                      ['Servicios'],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Build compact worker card for similar workers (vertical grid)
+  Widget _buildCompactWorkerCard({
+    required String workerId,
+    required String name,
+    required String profession,
+    required double rating,
+    required int reviews,
+    required String price,
+    String? photoUrl,
+    required String phone,
+    required double latitude,
+    required double longitude,
+    required List<String> categories,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        Modular.to.pushNamed(
+          '/worker/public-profile',
+          arguments: WorkerData(
+            id: workerId,
+            name: name,
+            profession: profession,
+            categories: categories,
+            latitude: latitude,
+            longitude: longitude,
+            photoUrl: photoUrl,
+            rating: rating,
+            phone: phone,
+            price: price,
           ),
         );
       },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            Container(
+              height: 140,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                image: photoUrl != null && photoUrl.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(photoUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: photoUrl == null || photoUrl.isEmpty
+                  ? Icon(Icons.person, size: 50, color: Colors.grey[400])
+                  : null,
+            ),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF212121),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    if (profession.isNotEmpty &&
+                        profession != 'Sin profesión especificada')
+                      Text(
+                        profession,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF616161),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, size: 14, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '($reviews)',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (price.isNotEmpty)
+                      Text(
+                        'Bs $price',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF001BB7),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

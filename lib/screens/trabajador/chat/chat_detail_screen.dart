@@ -8,6 +8,9 @@ import '../../../services/image_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/chat_model.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
   final String otherUserId;
@@ -33,11 +36,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSending = false;
   bool _isUploading = false;
+  String? _otherUserPhone;
 
   @override
   void initState() {
     super.initState();
     _markChatAsRead();
+    _fetchOtherUserData();
+  }
+
+  Future<void> _fetchOtherUserData() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.otherUserId)
+          .get();
+
+      if (doc.exists && mounted) {
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _otherUserPhone =
+              data['phoneNumber'] as String? ?? data['phone'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching user data: $e');
+    }
   }
 
   Future<void> _markChatAsRead() async {
@@ -46,6 +70,61 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (currentUserId.isNotEmpty) {
       await _chatService.markChatAsRead(widget.chatId, currentUserId);
+    }
+  }
+
+  Future<void> _makePhoneCall() async {
+    if (_otherUserPhone != null && _otherUserPhone!.isNotEmpty) {
+      final Uri launchUri = Uri(scheme: 'tel', path: _otherUserPhone);
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo realizar la llamada')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Número de teléfono no disponible')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteChat() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar chat'),
+        content: const Text(
+          '¿Estás seguro de que deseas eliminar este chat? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await _chatService.deleteChat(widget.chatId);
+      if (success && mounted) {
+        Modular.to.pop();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al eliminar el chat')),
+        );
+      }
     }
   }
 
@@ -222,15 +301,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.phone, color: Colors.black),
-            onPressed: () {
-              // TODO: Implementar llamada
-            },
+            onPressed: _makePhoneCall,
           ),
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.black),
-            onPressed: () {
-              // TODO: Implementar menú de opciones
+            onSelected: (value) {
+              if (value == 'delete') {
+                _confirmDeleteChat();
+              }
             },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text('Eliminar Chat', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -138,6 +138,12 @@ class _WorkerLocationSearchScreenState
           continue;
         }
 
+        // NUEVO: Verificar que el trabajador esté VERIFICADO
+        final verificationStatus = data['verificationStatus'] as String?;
+        if (verificationStatus != 'verified') {
+          continue;
+        }
+
         // Obtener ubicación del campo 'location'
         final location = data['location'] as Map<String, dynamic>?;
         if (location != null) {
