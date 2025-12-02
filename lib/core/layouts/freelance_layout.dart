@@ -224,11 +224,8 @@ class _FreelanceLayoutState extends State<FreelanceLayout> {
         Modular.to.navigate('location-config');
         break;
       case 3:
-        // Regresar - Resetear rol y navegar a selección
-        final authService = Provider.of<AuthService>(context, listen: false);
-        authService.resetRole().then((_) {
-          Modular.to.navigate('/select-role');
-        });
+        // Regresar - Volver al módulo empleador (pantalla Explorar)
+        Modular.to.navigate('/worker/home-worker');
         break;
     }
   }
