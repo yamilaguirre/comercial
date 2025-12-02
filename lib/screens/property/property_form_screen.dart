@@ -3,6 +3,7 @@ import 'package:flutter_modular/flutter_modular.dart'; // <-- CORREGIDO: Usamos 
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -302,10 +303,20 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       if (value) finalAmenities[key] = true;
     });
 
+    // Obtener datos del usuario actual
+    final user = FirebaseAuth.instance.currentUser;
+    Map<String, dynamic>? userData;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      userData = userDoc.data();
+    }
+
     final propertyData = {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
-      // Parseamos el precio, asumimos que se introduce sin el símbolo de moneda para el cálculo interno
       'price': double.tryParse(_priceController.text.trim()) ?? 0,
       'currency': _selectedCurrency,
       'transaction_type': _selectedTransactionType,
@@ -318,6 +329,16 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       'geopoint': _currentGeopoint,
       'imageUrls': allImageUrls,
       'amenities': finalAmenities,
+      // Agregar datos de empresa si es inmobiliaria
+      if (userData?['role'] == 'inmobiliaria_empresa') ...{
+        'publisherType': 'company',
+        'companyId': user?.uid,
+        'companyName': userData?['companyName'],
+        'companyLogo': userData?['companyLogo'],
+      } else ...{
+        'publisherType': 'user',
+      },
+      'status': 'active',
     };
 
     final success = await provider.saveProperty(

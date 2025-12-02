@@ -52,6 +52,30 @@ class CompactPropertyCard extends StatelessWidget {
                         Container(height: 100, color: Colors.grey[300]),
                   ),
                 ),
+                // COMPANY LOGO (si es empresa)
+                if (property.publisherType == 'company' && property.companyLogo != null)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 12,
+                        backgroundImage: NetworkImage(property.companyLogo!),
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
                 // FAVORITE ICON
                 Positioned(
                   top: 6,

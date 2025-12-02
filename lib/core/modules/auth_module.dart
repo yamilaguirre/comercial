@@ -7,9 +7,9 @@ import 'package:my_first_app/screens/auth/register_form_screen.dart';
 import 'package:my_first_app/screens/auth/role_selection_screen.dart';
 import 'package:my_first_app/screens/auth/inmobiliaria_register_screen.dart';
 import 'package:my_first_app/screens/auth/inmobiliaria_login_screen.dart';
+import 'package:my_first_app/screens/auth/auth_loading_screen.dart';
 import 'package:my_first_app/screens/inmobiliaria/inmobiliaria_dashboard_screen.dart';
 import 'package:my_first_app/core/guards/auth_guard.dart';
-import 'package:my_first_app/core/guards/onboarding_guard.dart';
 
 class AuthModule extends Module {
   @override
@@ -17,15 +17,16 @@ class AuthModule extends Module {
 
   @override
   void routes(r) {
-    // 1. Ruta Inicial: Onboarding
-    // Aplicamos OnboardingGuard para redirigir a '/select-role' si el usuario está logueado.
+    // 1. Ruta Inicial: Pantalla de carga que verifica auth y redirige
     r.child(
       '/',
-      child: (context) => const OnboardingScreen(),
-      guards: [OnboardingGuard()], // <-- Nuevo Guard
+      child: (context) => const AuthLoadingScreen(),
     );
 
-    // 2. Otras Rutas
+    // 2. Onboarding (sin guard)
+    r.child('/onboarding', child: (context) => const OnboardingScreen());
+
+    // 3. Otras Rutas
     r.child('/login', child: (context) => const LoginScreen());
     r.child('/register', child: (context) => const RegisterScreen());
     r.child(

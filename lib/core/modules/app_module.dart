@@ -4,6 +4,7 @@ import 'package:my_first_app/core/modules/auth_module.dart';
 import 'package:my_first_app/core/modules/property_module.dart';
 import 'package:my_first_app/core/modules/worker_module.dart';
 import 'package:my_first_app/core/modules/freelance_module.dart';
+import 'package:my_first_app/core/modules/inmobiliaria_module.dart';
 import 'package:my_first_app/core/guards/auth_guard.dart';
 
 class AppModule extends Module {
@@ -25,5 +26,7 @@ class AppModule extends Module {
     r.module('/worker', module: WorkerModule());
 
     r.module('/freelance', module: FreelanceModule());
+
+    r.module('/inmobiliaria', module: InmobiliariaModule());
   }
 }

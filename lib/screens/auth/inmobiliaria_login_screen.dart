@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../providers/auth_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/theme.dart';
 
 class InmobiliariaLoginScreen extends StatefulWidget {
@@ -15,7 +15,6 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthService _authService = Modular.get<AuthService>();
   
   bool _isLoading = false;
   String? _errorMessage;
@@ -41,10 +40,13 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
     });
 
     try {
-      final user = await _authService.signInWithEmailPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+      // Login directo con FirebaseAuth para evitar conflictos con AuthService
+      final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
+
+      final user = userCredential.user;
 
       if (user != null) {
         final userDoc = await FirebaseFirestore.instance
@@ -52,20 +54,24 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
             .doc(user.uid)
             .get();
 
-        if (userDoc.exists && userDoc.data()?['role'] == 'inmobiliaria_empresa') {
+        final role = userDoc.data()?['role'];
+        
+        if (userDoc.exists && role == 'inmobiliaria_empresa') {
+          // Actualizar lastLogin
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .update({'lastLogin': FieldValue.serverTimestamp()});
+          
           if (mounted) {
-            Modular.to.navigate('/inmobiliaria-dashboard');
+            Modular.to.navigate('/inmobiliaria/home');
           }
         } else {
-          await _authService.signOut();
+          await FirebaseAuth.instance.signOut();
           setState(() {
             _errorMessage = 'Esta cuenta no es una empresa inmobiliaria';
           });
         }
-      } else {
-        setState(() {
-          _errorMessage = 'Credenciales incorrectas';
-        });
       }
     } catch (e) {
       setState(() {

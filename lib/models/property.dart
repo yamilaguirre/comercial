@@ -32,6 +32,13 @@ class Property {
   final int inquiries;
   final int favorite;
 
+  // Company fields
+  final String? publisherType;
+  final String? companyId;
+  final String? companyName;
+  final String? companyLogo;
+  final String status;
+
   Property({
     required this.id,
     required this.name,
@@ -54,6 +61,11 @@ class Property {
     this.views = 0,
     this.inquiries = 0,
     this.favorite = 0,
+    this.publisherType,
+    this.companyId,
+    this.companyName,
+    this.companyLogo,
+    this.status = 'active',
   });
 
   factory Property.fromFirestore(DocumentSnapshot doc) {
@@ -104,6 +116,11 @@ class Property {
       views: data['views'] ?? 0,
       inquiries: data['inquiries'] ?? 0,
       favorite: data['favorite'] ?? 0,
+      publisherType: data['publisherType'],
+      companyId: data['companyId'],
+      companyName: data['companyName'],
+      companyLogo: data['companyLogo'],
+      status: data['status'] ?? 'active',
     );
   }
 

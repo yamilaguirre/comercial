@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
+import '../../services/image_service.dart';
 
 class InmobiliariaRegisterScreen extends StatefulWidget {
   const InmobiliariaRegisterScreen({super.key});
@@ -23,9 +26,10 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
   final _confirmPasswordController = TextEditingController();
   final _representativeNameController = TextEditingController();
   
-  final AuthService _authService = Modular.get<AuthService>();
   bool _isLoading = false;
   String? _errorMessage;
+  File? _logoImage;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -69,20 +73,34 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
       final user = userCredential.user;
 
       if (user != null) {
+        String? logoUrl;
+        if (_logoImage != null) {
+          final xFile = XFile(_logoImage!.path);
+          logoUrl = await ImageService.uploadImageToApi(
+            xFile,
+            folderPath: 'company_logos/${user.uid}',
+          );
+        }
+
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'uid': user.uid,
           'email': _emailController.text.trim(),
           'displayName': _companyNameController.text.trim(),
           'role': 'inmobiliaria_empresa',
+          'status': 'inmobiliaria_empresa',
           'companyName': _companyNameController.text.trim(),
           'ruc': _rucController.text.trim(),
           'address': _addressController.text.trim(),
           'phoneNumber': _phoneController.text.trim(),
           'representativeName': _representativeNameController.text.trim(),
+          'companyLogo': logoUrl,
+          'photoURL': logoUrl,
           'createdAt': FieldValue.serverTimestamp(),
           'isVerified': false,
         });
 
-        await _authService.signOut();
+        // Hacer signOut directo sin usar AuthService
+        await FirebaseAuth.instance.signOut();
 
         if (mounted) {
           Modular.to.navigate('/inmobiliaria-login');
@@ -138,6 +156,36 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
                   style: TextStyles.subtitle.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Styles.primaryColor,
+                  ),
+                ),
+                SizedBox(height: Styles.spacingLarge),
+                Center(
+                  child: GestureDetector(
+                    onTap: _pickLogo,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Styles.primaryColor, width: 2),
+                      ),
+                      child: _logoImage != null
+                          ? ClipOval(
+                              child: Image.file(_logoImage!, fit: BoxFit.cover),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.business, size: 40, color: Colors.grey[600]),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Logo',
+                                  style: TextStyles.caption.copyWith(color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
                 ),
                 SizedBox(height: Styles.spacingLarge),
@@ -264,6 +312,15 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _pickLogo() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _logoImage = File(image.path);
+      });
+    }
   }
 
   Widget _buildTextField({

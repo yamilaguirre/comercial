@@ -132,11 +132,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           iconBgColor: const Color(0xFFF3F4F6),
           title: 'Configuración',
           subtitle: 'Preferencias y notificaciones',
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Próximamente: Configuración')),
-            );
-          },
+          onTap: () => Modular.to.pushNamed('/property/settings'),
         ),
       ],
     );
