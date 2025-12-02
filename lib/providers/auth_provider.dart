@@ -36,6 +36,9 @@ class AuthService extends ChangeNotifier {
       _isLoading = false;
       _isAuthReady = true;
       if (user != null) {
+        // Al detectar sesión activa, forzamos el rol a 'indefinido'
+        // Esto garantiza que el AuthGuard siempre redirija a /select-role
+        await _resetRoleToIndefinido(user);
         await _fetchUserRole(user.uid);
       } else {
         _userRole = ROLE_PENDING;
@@ -242,17 +245,11 @@ class AuthService extends ChangeNotifier {
         await user.reload();
         user = _auth.currentUser;
 
-        // Verificar si el usuario tiene un rol específico antes de resetear
+        // 1. Resetear el rol a 'indefinido' en DB
+        await _resetRoleToIndefinido(user!);
+
+        // 2. Notificación de éxito
         try {
-          final doc = await _firestore.collection('users').doc(user!.uid).get();
-          final currentRole = doc.data()?['role'];
-          
-          // Solo resetear si el rol es indefinido o no existe
-          // NO resetear si tiene roles específicos como 'inmobiliaria_empresa'
-          if (currentRole == null || currentRole == ROLE_PENDING) {
-            await _resetRoleToIndefinido(user);
-          }
-          
           await _saveUserToFirestore(user);
           await _fetchUserRole(user.uid);
         } catch (e) {
@@ -302,16 +299,11 @@ class AuthService extends ChangeNotifier {
         await user.reload();
         user = _auth.currentUser;
 
-        // Verificar si el usuario tiene un rol específico antes de resetear
+        // 1. Resetear el rol a 'indefinido' en DB
+        await _resetRoleToIndefinido(user!);
+
+        // 2. Notificación de éxito
         try {
-          final doc = await _firestore.collection('users').doc(user!.uid).get();
-          final currentRole = doc.data()?['role'];
-          
-          // Solo resetear si el rol es indefinido o no existe
-          if (currentRole == null || currentRole == ROLE_PENDING) {
-            await _resetRoleToIndefinido(user);
-          }
-          
           await _saveUserToFirestore(user);
           await _fetchUserRole(user.uid);
         } catch (e) {
