@@ -362,6 +362,33 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               services.any((s) => s.contains(_searchQuery));
         }).toList();
 
+        // Ordenar por última actualización del perfil (más recientes primero)
+        // Esto prioriza a trabajadores que actualizaron su precio recientemente
+        filteredWorkers.sort((a, b) {
+          final aData = a.data() as Map<String, dynamic>;
+          final bData = b.data() as Map<String, dynamic>;
+
+          final aProfile = aData['profile'] as Map<String, dynamic>?;
+          final bProfile = bData['profile'] as Map<String, dynamic>?;
+
+          final aUpdatedAt = aProfile?['updatedAt'] as Timestamp?;
+          final bUpdatedAt = bProfile?['updatedAt'] as Timestamp?;
+
+          // Si ambos tienen updatedAt, ordenar por eso
+          if (aUpdatedAt != null && bUpdatedAt != null) {
+            return bUpdatedAt.compareTo(aUpdatedAt);
+          }
+
+          // Si ninguno tiene, ordenar por ID del documento
+          if (aUpdatedAt == null && bUpdatedAt == null) {
+            return b.id.compareTo(a.id);
+          }
+
+          // Dar prioridad a los que tienen updatedAt
+          if (aUpdatedAt == null) return 1;
+          return -1;
+        });
+
         if (filteredWorkers.isEmpty) {
           return Center(
             child: Padding(
