@@ -193,8 +193,14 @@ class _WorkerCollectionDetailScreenState
             builder: (context, positionSnapshot) {
               final userLocation = positionSnapshot.data;
 
-              return ListView.builder(
-                padding: EdgeInsets.symmetric(horizontal: Styles.spacingMedium),
+              return GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.62,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
                 itemCount: workers.length,
                 itemBuilder: (context, index) {
                   final data = workers[index];
@@ -279,7 +285,7 @@ class _WorkerCollectionDetailScreenState
                       final rating = (ratingData['rating'] as num).toDouble();
                       final reviews = ratingData['reviews'] as int;
 
-                      return _buildWorkerCard(
+                      return _buildCompactWorkerCard(
                         workerId: workerId,
                         name: name,
                         profession: profession,
@@ -287,11 +293,6 @@ class _WorkerCollectionDetailScreenState
                         reviews: reviews,
                         price: (data['price']?.toString() ?? '').trim(),
                         distance: distance,
-                        services:
-                            (data['services'] as List<dynamic>?)
-                                ?.map((s) => s.toString())
-                                .toList() ??
-                            [],
                         photoUrl: data['photoUrl'] as String?,
                         phone: data['phoneNumber'] as String? ?? '',
                         latitude: workerLocation?['latitude'] as double? ?? 0.0,
@@ -308,6 +309,7 @@ class _WorkerCollectionDetailScreenState
                                 .where((c) => c.isNotEmpty)
                                 .toList() ??
                             ['Servicios'],
+                        workerLocation: workerLocation,
                       );
                     },
                   );
@@ -320,7 +322,7 @@ class _WorkerCollectionDetailScreenState
     );
   }
 
-  Widget _buildWorkerCard({
+  Widget _buildCompactWorkerCard({
     required String workerId,
     required String name,
     required String profession,
@@ -328,294 +330,233 @@ class _WorkerCollectionDetailScreenState
     required int reviews,
     required String price,
     required String distance,
-    required List<String> services,
     String? photoUrl,
     required String phone,
     required double latitude,
     required double longitude,
     required List<String> categories,
+    Map<String, dynamic>? workerLocation,
   }) {
     final authService = context.read<AuthService>();
     final currentUserId = authService.currentUser?.uid ?? '';
 
-    return Container(
-      margin: EdgeInsets.only(bottom: Styles.spacingMedium),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () {
+        _incrementWorkerViews(workerId);
+        Modular.to.pushNamed(
+          '/worker/public-profile',
+          arguments: WorkerData(
+            id: workerId,
+            name: name,
+            profession: profession,
+            categories: categories,
+            latitude: latitude,
+            longitude: longitude,
+            photoUrl: photoUrl,
+            rating: rating,
+            phone: phone,
+            price: price,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // Image with delete button overlay
+            Stack(
               children: [
-                Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                          ? NetworkImage(photoUrl)
-                          : null,
-                      child: photoUrl == null || photoUrl.isEmpty
-                          ? Icon(
-                              Icons.person,
-                              size: 40,
-                              color: Colors.grey[400],
-                            )
-                          : null,
+                // Profile Image
+                Container(
+                  height: 140,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
                     ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () {
-                        _incrementWorkerViews(workerId);
-                        Modular.to.pushNamed(
-                          '/worker/public-profile',
-                          arguments: WorkerData(
-                            id: workerId,
-                            name: name,
-                            profession: profession,
-                            categories: categories,
-                            latitude: latitude,
-                            longitude: longitude,
-                            photoUrl: photoUrl,
-                            rating: rating,
-                            phone: phone,
-                            price: price,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF001BB7).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Ver Perfil',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF001BB7),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF212121),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      GestureDetector(
-                        onTapDown: (details) {
-                          _showRatingDialog(
-                            workerId: workerId,
-                            workerName: name,
-                            currentRating: rating,
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            ...List.generate(5, (index) {
-                              if (index < rating.floor()) {
-                                return const Icon(
-                                  Icons.star,
-                                  color: Colors.amber,
-                                  size: 16,
-                                );
-                              } else if (index < rating) {
-                                return const Icon(
-                                  Icons.star_half,
-                                  color: Colors.amber,
-                                  size: 16,
-                                );
-                              } else {
-                                return Icon(
-                                  Icons.star_border,
-                                  color: Colors.grey[400],
-                                  size: 16,
-                                );
-                              }
-                            }),
-                            const SizedBox(width: 4),
-                            Text(
-                              reviews > 0 ? '($reviews)' : '(Sin calificar)',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF616161),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    image: photoUrl != null && photoUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(photoUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
+                  child: photoUrl == null || photoUrl.isEmpty
+                      ? Icon(Icons.person, size: 60, color: Colors.grey[400])
+                      : null,
                 ),
-                IconButton(
-                  onPressed: () => _removeWorker(workerId),
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  tooltip: 'Eliminar de colección',
+                // Delete button overlay
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _removeWorker(workerId),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      tooltip: 'Eliminar de colección',
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
+            // Card content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Desde',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF616161)),
-                    ),
+                    // Name
                     Text(
-                      price.isNotEmpty ? 'Bs $price' : price,
+                      name,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF212121),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    // Profession
+                    if (profession != 'Sin profesión especificada')
+                      Text(
+                        profession,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF616161),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+
+                    const SizedBox(height: 6),
+
+                    // Location & Distance
+                    Row(
+                      children: [
+                        if (distance.isNotEmpty) ...[
+                          const Icon(
+                            Icons.location_on,
+                            size: 12,
+                            color: Color(0xFF616161),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            distance,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF616161),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                workerLocation?['isFixed'] == true
+                                    ? Icons.store
+                                    : Icons.directions_car,
+                                size: 12,
+                                color: workerLocation?['isFixed'] == true
+                                    ? Styles.primaryColor
+                                    : const Color(0xFF616161),
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(
+                                child: Text(
+                                  workerLocation?['isFixed'] == true &&
+                                          workerLocation?['locationName'] !=
+                                              null
+                                      ? workerLocation!['locationName']
+                                      : 'A domicilio',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: workerLocation?['isFixed'] == true
+                                        ? Styles.primaryColor
+                                        : const Color(0xFF616161),
+                                    fontWeight:
+                                        workerLocation?['isFixed'] == true
+                                        ? FontWeight.w500
+                                        : FontWeight.normal,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const Spacer(),
+                    // Rating
+                    Row(
+                      children: [
+                        const Icon(Icons.star, size: 14, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF212121),
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '($reviews)',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    // Price
+                    Text(
+                      price.isNotEmpty ? 'Bs $price' : 'Consultar',
+                      style: const TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF001BB7),
                       ),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Color(0xFF616161),
-                    ),
-                    Text(
-                      distance,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF616161),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.star, size: 16, color: Colors.amber),
-                    Text(
-                      rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF212121),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (profession != 'Sin profesión especificada')
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  profession,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF616161),
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
               ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: services.take(3).map((service) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    service,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF616161),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openWhatsApp(phone),
-                    icon: const Icon(Icons.phone, size: 18),
-                    label: const Text('Llamar'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF212121),
-                      side: const BorderSide(color: Color(0xFFE0E0E0)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _startChat(
-                      context,
-                      workerId: workerId,
-                      workerName: name,
-                      workerPhoto: photoUrl,
-                    ),
-                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                    label: const Text('Mensaje'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF212121),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
