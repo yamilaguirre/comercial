@@ -36,9 +36,6 @@ class AuthService extends ChangeNotifier {
       _isLoading = false;
       _isAuthReady = true;
       if (user != null) {
-        // Al detectar sesión activa, forzamos el rol a 'indefinido'
-        // Esto garantiza que el AuthGuard siempre redirija a /select-role
-        await _resetRoleToIndefinido(user);
         await _fetchUserRole(user.uid);
       } else {
         _userRole = ROLE_PENDING;
@@ -245,12 +242,8 @@ class AuthService extends ChangeNotifier {
         await user.reload();
         user = _auth.currentUser;
 
-        // 1. Resetear el rol a 'indefinido' en DB
-        await _resetRoleToIndefinido(user!);
-
-        // 2. Notificación de éxito
         try {
-          await _saveUserToFirestore(user);
+          await _saveUserToFirestore(user!);
           await _fetchUserRole(user.uid);
         } catch (e) {
           if (kDebugMode)
@@ -299,12 +292,8 @@ class AuthService extends ChangeNotifier {
         await user.reload();
         user = _auth.currentUser;
 
-        // 1. Resetear el rol a 'indefinido' en DB
-        await _resetRoleToIndefinido(user!);
-
-        // 2. Notificación de éxito
         try {
-          await _saveUserToFirestore(user);
+          await _saveUserToFirestore(user!);
           await _fetchUserRole(user.uid);
         } catch (e) {
           if (kDebugMode)

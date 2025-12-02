@@ -97,6 +97,7 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
           'photoURL': logoUrl,
           'createdAt': FieldValue.serverTimestamp(),
           'isVerified': false,
+          'verificationStatus': 'verified',
         });
 
         // Hacer signOut directo sin usar AuthService
@@ -106,9 +107,25 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
           Modular.to.navigate('/inmobiliaria-login');
         }
       }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        if (e.code == 'email-already-in-use') {
+          _errorMessage = 'Este correo ya está registrado. Intenta iniciar sesión';
+        } else if (e.code == 'invalid-email') {
+          _errorMessage = 'El formato del correo no es válido';
+        } else if (e.code == 'weak-password') {
+          _errorMessage = 'La contraseña es muy débil. Usa al menos 6 caracteres';
+        } else if (e.code == 'network-request-failed') {
+          _errorMessage = 'Sin conexión a internet. Verifica tu red';
+        } else if (e.code == 'operation-not-allowed') {
+          _errorMessage = 'El registro no está disponible en este momento';
+        } else {
+          _errorMessage = 'No se pudo completar el registro. Intenta nuevamente';
+        }
+      });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error al registrar: ${e.toString()}';
+        _errorMessage = 'Ocurrió un error inesperado. Intenta nuevamente';
       });
     } finally {
       setState(() {

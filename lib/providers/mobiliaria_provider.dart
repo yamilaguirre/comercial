@@ -19,17 +19,15 @@ class MobiliariaProvider extends ChangeNotifier {
   // --- OBTENER PROPIEDADES DEL USUARIO ---
   Future<List<Property>> fetchUserProperties() async {
     User? user = _auth.currentUser;
-    // DOBLE VERIFICACIÓN: Si el usuario es nulo o su UID es nulo/vacío, retornamos inmediatamente.
     if (user == null || user.uid.isEmpty) return [];
 
     _isLoading = true;
     notifyListeners();
 
     try {
-      // Usamos user.uid, que contiene el ID de la sesión activa
       final snapshot = await _firestore
           .collection('properties')
-          .where('owner_id', isEqualTo: user.uid) // CLAVE CORRECTA: 'owner_id'
+          .where('owner_id', isEqualTo: user.uid)
           .orderBy('created_at', descending: true)
           .get();
 

@@ -56,6 +56,7 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
 
         final role = userDoc.data()?['role'];
         
+        // Permitir login solo si es empresa inmobiliaria
         if (userDoc.exists && role == 'inmobiliaria_empresa') {
           // Actualizar lastLogin
           await FirebaseFirestore.instance
@@ -69,13 +70,31 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
         } else {
           await FirebaseAuth.instance.signOut();
           setState(() {
-            _errorMessage = 'Esta cuenta no es una empresa inmobiliaria';
+            _errorMessage = 'Esta cuenta no tiene acceso al portal inmobiliario';
           });
         }
       }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        if (e.code == 'user-not-found') {
+          _errorMessage = 'No existe una cuenta con este correo';
+        } else if (e.code == 'wrong-password') {
+          _errorMessage = 'La contraseña es incorrecta';
+        } else if (e.code == 'invalid-email') {
+          _errorMessage = 'El formato del correo no es válido';
+        } else if (e.code == 'user-disabled') {
+          _errorMessage = 'Esta cuenta ha sido deshabilitada';
+        } else if (e.code == 'network-request-failed') {
+          _errorMessage = 'Sin conexión a internet. Verifica tu red';
+        } else if (e.code == 'too-many-requests') {
+          _errorMessage = 'Demasiados intentos. Intenta más tarde';
+        } else {
+          _errorMessage = 'No se pudo iniciar sesión. Intenta nuevamente';
+        }
+      });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error al iniciar sesión: ${e.toString()}';
+        _errorMessage = 'Ocurrió un error inesperado. Intenta nuevamente';
       });
     } finally {
       setState(() {

@@ -185,13 +185,6 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       setState(
         () => _currentGeopoint = GeoPoint(result.latitude, result.longitude),
       );
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ubicación actualizada'),
-            backgroundColor: Styles.successColor,
-          ),
-        );
     }
   }
 
@@ -201,14 +194,6 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Permiso de ubicación denegado.'),
-                backgroundColor: Styles.errorColor,
-              ),
-            );
-          }
           return;
         }
       }
@@ -219,47 +204,21 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         () =>
             _currentGeopoint = GeoPoint(position.latitude, position.longitude),
       );
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ubicación actualizada por GPS'),
-            backgroundColor: Styles.successColor,
-          ),
-        );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo obtener la ubicación GPS.'),
-            backgroundColor: Styles.errorColor,
-          ),
-        );
-      }
+      // Error silencioso
     }
   }
 
   Future<void> _saveProperty() async {
     if (!_formKey.currentState!.validate()) return;
     if (_existingImageUrls.isEmpty && _newImageFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Agrega al menos una foto.'),
-          backgroundColor: Styles.errorColor,
-        ),
-      );
       return;
     }
     if (_currentGeopoint == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona la ubicación en el mapa.'),
-          backgroundColor: Styles.errorColor,
-        ),
-      );
       return;
     }
 
-    final provider = Modular.get<MobiliariaProvider>();
+    final provider = Provider.of<MobiliariaProvider>(context, listen: false);
     List<String> uploadedUrls = [];
     String propertyId =
         _propertyToEdit?.id ?? // Usamos _propertyToEdit
@@ -267,15 +226,6 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
 
     try {
       if (_newImageFiles.isNotEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Subiendo ${_newImageFiles.length} imágenes...'),
-              backgroundColor: Styles.infoColor,
-            ),
-          );
-        }
-
         for (var file in _newImageFiles) {
           final url = await ImageService.uploadImageToApi(
             file,
@@ -285,13 +235,6 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         }
       }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Styles.errorColor,
-          ),
-        );
       return;
     }
 
@@ -348,21 +291,12 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Guardado con éxito!'),
-            backgroundColor: Styles.successColor,
-          ),
-        );
-        // CORREGIDO: Usamos Modular.to.navigate para ir a Mis Publicaciones
-        Modular.to.navigate('/property/my');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.errorMessage ?? 'Error al guardar.'),
-            backgroundColor: Styles.errorColor,
-          ),
-        );
+        // Redirigir según el rol del usuario
+        if (userData?['role'] == 'inmobiliaria_empresa') {
+          Modular.to.navigate('/inmobiliaria/properties');
+        } else {
+          Modular.to.navigate('/property/my');
+        }
       }
     }
   }
@@ -397,7 +331,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = _propertyToEdit != null; // Usamos _propertyToEdit
-    final provider = Modular.get<MobiliariaProvider>();
+    final provider = Provider.of<MobiliariaProvider>(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),

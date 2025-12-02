@@ -1,6 +1,7 @@
 // filepath: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 
@@ -67,37 +68,48 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null && mounted) {
+        // Verificar que no sea empresa o agente inmobiliario
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        
+        final role = userDoc.data()?['role'];
+        
+        // Bloquear si es empresa inmobiliaria
+        if (role == 'inmobiliaria_empresa') {
+          await _authService.signOut();
+          setState(() {
+            _passwordError = 'Esta es una cuenta de empresa. Usa el portal inmobiliario';
+          });
+          return;
+        }
+        
         Future.microtask(() {
           // Redirección inmediata a /select-role
           Modular.to.navigate('/select-role');
         });
       } else if (mounted) {
-        // 3. CAPTURAR ERROR DE AUTENTICACIÓN (si el servicio retornó null por error de credenciales)
+        // Mensajes específicos según el error del AuthService
+        final error = _authService.errorMessage ?? '';
         setState(() {
-          // Si el usuario es nulo, mostramos el error reportado por el servicio
-          _passwordError =
-              _authService.errorMessage ?? 'Usuario o contraseña incorrectos.';
+          if (error.contains('Usuario no encontrado')) {
+            _passwordError = 'No existe una cuenta con este correo';
+          } else if (error.contains('Contraseña incorrecta')) {
+            _passwordError = 'La contraseña es incorrecta';
+          } else if (error.contains('Correo inválido')) {
+            _passwordError = 'El formato del correo no es válido';
+          } else if (error.contains('red')) {
+            _passwordError = 'Sin conexión a internet. Verifica tu red';
+          } else {
+            _passwordError = 'Correo o contraseña incorrectos';
+          }
         });
-
-        // OPCIONAL: Mostrar Snackbar para errores críticos (ej. error de red)
-        if (_authService.errorMessage != null &&
-            !_authService.errorMessage!.contains('Usuario') &&
-            !_authService.errorMessage!.contains('contraseña')) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Error de Autenticación: ${_authService.errorMessage!}',
-              ),
-              backgroundColor: Styles.errorColor,
-            ),
-          );
-        }
       }
     } catch (e) {
-      // Manejar errores imprevistos (aunque el AuthService ya debería manejar la mayoría)
       if (mounted) {
         setState(() {
-          _passwordError = 'Error de conexión. Intente de nuevo.';
+          _passwordError = 'No se pudo iniciar sesión. Intenta nuevamente';
         });
       }
     }
@@ -117,22 +129,20 @@ class _LoginScreenState extends State<LoginScreen> {
           Modular.to.navigate('/select-role');
         });
       } else if (mounted) {
-        // Muestra error de Google si la autenticación falló y el servicio lo reportó
         if (_authService.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error con Google: ${_authService.errorMessage!}'),
+            const SnackBar(
+              content: Text('No se pudo iniciar sesión con Google'),
               backgroundColor: Styles.errorColor,
             ),
           );
         }
       }
     } catch (e) {
-      // Manejar errores imprevistos
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error con Google: ${e.toString()}'),
+          const SnackBar(
+            content: Text('No se pudo iniciar sesión con Google'),
             backgroundColor: Styles.errorColor,
           ),
         );

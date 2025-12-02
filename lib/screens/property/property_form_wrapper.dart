@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../theme/theme.dart';
+import '../../providers/mobiliaria_provider.dart';
 import 'property_form_screen.dart';
-import 'verification_required_screen.dart';
 
 class PropertyFormWrapper extends StatelessWidget {
   const PropertyFormWrapper({super.key});
@@ -20,32 +19,9 @@ class PropertyFormWrapper extends StatelessWidget {
       );
     }
 
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: Styles.primaryColor),
-            ),
-          );
-        }
-
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const VerificationRequiredScreen();
-        }
-
-        final userData = snapshot.data!.data() as Map<String, dynamic>?;
-        final verificationStatus = userData?['verificationStatus'];
-
-        // Si está verificado, mostrar el formulario
-        if (verificationStatus == 'verified') {
-          return const PropertyFormScreen();
-        }
-
-        // Si no está verificado, mostrar pantalla de verificación requerida
-        return const VerificationRequiredScreen();
-      },
+    return ChangeNotifierProvider(
+      create: (_) => MobiliariaProvider(),
+      child: const PropertyFormScreen(),
     );
   }
 }

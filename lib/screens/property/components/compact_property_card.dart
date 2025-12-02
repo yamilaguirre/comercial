@@ -48,8 +48,32 @@ class CompactPropertyCard extends StatelessWidget {
                     height: 100,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(height: 100, color: Colors.grey[300]),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 100,
+                        color: Colors.grey[200],
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Styles.primaryColor,
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 100,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                    ),
                   ),
                 ),
                 // COMPANY LOGO (si es empresa)
@@ -73,6 +97,8 @@ class CompactPropertyCard extends StatelessWidget {
                         radius: 12,
                         backgroundImage: NetworkImage(property.companyLogo!),
                         backgroundColor: Colors.white,
+                        onBackgroundImageError: (exception, stackTrace) {},
+                        child: const SizedBox(),
                       ),
                     ),
                   ),

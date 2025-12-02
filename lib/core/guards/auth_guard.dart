@@ -19,12 +19,22 @@ class AuthGuard extends RouteGuard {
       return true;
     }
 
-    if (requiredRole != 'all' && authService.userRole != requiredRole) {
-      final target = authService.userRole == 'trabajo'
-          ? '/worker/home'
-          : '/property/home';
-      Modular.to.navigate(target);
-      return false;
+    if (requiredRole != 'all') {
+      final userRole = authService.userRole;
+      
+      // Permitir 'inmobiliaria_empresa' cuando se requiere 'inmobiliaria'
+      if (requiredRole == 'inmobiliaria' && 
+          (userRole == 'inmobiliaria' || userRole == 'inmobiliaria_empresa')) {
+        return true;
+      }
+      
+      if (userRole != requiredRole) {
+        final target = userRole == 'trabajo'
+            ? '/worker/home'
+            : '/property/home';
+        Modular.to.navigate(target);
+        return false;
+      }
     }
 
     return true;
