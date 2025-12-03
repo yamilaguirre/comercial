@@ -42,7 +42,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     final locationFuture = _getCurrentLocation();
     final propertiesFuture = _fetchProperties();
     final savedFuture = _checkSavedProperties();
-    
+
     await Future.wait([locationFuture, propertiesFuture, savedFuture]);
   }
 
@@ -142,24 +142,28 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   Future<void> _fetchProperties() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.uid ?? '';
+      final isPremium = authService.isPremium;
+
+      // Radio de búsqueda dinámico: 2km para usuarios normales, 10km para premium
+      final searchRadiusMeters = isPremium ? 10000.0 : 2000.0;
 
       final query = FirebaseFirestore.instance
           .collection('properties')
           .where('is_active', isEqualTo: true);
-      
+
       if (currentUserId.isNotEmpty) {
         final snapshot = await query.get();
-        
+
         final tempProperties = <Map<String, dynamic>>[];
-        
+
         for (var doc in snapshot.docs) {
           final data = doc.data();
           if (data['owner_id'] == currentUserId) continue;
-          
+
           final property = Property.fromFirestore(doc);
           double distance = double.infinity;
 
@@ -171,19 +175,23 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
               gp.latitude,
               gp.longitude,
             );
-            
-            if (distance > 10000) continue;
+
+            // Filtrar por radio dinámico
+            if (distance > searchRadiusMeters) continue;
           }
 
           tempProperties.add({'obj': property, 'distance': distance});
         }
 
         tempProperties.sort(
-          (a, b) => (a['distance'] as double).compareTo(b['distance'] as double),
+          (a, b) =>
+              (a['distance'] as double).compareTo(b['distance'] as double),
         );
 
         if (mounted) {
-          _allProperties = tempProperties.map((e) => e['obj'] as Property).toList();
+          _allProperties = tempProperties
+              .map((e) => e['obj'] as Property)
+              .toList();
           _filterProperties();
         }
       }
@@ -199,15 +207,17 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   }
 
   void _filterProperties() {
-    final dbType = selectedCategory == 'Comprar' ? 'sale' 
-        : selectedCategory == 'Alquiler' ? 'rent' 
+    final dbType = selectedCategory == 'Comprar'
+        ? 'sale'
+        : selectedCategory == 'Alquiler'
+        ? 'rent'
         : 'anticretico';
 
     _filteredProperties = _allProperties.where((p) {
       final type = p.type.toLowerCase();
       return type.contains(dbType) || (dbType == 'sale' && type == 'venta');
     }).toList();
-    
+
     if (mounted) setState(() {});
   }
 
@@ -351,14 +361,20 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                           padding: EdgeInsets.symmetric(
                             horizontal: Styles.spacingMedium,
                           ),
-                          child: Text(
-                            'Recomendados cerca de ti (10 km aprox)',
-                            style: TextStyles.title.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          child: Consumer<AuthService>(
+                            builder: (context, authService, _) {
+                              final isPremium = authService.isPremium;
+                              final radiusText = isPremium ? '10 km' : '2 km';
+                              return Text(
+                                'Recomendados cerca de ti ($radiusText aprox)',
+                                style: TextStyles.title.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ),
                         SizedBox(height: Styles.spacingMedium),

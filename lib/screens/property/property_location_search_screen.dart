@@ -4,11 +4,14 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/property.dart';
 import '../../widgets/map_drawing_detector.dart';
 import '../../utils/map_geometry_utils.dart';
 import '../../theme/theme.dart';
+import '../../providers/auth_provider.dart';
+import 'premium_feature_lock_dialog.dart';
 
 // Token de Mapbox
 const String _mapboxAccessToken =
@@ -37,6 +40,8 @@ class _PropertyLocationSearchScreenState
   bool _isDrawingMode = false;
   List<LatLng>? _searchPolygon;
   Set<String> _selectedPropertyTypes = {};
+  bool _isPremium = false;
+  bool _isPremiumLoading = true;
 
   final Map<String, Map<String, dynamic>> _categoryStyles = {
     'casa': {
@@ -88,6 +93,7 @@ class _PropertyLocationSearchScreenState
   void initState() {
     super.initState();
     _mapController = MapController();
+    _loadPremiumStatus();
     _getCurrentLocation();
     _loadProperties();
   }
@@ -96,6 +102,24 @@ class _PropertyLocationSearchScreenState
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  // Cargar el estado premium del usuario desde AuthService (caché)
+  Future<void> _loadPremiumStatus() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      setState(() {
+        _isPremium = authService.isPremium;
+        _isPremiumLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading premium status: $e');
+      setState(() {
+        _isPremium = false;
+        _isPremiumLoading = false;
+      });
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -174,8 +198,11 @@ class _PropertyLocationSearchScreenState
         property.longitude,
       );
       final withinRadius = (distance / 1000) <= _searchRadius;
-      final matchesType = _selectedPropertyTypes.isEmpty || 
-          _selectedPropertyTypes.contains(property.propertyTypeRaw.toLowerCase());
+      final matchesType =
+          _selectedPropertyTypes.isEmpty ||
+          _selectedPropertyTypes.contains(
+            property.propertyTypeRaw.toLowerCase(),
+          );
       return withinRadius && matchesType;
     }).toList();
     filtered.sort((a, b) {
@@ -204,8 +231,11 @@ class _PropertyLocationSearchScreenState
         propertyLocation,
         _searchPolygon!,
       );
-      final matchesType = _selectedPropertyTypes.isEmpty || 
-          _selectedPropertyTypes.contains(property.propertyTypeRaw.toLowerCase());
+      final matchesType =
+          _selectedPropertyTypes.isEmpty ||
+          _selectedPropertyTypes.contains(
+            property.propertyTypeRaw.toLowerCase(),
+          );
       return withinPolygon && matchesType;
     }).toList();
     final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
@@ -222,8 +252,6 @@ class _PropertyLocationSearchScreenState
     });
     setState(() => _filteredProperties = filtered);
   }
-
-
 
   Color _getPropertyColor(String propertyType) {
     final typeKey = propertyType.toLowerCase();
@@ -436,7 +464,9 @@ class _PropertyLocationSearchScreenState
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: _categoryStyles.entries.map((entry) {
-                    final isSelected = _selectedPropertyTypes.contains(entry.key);
+                    final isSelected = _selectedPropertyTypes.contains(
+                      entry.key,
+                    );
                     final color = entry.value['color'] as Color;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -476,7 +506,9 @@ class _PropertyLocationSearchScreenState
                               Text(
                                 entry.value['label'] as String,
                                 style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.black,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.black,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
@@ -495,8 +527,6 @@ class _PropertyLocationSearchScreenState
       ),
     );
   }
-
-
 
   Widget _buildRadiusControl() {
     return Positioned(
@@ -555,7 +585,10 @@ class _PropertyLocationSearchScreenState
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Styles.primaryColor, Styles.primaryColor.withOpacity(0.8)],
+                      colors: [
+                        Styles.primaryColor,
+                        Styles.primaryColor.withOpacity(0.8),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
@@ -566,13 +599,22 @@ class _PropertyLocationSearchScreenState
                       ),
                     ],
                   ),
-                  child: Text(
-                    '${_searchRadius.toStringAsFixed(1)} km',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_searchRadius.toStringAsFixed(1)} km',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (!_isPremium && !_isPremiumLoading) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.lock, color: Colors.white, size: 14),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -596,6 +638,16 @@ class _PropertyLocationSearchScreenState
                 max: 10.0,
                 divisions: 19,
                 onChanged: (value) {
+                  // Si el usuario NO es premium, mostrar diálogo y no permitir cambios
+                  if (!_isPremium) {
+                    PremiumFeatureLockDialog.show(
+                      context,
+                      'modificar el radio de búsqueda',
+                    );
+                    return; // No cambiar el valor
+                  }
+
+                  // Si es premium, permitir el cambio normalmente
                   setState(() {
                     _searchRadius = value;
                     _applyFilters();

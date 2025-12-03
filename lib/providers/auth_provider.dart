@@ -16,6 +16,8 @@ class AuthService extends ChangeNotifier {
   bool _isAuthReady = false;
   // Rol por defecto. Usamos 'indefinido' para forzar la selección.
   String _userRole = 'indefinido';
+  // Estado premium del usuario
+  bool _isPremium = false;
 
   // --- GETTERS ---
   bool get isAuthenticated => _isAuthenticated;
@@ -24,6 +26,7 @@ class AuthService extends ChangeNotifier {
   User? get currentUser => _auth.currentUser;
   bool get isAuthReady => _isAuthReady;
   String get userRole => _userRole;
+  bool get isPremium => _isPremium;
 
   // --- CONSTANTE DEL ROL DE SELECCIÓN PENDIENTE ---
   static const String ROLE_PENDING = 'indefinido';
@@ -160,9 +163,18 @@ class AuthService extends ChangeNotifier {
       final doc = await _firestore.collection('users').doc(uid).get();
       // Si el rol ya está en la DB, lo usamos. Si no, o si está 'indefinido', usamos ROLE_PENDING.
       _userRole = doc.data()?['role'] ?? ROLE_PENDING;
+      
+      // Verificar estado premium desde premium_users collection
+      if (_userRole == 'inmobiliaria_empresa') {
+        final premiumDoc = await _firestore.collection('premium_users').doc(uid).get();
+        _isPremium = premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
+      } else {
+        _isPremium = doc.data()?['isPremium'] ?? false;
+      }
     } catch (e) {
       if (kDebugMode) print("Error fetching user role: $e");
       _userRole = ROLE_PENDING;
+      _isPremium = false;
     }
   }
 

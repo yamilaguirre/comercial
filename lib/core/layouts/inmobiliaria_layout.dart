@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
+import '../../providers/auth_provider.dart';
 
 class InmobiliariaLayout extends StatefulWidget {
   final Widget child;
@@ -13,6 +16,7 @@ class InmobiliariaLayout extends StatefulWidget {
 
 class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
   int _currentIndex = 0;
+  bool _isCheckingSubscription = true;
 
   final List<_NavItem> _navItems = [
     _NavItem(
@@ -42,9 +46,44 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _checkSubscription();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _updateCurrentIndex();
+  }
+
+  Future<void> _checkSubscription() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+    
+    if (user != null && authService.userRole == 'inmobiliaria_empresa') {
+      try {
+        final premiumDoc = await FirebaseFirestore.instance
+            .collection('premium_users')
+            .doc(user.uid)
+            .get();
+        
+        final hasPremium = premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
+        
+        if (!hasPremium) {
+          if (mounted) {
+            Modular.to.navigate('/inmobiliaria/onboarding');
+          }
+          return;
+        }
+      } catch (e) {
+        print('Error checking subscription: $e');
+      }
+    }
+    
+    if (mounted) {
+      setState(() => _isCheckingSubscription = false);
+    }
   }
 
   void _updateCurrentIndex() {
@@ -68,6 +107,14 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingSubscription) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: Container(

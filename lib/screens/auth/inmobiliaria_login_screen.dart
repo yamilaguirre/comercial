@@ -58,6 +58,14 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
         
         // Permitir login solo si es empresa inmobiliaria
         if (userDoc.exists && role == 'inmobiliaria_empresa') {
+          // Verificar si tiene suscripción activa
+          final premiumDoc = await FirebaseFirestore.instance
+              .collection('premium_users')
+              .doc(user.uid)
+              .get();
+          
+          final hasPremium = premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
+          
           // Actualizar lastLogin
           await FirebaseFirestore.instance
               .collection('users')
@@ -65,7 +73,11 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
               .update({'lastLogin': FieldValue.serverTimestamp()});
           
           if (mounted) {
-            Modular.to.navigate('/inmobiliaria/home');
+            if (hasPremium) {
+              Modular.to.navigate('/inmobiliaria/home');
+            } else {
+              Modular.to.navigate('/inmobiliaria/onboarding');
+            }
           }
         } else {
           await FirebaseAuth.instance.signOut();

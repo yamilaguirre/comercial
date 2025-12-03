@@ -22,6 +22,16 @@ class AuthGuard extends RouteGuard {
     if (requiredRole != 'all') {
       final userRole = authService.userRole;
       
+      // Verificar suscripción para inmobiliaria_empresa
+      if (userRole == 'inmobiliaria_empresa') {
+        final hasPremium = authService.isPremium;
+        
+        if (!hasPremium && !path.contains('onboarding') && !path.contains('subscription')) {
+          Modular.to.navigate('/inmobiliaria/onboarding');
+          return false;
+        }
+      }
+      
       // Permitir 'inmobiliaria_empresa' cuando se requiere 'inmobiliaria'
       if (requiredRole == 'inmobiliaria' && 
           (userRole == 'inmobiliaria' || userRole == 'inmobiliaria_empresa')) {

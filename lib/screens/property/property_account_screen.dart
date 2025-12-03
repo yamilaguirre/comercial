@@ -9,6 +9,7 @@ import '../../providers/mobiliaria_provider.dart'; // Importación necesaria
 // Importamos los nuevos componentes
 import 'components/account_header.dart';
 import 'components/account_menu_section.dart';
+import 'premium_subscription_modal.dart';
 
 class PropertyAccountScreen extends StatefulWidget {
   const PropertyAccountScreen({super.key});
@@ -18,7 +19,50 @@ class PropertyAccountScreen extends StatefulWidget {
 }
 
 class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
-  bool showPremiumModal = false;
+  // --- FUNCIÓN: MANEJAR SUSCRIPCIÓN PREMIUM ---
+  Future<void> _handlePremiumSubscription() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) return;
+
+    try {
+      // 1. Verificar si ya es premium en la colección premium_users
+      final premiumDoc = await FirebaseFirestore.instance
+          .collection('premium_users')
+          .doc(user.uid)
+          .get();
+
+      if (premiumDoc.exists && premiumDoc.data()?['status'] == 'active') {
+        // Ya es premium -> Ir a estado
+        Modular.to.pushNamed('/property/subscription-status');
+        return;
+      }
+
+      // 2. Verificar si tiene solicitud pendiente
+      final requestsQuery = await FirebaseFirestore.instance
+          .collection('subscription_requests')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (requestsQuery.docs.isNotEmpty) {
+        // Si tiene solicitud (pendiente, aprobada o rechazada) -> Ir a estado
+        Modular.to.pushNamed('/property/subscription-status');
+      } else {
+        // No tiene nada -> Mostrar Modal Premium
+        showDialog(
+          context: context,
+          builder: (context) => const PremiumSubscriptionModal(),
+        );
+      }
+    } catch (e) {
+      print('Error checking subscription: $e');
+      // En caso de error, ir a la pantalla de estado que manejará la carga
+      Modular.to.pushNamed('/property/subscription-status');
+    }
+  }
 
   // --- FUNCIÓN: CAMBIAR DE MÓDULO (REDIRECCIÓN A TRABAJADOR) ---
   void _changeModule() async {
@@ -123,7 +167,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           iconBgColor: const Color(0xFFFFF7E6),
           title: 'Suscripción Premium',
           subtitle: 'Desbloquea funciones exclusivas',
-          onTap: () => setState(() => showPremiumModal = true),
+          onTap: _handlePremiumSubscription,
         ),
         AccountMenuSection.buildDivider(),
         AccountMenuItem(
@@ -449,128 +493,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
             },
           ),
 
-          // Modal Premium
-          if (showPremiumModal) _buildPremiumModal(),
           ],
-        ),
-      ),
-    );
-  }
-
-  // Se mantienen solo los widgets auxiliares no transferidos (Modal y Dialogo)
-  Widget _buildPremiumModal() {
-    // Código de _buildPremiumModal sin cambios
-    return GestureDetector(
-      onTap: () => setState(() => showPremiumModal = false),
-      child: Container(
-        color: Colors.black.withOpacity(0.5),
-        alignment: Alignment.center,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                margin: EdgeInsets.all(Styles.spacingLarge),
-                padding: EdgeInsets.all(Styles.spacingLarge),
-                constraints: const BoxConstraints(maxWidth: 400),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFF6B00),
-                      Color(0xFFFF8C00),
-                      Color(0xFFFF3B9A),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'VIP',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () =>
-                              setState(() => showPremiumModal = false),
-                          icon: const Icon(Icons.close, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    const Icon(
-                      Icons.workspace_premium,
-                      color: Colors.white,
-                      size: 60,
-                    ),
-                    SizedBox(height: Styles.spacingMedium),
-                    const Text(
-                      'Hazte Premium',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Accede a más resultados y\nfunciones exclusivas',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: 14),
-                    ),
-                    SizedBox(height: Styles.spacingLarge),
-                    ElevatedButton(
-                      onPressed: () => setState(() => showPremiumModal = false),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFFFF6B00),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Suscribirme ahora',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ),
       ),
     );
