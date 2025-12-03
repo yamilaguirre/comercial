@@ -29,13 +29,14 @@ class _PropertyLocationSearchScreenState
   LatLng _mapCenter = const LatLng(-17.3938, -66.1571);
   LatLng? _userLocation;
   bool _isLocating = false;
-  double _searchRadius = 5.0;
+  double _searchRadius = 1.5;
 
   List<Property> _properties = [];
   List<Property> _filteredProperties = [];
   int _selectedPropertyIndex = -1;
   bool _isDrawingMode = false;
   List<LatLng>? _searchPolygon;
+  Set<String> _selectedPropertyTypes = {};
 
   final Map<String, Map<String, dynamic>> _categoryStyles = {
     'casa': {
@@ -172,7 +173,10 @@ class _PropertyLocationSearchScreenState
         property.latitude,
         property.longitude,
       );
-      return (distance / 1000) <= _searchRadius;
+      final withinRadius = (distance / 1000) <= _searchRadius;
+      final matchesType = _selectedPropertyTypes.isEmpty || 
+          _selectedPropertyTypes.contains(property.propertyTypeRaw.toLowerCase());
+      return withinRadius && matchesType;
     }).toList();
     filtered.sort((a, b) {
       final distanceA = Geolocator.distanceBetween(
@@ -196,12 +200,13 @@ class _PropertyLocationSearchScreenState
     if (_searchPolygon == null || _searchPolygon!.isEmpty) return;
     final filtered = _properties.where((property) {
       final propertyLocation = LatLng(property.latitude, property.longitude);
-
-      // Solo verificar si está dentro del polígono
-      return MapGeometryUtils.isPointInPolygon(
+      final withinPolygon = MapGeometryUtils.isPointInPolygon(
         propertyLocation,
         _searchPolygon!,
       );
+      final matchesType = _selectedPropertyTypes.isEmpty || 
+          _selectedPropertyTypes.contains(property.propertyTypeRaw.toLowerCase());
+      return withinPolygon && matchesType;
     }).toList();
     final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
     filtered.sort((a, b) {
@@ -403,57 +408,87 @@ class _PropertyLocationSearchScreenState
             colors: [Colors.black.withOpacity(0.6), Colors.transparent],
           ),
         ),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  height: 50,
-                  width: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+            Container(
+              height: 50,
+              width: 50,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 50,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _categoryStyles.entries.map((entry) {
+                    final isSelected = _selectedPropertyTypes.contains(entry.key);
+                    final color = entry.value['color'] as Color;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedPropertyTypes.remove(entry.key);
+                            } else {
+                              _selectedPropertyTypes.add(entry.key);
+                            }
+                            _applyFilters();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: isSelected ? color : Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                entry.value['icon'] as IconData,
+                                size: 20,
+                                color: isSelected ? Colors.white : color,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                entry.value['label'] as String,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
+                    );
+                  }).toList(),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Modular.to.pushNamed('/worker/location-search'),
-                    icon: const Icon(Icons.work_outline, size: 20),
-                    label: const Text(
-                      'Buscar Trabajadores',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Styles.primaryColor,
-                      elevation: 4,
-                      shadowColor: Colors.black.withOpacity(0.1),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -461,20 +496,26 @@ class _PropertyLocationSearchScreenState
     );
   }
 
+
+
   Widget _buildRadiusControl() {
     return Positioned(
       bottom: 20,
       left: 20,
       right: 20,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [Colors.white, Colors.grey.shade50],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 20,
+              color: Styles.primaryColor.withOpacity(0.2),
+              blurRadius: 15,
               offset: const Offset(0, 5),
             ),
           ],
@@ -483,45 +524,77 @@ class _PropertyLocationSearchScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Radio de búsqueda',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Styles.primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.radar,
+                    color: Styles.primaryColor,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Radio de búsqueda',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 16,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Styles.primaryColor.withOpacity(0.1),
+                    gradient: LinearGradient(
+                      colors: [Styles.primaryColor, Styles.primaryColor.withOpacity(0.8)],
+                    ),
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Styles.primaryColor.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Text(
                     '${_searchRadius.toStringAsFixed(1)} km',
-                    style: TextStyle(
-                      color: Styles.primaryColor,
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
+                      fontSize: 15,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 activeTrackColor: Styles.primaryColor,
-                inactiveTrackColor: Colors.grey[200],
-                thumbColor: Styles.primaryColor,
+                inactiveTrackColor: Colors.grey[300],
+                thumbColor: Colors.white,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
                 overlayColor: Styles.primaryColor.withOpacity(0.2),
-                trackHeight: 4,
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
+                trackHeight: 6,
+                activeTickMarkColor: Colors.transparent,
+                inactiveTickMarkColor: Colors.transparent,
               ),
               child: Slider(
                 value: _searchRadius,
-                min: 1.0,
+                min: 0.5,
                 max: 10.0,
-                divisions: 18,
+                divisions: 19,
                 onChanged: (value) {
                   setState(() {
                     _searchRadius = value;
