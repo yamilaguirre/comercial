@@ -22,7 +22,7 @@ import '../../../models/saved_collection_model.dart';
 class PropertyModule extends Module {
   @override
   void binds(i) {
-    i.addLazySingleton(() => MobiliariaProvider());
+    i.addSingleton(MobiliariaProvider.new);
   }
 
   @override

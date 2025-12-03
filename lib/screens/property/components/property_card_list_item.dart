@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../theme/theme.dart';
-// Asumo que estos archivos existen en tu proyecto
 import '../../../models/property.dart';
 import '../../../core/utils/amenity_helper.dart';
 import '../../../core/utils/property_constants.dart';

@@ -39,9 +39,11 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   }
 
   Future<void> _initData() async {
-    await _getCurrentLocation();
-    await _fetchProperties();
-    await _checkSavedProperties();
+    final locationFuture = _getCurrentLocation();
+    final propertiesFuture = _fetchProperties();
+    final savedFuture = _checkSavedProperties();
+    
+    await Future.wait([locationFuture, propertiesFuture, savedFuture]);
   }
 
   Future<void> _checkSavedProperties() async {
@@ -138,83 +140,75 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   }
 
   Future<void> _fetchProperties() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
+    
     try {
-      // Usar QuerySnapshot para obtener la colección
-      final snapshot = await FirebaseFirestore.instance
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid ?? '';
+
+      final query = FirebaseFirestore.instance
           .collection('properties')
-          .where('is_active', isEqualTo: true)
-          .get();
+          .where('is_active', isEqualTo: true);
+      
+      if (currentUserId.isNotEmpty) {
+        final snapshot = await query.get();
+        
+        final tempProperties = <Map<String, dynamic>>[];
+        
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          if (data['owner_id'] == currentUserId) continue;
+          
+          final property = Property.fromFirestore(doc);
+          double distance = double.infinity;
 
-      List<Map<String, dynamic>> tempProperties = [];
+          if (_currentPosition != null && property.geopoint != null) {
+            final gp = property.geopoint!;
+            distance = Geolocator.distanceBetween(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              gp.latitude,
+              gp.longitude,
+            );
+            
+            if (distance > 10000) continue;
+          }
 
-      for (var doc in snapshot.docs) {
-        // Asegúrate de que Property.fromFirestore puede manejar el DocumentSnapshot
-        final property = Property.fromFirestore(doc);
-        double distance = double.infinity;
-
-        if (_currentPosition != null && property.geopoint != null) {
-          GeoPoint gp = property.geopoint!;
-          distance = Geolocator.distanceBetween(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            gp.latitude,
-            gp.longitude,
-          );
+          tempProperties.add({'obj': property, 'distance': distance});
         }
 
-        // Filtro de distancia de 10 km (10000 metros)
-        if (distance > 10000) continue;
+        tempProperties.sort(
+          (a, b) => (a['distance'] as double).compareTo(b['distance'] as double),
+        );
 
-        tempProperties.add({'obj': property, 'distance': distance});
-      }
-
-      // Ordenar por distancia (los más cercanos primero)
-      tempProperties.sort(
-        (a, b) => (a['distance'] as double).compareTo(b['distance'] as double),
-      );
-
-      if (mounted) {
-        setState(() {
-          _allProperties = tempProperties
-              .map((e) => e['obj'] as Property)
-              .toList();
+        if (mounted) {
+          _allProperties = tempProperties.map((e) => e['obj'] as Property).toList();
           _filterProperties();
-          _isLoading = false;
-        });
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error cargando propiedades: $e')),
         );
-        setState(() => _isLoading = false);
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _filterProperties() {
-    setState(() {
-      String dbType = '';
-      switch (selectedCategory) {
-        case 'Comprar':
-          dbType = 'sale';
-          break;
-        case 'Alquiler':
-          dbType = 'rent';
-          break;
-        case 'Anticrético':
-          dbType = 'anticretico';
-          break;
-      }
+    final dbType = selectedCategory == 'Comprar' ? 'sale' 
+        : selectedCategory == 'Alquiler' ? 'rent' 
+        : 'anticretico';
 
-      // Filtro por tipo
-      _filteredProperties = _allProperties.where((p) {
-        // Tu lógica de filtro original
-        return p.type.toLowerCase().contains(dbType) ||
-            (dbType == 'sale' && p.type.toLowerCase() == 'venta');
-      }).toList();
-    });
+    _filteredProperties = _allProperties.where((p) {
+      final type = p.type.toLowerCase();
+      return type.contains(dbType) || (dbType == 'sale' && type == 'venta');
+    }).toList();
+    
+    if (mounted) setState(() {});
   }
 
   // Método callback para actualizar la categoría desde CategorySelector

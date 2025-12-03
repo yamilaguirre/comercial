@@ -2,10 +2,17 @@ import 'package:flutter_modular/flutter_modular.dart';
 import '../layouts/inmobiliaria_layout.dart';
 import '../../screens/inmobiliaria/inmobiliaria_home_screen.dart';
 import '../../screens/inmobiliaria/inmobiliaria_properties_screen.dart';
+import '../../screens/inmobiliaria/inmobiliaria_chats_screen.dart';
 import '../../screens/inmobiliaria/inmobiliaria_profile_screen.dart';
 import '../../screens/property/property_form_wrapper.dart';
+import '../../providers/mobiliaria_provider.dart';
 
 class InmobiliariaModule extends Module {
+  @override
+  void binds(i) {
+    i.addSingleton(MobiliariaProvider.new);
+  }
+
   @override
   void routes(r) {
     // Rutas con layout (bottom navigation)
@@ -22,6 +29,11 @@ class InmobiliariaModule extends Module {
         ChildRoute(
           '/properties',
           child: (context) => const InmobiliariaPropertiesScreen(),
+          transition: TransitionType.noTransition,
+        ),
+        ChildRoute(
+          '/chats',
+          child: (context) => const InmobiliariaChatsScreen(),
           transition: TransitionType.noTransition,
         ),
         ChildRoute(

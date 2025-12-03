@@ -95,19 +95,33 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
     }
   }
 
+  Future<void> _handleLogout() async {
+    await _authService.signOut();
+    if (mounted) {
+      Modular.to.navigate('/login');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_userRole != AuthService.ROLE_PENDING && _userRole != 'indefinido') {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Styles.primaryColor),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (!didPop) {
+          await _handleLogout();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          backgroundColor: Colors.grey[50],
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
+            onPressed: _handleLogout,
+          ),
         ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
+        body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final screenHeight = constraints.maxHeight;
@@ -262,6 +276,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
             );
           },
         ),
+      ),
       ),
     );
   }
