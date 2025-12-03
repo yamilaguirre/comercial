@@ -1,9 +1,15 @@
 // filepath: lib/screens/auth/register_form_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/theme.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart'
+    as app_auth; // Alias para evitar conflictos
+import '../../services/image_service.dart';
 
 class RegisterFormScreen extends StatefulWidget {
   final String userType;
@@ -14,93 +20,310 @@ class RegisterFormScreen extends StatefulWidget {
 }
 
 class _RegisterFormScreenState extends State<RegisterFormScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKeyStep1 = GlobalKey<FormState>();
+  final _formKeyStep2 = GlobalKey<FormState>();
 
+  // Controladores
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _smsCodeController = TextEditingController();
+
+  // Estado del flujo
+  int _currentStep = 0;
   bool _acceptedTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
 
-  // Obtenemos la instancia del AuthService
-  final AuthService _authService = Modular.get<AuthService>();
+  // Estado Verificación SMS
+  String? _verificationId;
+  bool _codeSent = false;
+  bool _isPhoneVerified = false;
+  int? _resendToken;
 
-  // Título genérico ya que el rol se define después
-  String get _userTypeTitle {
-    return 'Registro';
-  }
+  // Estado Foto y ML Kit
+  File? _profileImage;
+  bool _isFaceDetected = false;
+  final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      enableContours: true,
+      enableClassification: true, // Para ojos abiertos/cerrados si se desea
+    ),
+  );
 
-  @override
-  void initState() {
-    super.initState();
-    _authService.addListener(_onAuthServiceChanged);
-  }
+  // Servicio de Auth
+  final app_auth.AuthService _authService = Modular.get<app_auth.AuthService>();
 
   @override
   void dispose() {
-    _authService.removeListener(_onAuthServiceChanged);
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     _phoneController.dispose();
+    _smsCodeController.dispose();
+    _faceDetector.close();
     super.dispose();
   }
 
-  void _onAuthServiceChanged() {
-    if (mounted) {
-      setState(() {});
+  // --- Lógica de Pasos ---
+
+  void _nextStep() {
+    if (_currentStep == 0) {
+      if (_formKeyStep1.currentState!.validate()) {
+        if (!_acceptedTerms) {
+          _showSnackBar(
+            'Debes aceptar los términos y condiciones',
+            isError: true,
+          );
+          return;
+        }
+        setState(() => _currentStep = 1);
+      }
+    } else if (_currentStep == 1) {
+      if (_isPhoneVerified) {
+        setState(() => _currentStep = 2);
+      } else {
+        _showSnackBar('Debes verificar tu número de teléfono', isError: true);
+      }
     }
   }
 
-  void _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _prevStep() {
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+    } else {
+      Modular.to.navigate('/login');
+    }
+  }
 
-    if (!_acceptedTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Acepta los términos y condiciones'),
-          backgroundColor: Styles.errorColor,
-        ),
+  // --- Lógica SMS (Firebase Auth) ---
+
+  Future<void> _verifyPhone() async {
+    if (!_formKeyStep2.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final phone =
+        '+591${_phoneController.text.trim()}'; // Ajustar código país según necesidad
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phone,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Verificación automática (Android)
+          await _finalizePhoneVerification();
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() => _isLoading = false);
+          _showSnackBar('Error de verificación: ${e.message}', isError: true);
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _resendToken = resendToken;
+            _codeSent = true;
+            _isLoading = false;
+          });
+          _showSnackBar('Código SMS enviado', isError: false);
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+        timeout: const Duration(seconds: 60),
       );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Error al enviar SMS: $e', isError: true);
+    }
+  }
+
+  Future<void> _submitSmsCode() async {
+    if (_smsCodeController.text.length < 6) {
+      _showSnackBar('Ingresa el código de 6 dígitos', isError: true);
       return;
     }
 
-    // El estado de loading se gestiona por _authService.isLoading
+    setState(() => _isLoading = true);
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: _smsCodeController.text.trim(),
+      );
+
+      // Aquí solo simulamos el sign-in para verificar la posesión
+      // No hacemos signInWithCredential completo para no sobreescribir sesión actual si la hubiera
+      // Ojo: Para vincular realmente, se necesitaría un usuario ya creado.
+      // Estrategia: Validamos el código creando una credencial válida.
+      // Si no lanza error, el código es correcto.
+
+      // Nota: Firebase Auth no permite "validar" código sin intentar loguearse/linkear.
+      // Como estamos en registro, asumimos que no hay usuario.
+      // Haremos un signIn temporal anónimo o simplemente signIn con el teléfono
+      // y luego lo borraremos o usaremos esos datos.
+      // SIMPLIFICACIÓN: Usamos signInWithCredential. Si funciona, es válido.
+      // Luego cerramos sesión para proceder al registro final con correo.
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // Si llegamos aquí, es válido
+      await FirebaseAuth.instance.signOut(); // Limpiamos sesión
+
+      await _finalizePhoneVerification();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar('Código inválido o expirado', isError: true);
+    }
+  }
+
+  Future<void> _finalizePhoneVerification() async {
+    setState(() {
+      _isPhoneVerified = true;
+      _isLoading = false;
+    });
+    _showSnackBar('¡Teléfono verificado correctamente!', isError: false);
+    // Opcional: Avanzar automáticamente
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _currentStep = 2);
+    });
+  }
+
+  // --- Lógica Foto y ML Kit ---
+
+  Future<void> _takePhoto() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera, // OBLIGATORIO CÁMARA
+        maxWidth: 1000,
+        maxHeight: 1000,
+        preferredCameraDevice: CameraDevice.front,
+      );
+
+      if (image != null) {
+        setState(() {
+          _profileImage = File(image.path);
+          _isLoading = true;
+        });
+        await _processImage(InputImage.fromFilePath(image.path));
+      }
+    } catch (e) {
+      _showSnackBar('Error al tomar foto: $e', isError: true);
+    }
+  }
+
+  Future<void> _processImage(InputImage inputImage) async {
+    try {
+      final List<Face> faces = await _faceDetector.processImage(inputImage);
+
+      setState(() {
+        _isLoading = false;
+        if (faces.isNotEmpty) {
+          // Validaciones extra opcionales:
+          // final face = faces.first;
+          // if (face.leftEyeOpenProbability != null && face.leftEyeOpenProbability! < 0.5) ...
+
+          _isFaceDetected = true;
+          _showSnackBar('Rostro detectado correctamente', isError: false);
+        } else {
+          _isFaceDetected = false;
+          _profileImage = null; // Rechazar foto
+          _showSnackBar(
+            'No se detectó un rostro claro. Intenta de nuevo.',
+            isError: true,
+          );
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isFaceDetected = false;
+        _profileImage = null;
+      });
+      _showSnackBar('Error al procesar imagen: $e', isError: true);
+    }
+  }
+
+  // --- Registro Final ---
+
+  Future<void> _handleFinalRegister() async {
+    if (!_isFaceDetected || _profileImage == null) {
+      _showSnackBar('Debes tomar una foto válida con tu rostro', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    // 1. Subir imagen primero (necesitamos URL para el perfil)
+    // Nota: Idealmente se sube después de crear el usuario para usar su UID en el path,
+    // pero AuthService espera la URL o el File. AuthService maneja la subida si le pasamos el File?
+    // Revisando AuthService... parece que no maneja subida de foto en registerWithEmailPassword.
+    // Tendremos que modificar AuthService o subirla aquí después de crear el usuario.
+    // ESTRATEGIA: Crear usuario -> Obtener UID -> Subir Foto -> Actualizar Perfil.
+
+    // Usaremos el método existente registerWithEmailPassword
+    // Y luego actualizaremos la foto.
 
     final user = await _authService.registerWithEmailPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
       displayName: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
-      userRole: 'cliente', // El rol inicial es 'cliente'
+      userRole: 'cliente',
     );
 
-    if (user != null && mounted) {
-      // 1. Mostrar mensaje de éxito (Cambio de "Registro exitoso!" a "Usuario registrado con exito!")
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Usuario registrado con éxito!'),
-          backgroundColor: Styles.successColor,
-        ),
-      );
-      // 2. Redirección al Login
-      Modular.to.navigate('/login');
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_authService.errorMessage ?? 'Error al registrarse'),
-          backgroundColor: Styles.errorColor,
-        ),
-      );
+    if (user != null) {
+      try {
+        // Subir foto
+        final photoUrl = await ImageService.uploadAvatarToApi(
+          XFile(_profileImage!.path),
+          userId: user.uid,
+        );
+
+        // Actualizar usuario con foto y flag de verificado
+        // Actualizar usuario con foto y flag de verificado
+        await _authService.updateUserProfile(photoUrl: photoUrl);
+        // Aquí podríamos guardar en Firestore que el teléfono y foto fueron verificados
+        // Por ahora asumimos que si tiene foto, pasó el proceso.
+
+        if (mounted) {
+          _showSnackBar('¡Registro completado con éxito!', isError: false);
+          Modular.to.navigate('/login');
+        }
+      } catch (e) {
+        _showSnackBar(
+          'Usuario creado, pero error al subir foto: $e',
+          isError: true,
+        );
+        // Aún así navegamos al login o home
+        Modular.to.navigate('/login');
+      }
+    } else {
+      if (mounted) {
+        _showSnackBar(
+          _authService.errorMessage ?? 'Error al registrarse',
+          isError: true,
+        );
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  // Se extrae la propiedad de loading para usarla en el build
-  bool get _isLoading => _authService.isLoading;
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Styles.errorColor : Styles.successColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // --- UI ---
 
   @override
   Widget build(BuildContext context) {
@@ -111,261 +334,402 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
-          onPressed: () => Modular.to.navigate('/login'),
+          onPressed: _prevStep,
         ),
-        title: Text(
-          _userTypeTitle,
-          style: TextStyles.subtitle.copyWith(
-            color: Styles.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+        title: Column(
+          children: [
+            Text(
+              'Crear Cuenta',
+              style: TextStyles.subtitle.copyWith(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Paso ${_currentStep + 1} de 3',
+              style: TextStyles.caption.copyWith(color: Styles.textSecondary),
+            ),
+          ],
         ),
+        centerTitle: true,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: Styles.spacingLarge,
-            vertical: Styles.spacingLarge,
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Image.asset(
-                    'assets/images/logoColor.png',
-                    height: 50,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                SizedBox(height: Styles.spacingXLarge),
-                Text(
-                  'Crear tu cuenta',
-                  style: TextStyles.title.copyWith(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: Styles.spacingXLarge),
-
-                // Inputs
-                _buildLabel('Nombre completo'),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: _buildInputDecoration(hintText: 'ej: Juan Pérez'),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]'),
-                    ),
-                  ],
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'El nombre es requerido';
-                    if (v.trim().length < 5) return 'Mínimo 5 caracteres';
-                    return null;
-                  },
-                ),
-                SizedBox(height: Styles.spacingLarge),
-
-                _buildLabel('Correo electrónico'),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: _buildInputDecoration(
-                    hintText: 'ej: juan@email.com',
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-Z0-9@._-]'),
-                    ),
-                  ],
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'El correo es requerido';
-                    if (!RegExp(
-                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                    ).hasMatch(v)) {
-                      return 'Ingrese un correo válido';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: Styles.spacingLarge),
-
-                _buildLabel('Teléfono'),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: _buildInputDecoration(hintText: 'ej: 70123456'),
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(20),
-                  ],
-                  validator: (v) {
-                    if (v == null || v.isEmpty)
-                      return 'El teléfono es requerido';
-                    if (v.length < 8) return 'Mínimo 8 dígitos';
-                    if (v.length > 20) return 'Máximo 20 dígitos';
-                    return null;
-                  },
-                ),
-                SizedBox(height: Styles.spacingLarge),
-
-                _buildLabel('Contraseña'),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: _buildInputDecoration(
-                    hintText: '••••••••',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey[600],
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                  obscureText: _obscurePassword,
-                  validator: (v) {
-                    if (v == null || v.isEmpty)
-                      return 'La contraseña es requerida';
-                    if (v.length < 6) return 'Mínimo 6 caracteres';
-                    return null;
-                  },
-                ),
-                SizedBox(height: Styles.spacingLarge),
-
-                _buildLabel('Confirmar contraseña'),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _confirmController,
-                  decoration: _buildInputDecoration(
-                    hintText: '••••••••',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey[600],
-                      ),
-                      onPressed: () => setState(
-                        () =>
-                            _obscureConfirmPassword = !_obscureConfirmPassword,
-                      ),
-                    ),
-                  ),
-                  obscureText: _obscureConfirmPassword,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Confirme su contraseña';
-                    if (v != _passwordController.text)
-                      return 'Las contraseñas no coinciden';
-                    return null;
-                  },
-                ),
-                SizedBox(height: Styles.spacingLarge),
-
-                // Términos
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Checkbox(
-                        value: _acceptedTerms,
-                        onChanged: (v) =>
-                            setState(() => _acceptedTerms = v ?? false),
-                        activeColor: Styles.primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: Styles.spacingSmall),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _acceptedTerms = !_acceptedTerms),
-                        child: RichText(
-                          text: TextSpan(
-                            style: TextStyles.caption.copyWith(
-                              color: Styles.textSecondary,
-                            ),
-                            children: [
-                              const TextSpan(text: 'Acepto los '),
-                              TextSpan(
-                                text: 'términos y condiciones',
-                                style: TextStyle(
-                                  color: Styles.primaryColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: Styles.spacingXLarge),
-
-                // Botón Registrar
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleRegister,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Styles.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            'Registrarse',
-                            style: TextStyles.button.copyWith(fontSize: 16),
-                          ),
-                  ),
-                ),
-
-                SizedBox(height: Styles.spacingLarge),
-
-                // Ir a Login
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '¿Ya tienes una cuenta? ',
-                      style: TextStyles.body.copyWith(
-                        color: Styles.textSecondary,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Modular.to.navigate('/login'),
-                      child: Text(
-                        'Inicia sesión',
-                        style: TextStyles.body.copyWith(
-                          color: Styles.primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        child: Column(
+          children: [
+            // Indicador de progreso lineal
+            LinearProgressIndicator(
+              value: (_currentStep + 1) / 3,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(Styles.primaryColor),
             ),
-          ),
+
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: _buildCurrentStep(),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildCurrentStep() {
+    switch (_currentStep) {
+      case 0:
+        return _buildStep1Data();
+      case 1:
+        return _buildStep2Phone();
+      case 2:
+        return _buildStep3Photo();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // PASO 1: Datos Personales
+  Widget _buildStep1Data() {
+    return Form(
+      key: _formKeyStep1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Datos Personales',
+            style: TextStyles.title.copyWith(fontSize: 22),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ingresa tu información básica para comenzar.',
+            style: TextStyles.body.copyWith(color: Styles.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+
+          _buildLabel('Nombre completo'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _nameController,
+            decoration: _buildInputDecoration(hintText: 'Ej: Juan Pérez'),
+            validator: (v) =>
+                (v?.length ?? 0) < 5 ? 'Mínimo 5 caracteres' : null,
+          ),
+          const SizedBox(height: 20),
+
+          _buildLabel('Correo electrónico'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: _buildInputDecoration(hintText: 'ej: juan@email.com'),
+            validator: (v) =>
+                !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v ?? '')
+                ? 'Correo inválido'
+                : null,
+          ),
+          const SizedBox(height: 20),
+
+          _buildLabel('Contraseña'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            decoration: _buildInputDecoration(
+              hintText: '••••••••',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+            validator: (v) =>
+                (v?.length ?? 0) < 6 ? 'Mínimo 6 caracteres' : null,
+          ),
+          const SizedBox(height: 20),
+
+          _buildLabel('Confirmar contraseña'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _confirmController,
+            obscureText: _obscureConfirmPassword,
+            decoration: _buildInputDecoration(
+              hintText: '••••••••',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureConfirmPassword
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                ),
+                onPressed: () => setState(
+                  () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                ),
+              ),
+            ),
+            validator: (v) => v != _passwordController.text
+                ? 'Las contraseñas no coinciden'
+                : null,
+          ),
+          const SizedBox(height: 24),
+
+          // Términos
+          Row(
+            children: [
+              Checkbox(
+                value: _acceptedTerms,
+                activeColor: Styles.primaryColor,
+                onChanged: (v) => setState(() => _acceptedTerms = v ?? false),
+              ),
+              Expanded(
+                child: Text(
+                  'Acepto los términos y condiciones',
+                  style: TextStyles.caption,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          ElevatedButton(
+            onPressed: _nextStep,
+            style: _primaryButtonStyle(),
+            child: const Text('Siguiente'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // PASO 2: Verificación Teléfono
+  Widget _buildStep2Phone() {
+    return Form(
+      key: _formKeyStep2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Icon(
+            Icons.phonelink_lock,
+            size: 60,
+            color: Styles.primaryColor,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Verificación de Teléfono',
+            style: TextStyles.title.copyWith(fontSize: 22),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Te enviaremos un código SMS para verificar que eres tú.',
+            style: TextStyles.body.copyWith(color: Styles.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+
+          _buildLabel('Número de celular'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: const Text(
+                  '+591',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  enabled: !_isPhoneVerified, // Bloquear si ya está verificado
+                  decoration: _buildInputDecoration(hintText: '70123456'),
+                  validator: (v) =>
+                      (v?.length ?? 0) < 8 ? 'Número inválido' : null,
+                ),
+              ),
+            ],
+          ),
+
+          if (!_codeSent && !_isPhoneVerified) ...[
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _verifyPhone,
+              style: _primaryButtonStyle(),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Enviar Código SMS'),
+            ),
+          ],
+
+          if (_codeSent && !_isPhoneVerified) ...[
+            const SizedBox(height: 32),
+            _buildLabel('Código de verificación'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _smsCodeController,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, letterSpacing: 8),
+              maxLength: 6,
+              decoration: _buildInputDecoration(hintText: '000000'),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _submitSmsCode,
+              style: _primaryButtonStyle(),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Verificar Código'),
+            ),
+            TextButton(
+              onPressed: _isLoading ? null : _verifyPhone, // Reenviar
+              child: const Text('Reenviar código'),
+            ),
+          ],
+
+          if (_isPhoneVerified) ...[
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green),
+              ),
+              child: Row(
+                children: const [
+                  Icon(Icons.check_circle, color: Colors.green),
+                  SizedBox(width: 12),
+                  Text(
+                    'Teléfono verificado',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _nextStep,
+              style: _primaryButtonStyle(),
+              child: const Text('Continuar'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // PASO 3: Foto Obligatoria
+  Widget _buildStep3Photo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(
+          Icons.face_retouching_natural,
+          size: 60,
+          color: Styles.primaryColor,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Foto de Perfil',
+          style: TextStyles.title.copyWith(fontSize: 22),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Por seguridad, necesitamos una foto real tuya. Usaremos inteligencia artificial para validarla.',
+          style: TextStyles.body.copyWith(color: Styles.textSecondary),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 32),
+
+        Center(
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _isFaceDetected
+                    ? Colors.green
+                    : (_profileImage != null ? Colors.red : Colors.grey[300]!),
+                width: 4,
+              ),
+              image: _profileImage != null
+                  ? DecorationImage(
+                      image: FileImage(_profileImage!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: _profileImage == null
+                ? Icon(Icons.camera_alt, size: 60, color: Colors.grey[400])
+                : null,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        if (_profileImage != null)
+          Center(
+            child: Chip(
+              avatar: Icon(
+                _isFaceDetected ? Icons.check : Icons.error,
+                color: Colors.white,
+                size: 18,
+              ),
+              label: Text(
+                _isFaceDetected ? 'Rostro Detectado' : 'Rostro NO Detectado',
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: _isFaceDetected ? Colors.green : Colors.red,
+            ),
+          ),
+
+        const SizedBox(height: 32),
+
+        if (!_isFaceDetected)
+          ElevatedButton.icon(
+            onPressed: _isLoading ? null : _takePhoto,
+            icon: const Icon(Icons.camera_alt),
+            label: Text(
+              _profileImage == null ? 'Tomar Foto' : 'Intentar de Nuevo',
+            ),
+            style: _primaryButtonStyle(),
+          ),
+
+        if (_isFaceDetected)
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleFinalRegister,
+            style: _primaryButtonStyle(),
+            child: _isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('Finalizar Registro'),
+          ),
+
+        if (_isLoading && _isFaceDetected)
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: Text('Creando cuenta...', textAlign: TextAlign.center),
+          ),
+      ],
+    );
+  }
+
+  // --- Helpers UI ---
 
   Widget _buildLabel(String text) => Text(
     text,
@@ -397,10 +761,17 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Styles.primaryColor, width: 2),
       ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: Styles.spacingMedium,
-        vertical: Styles.spacingMedium,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    );
+  }
+
+  ButtonStyle _primaryButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: Styles.primaryColor,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 import '../property/components/account_menu_section.dart';
+import 'premium_subscription_modal.dart';
 
 class WorkerAccountScreen extends StatefulWidget {
   const WorkerAccountScreen({super.key});
@@ -118,6 +119,51 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
     }
   }
 
+  // --- FUNCIÓN: MANEJAR SUSCRIPCIÓN PREMIUM ---
+  Future<void> _handlePremiumSubscription() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) return;
+
+    try {
+      // 1. Verificar si ya es premium en la colección premium_users
+      final premiumDoc = await FirebaseFirestore.instance
+          .collection('premium_users')
+          .doc(user.uid)
+          .get();
+
+      if (premiumDoc.exists && premiumDoc.data()?['status'] == 'active') {
+        // Ya es premium -> Ir a estado
+        Modular.to.pushNamed('/worker/subscription-status');
+        return;
+      }
+
+      // 2. Verificar si tiene solicitud pendiente
+      final requestsQuery = await FirebaseFirestore.instance
+          .collection('subscription_requests')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (requestsQuery.docs.isNotEmpty) {
+        // Si tiene solicitud (pendiente, aprobada o rechazada) -> Ir a estado
+        Modular.to.pushNamed('/worker/subscription-status');
+      } else {
+        // No tiene nada -> Mostrar Modal Premium
+        showDialog(
+          context: context,
+          builder: (context) => const PremiumSubscriptionModal(),
+        );
+      }
+    } catch (e) {
+      print('Error checking subscription: $e');
+      // En caso de error, ir a la pantalla de estado que manejará la carga
+      Modular.to.pushNamed('/worker/subscription-status');
+    }
+  }
+
   // --- Menú General de Trabajador ---
   Widget _buildWorkerMenu(Map<String, dynamic>? userData) {
     return AccountMenuSection(
@@ -147,7 +193,7 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
           iconBgColor: const Color(0xFFFFF7E6),
           title: 'Suscripción Premium',
           subtitle: 'Desbloquea funciones exclusivas',
-          onTap: () => setState(() => showPremiumModal = true),
+          onTap: _handlePremiumSubscription,
         ),
         AccountMenuSection.buildDivider(),
         AccountMenuItem(
@@ -806,119 +852,7 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
               );
             },
           ),
-
-          // Modal Premium
-          if (showPremiumModal) _buildPremiumModal(),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPremiumModal() {
-    return GestureDetector(
-      onTap: () => setState(() => showPremiumModal = false),
-      child: Container(
-        color: Colors.black.withOpacity(0.5),
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () {},
-          child: Container(
-            margin: EdgeInsets.all(Styles.spacingLarge),
-            padding: EdgeInsets.all(Styles.spacingLarge),
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFF6B00),
-                  Color(0xFFFF8C00),
-                  Color(0xFFFF3B9A),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'VIP',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => setState(() => showPremiumModal = false),
-                      icon: const Icon(Icons.close, color: Colors.white),
-                    ),
-                  ],
-                ),
-                const Icon(
-                  Icons.workspace_premium,
-                  color: Colors.white,
-                  size: 60,
-                ),
-                SizedBox(height: Styles.spacingMedium),
-                const Text(
-                  'Hazte Premium',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Accede a más resultados y\nfunciones exclusivas',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 14),
-                ),
-                SizedBox(height: Styles.spacingLarge),
-                ElevatedButton(
-                  onPressed: () => setState(() => showPremiumModal = false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFFF6B00),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Suscribirme ahora',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

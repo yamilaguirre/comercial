@@ -13,6 +13,8 @@ import 'package:my_first_app/screens/trabajador/worker_favorites_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_collection_detail_screen.dart';
 import 'package:my_first_app/screens/trabajador/edit_account_screen.dart';
 import 'package:my_first_app/screens/trabajador/worker_verification_screen.dart';
+import 'package:my_first_app/screens/trabajador/subscription_qr_payment_screen.dart';
+import 'package:my_first_app/screens/trabajador/subscription_status_screen.dart';
 
 class WorkerModule extends Module {
   @override
@@ -84,6 +86,16 @@ class WorkerModule extends Module {
     r.child(
       '/verification',
       child: (context) => const WorkerVerificationScreen(),
+    );
+
+    r.child(
+      '/subscription-payment',
+      child: (context) => const SubscriptionQRPaymentScreen(),
+    );
+
+    r.child(
+      '/subscription-status',
+      child: (context) => const SubscriptionStatusScreen(),
     );
   }
 }

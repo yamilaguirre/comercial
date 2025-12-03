@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 
 class PremiumSubscriptionModal extends StatelessWidget {
   const PremiumSubscriptionModal({super.key});
@@ -185,7 +186,8 @@ class PremiumSubscriptionModal extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Implementar lógica de suscripción
+                      Navigator.pop(context); // Close modal
+                      Modular.to.pushNamed('/worker/subscription-payment');
                     },
                     icon: const Icon(
                       Icons.auto_awesome,
