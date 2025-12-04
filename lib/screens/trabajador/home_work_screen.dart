@@ -13,6 +13,7 @@ import '../../services/location_service.dart';
 import 'worker_location_search_screen.dart';
 
 import 'components/add_to_worker_collection_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeWorkScreen extends StatefulWidget {
   const HomeWorkScreen({super.key});
@@ -408,162 +409,699 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
           );
         }
 
-        return StreamBuilder<Position>(
-          stream: Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 50,
-            ),
-          ),
-          builder: (context, locationSnapshot) {
-            final userLocation =
-                locationSnapshot.data ?? LocationService().lastPosition;
+        // Check premium status for workers and separate into lists
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('premium_users')
+              .where('status', isEqualTo: 'active')
+              .snapshots(),
+          builder: (context, premiumSnapshot) {
+            final premiumUserIdsMap = <String, Timestamp>{};
 
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 200,
-                childAspectRatio: 0.62,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+            if (premiumSnapshot.hasData) {
+              for (var doc in premiumSnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final startedAt = data['startedAt'] as Timestamp?;
+                if (startedAt != null) {
+                  premiumUserIdsMap[doc.id] = startedAt;
+                }
+              }
+            }
+
+            // Separate workers into premium and free
+            final premiumWorkers = <QueryDocumentSnapshot>[];
+            final freeWorkers = <QueryDocumentSnapshot>[];
+
+            for (var worker in filteredWorkers) {
+              if (premiumUserIdsMap.containsKey(worker.id)) {
+                premiumWorkers.add(worker);
+              } else {
+                freeWorkers.add(worker);
+              }
+            }
+
+            // Sort premium workers by subscription date (most recent first)
+            premiumWorkers.sort((a, b) {
+              final aStartedAt = premiumUserIdsMap[a.id];
+              final bStartedAt = premiumUserIdsMap[b.id];
+              if (aStartedAt == null || bStartedAt == null) return 0;
+              return bStartedAt.compareTo(aStartedAt); // Descending order
+            });
+
+            return StreamBuilder<Position>(
+              stream: Geolocator.getPositionStream(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.high,
+                  distanceFilter: 50,
+                ),
               ),
-              itemCount: filteredWorkers.length,
-              itemBuilder: (context, index) {
-                final workerDoc = filteredWorkers[index];
-                final data = workerDoc.data() as Map<String, dynamic>;
+              builder: (context, locationSnapshot) {
+                final userLocation =
+                    locationSnapshot.data ?? LocationService().lastPosition;
 
-                // Solo mostrar si tiene los datos básicos necesarios
-                final name = data['name'] as String?;
-                if (name == null || name.isEmpty) {
-                  return const SizedBox.shrink();
-                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Premium workers horizontal section
+                    if (premiumWorkers.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 12),
+                        child: Text(
+                          'Trabajadores Premium',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Styles.textPrimary,
+                          ),
+                        ),
+                      ),
+                      _buildPremiumWorkersSection(
+                        premiumWorkers,
+                        userLocation,
+                        currentUserId,
+                      ),
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 12),
+                        child: Text(
+                          'Otros trabajadores',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Styles.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
 
-                // Calcular distancia real si ambos tienen ubicación
-                String distance = '';
-                final workerLocation =
-                    data['location'] as Map<String, dynamic>?;
+                    // Free workers grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 200,
+                            childAspectRatio: 0.62,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                      itemCount: freeWorkers.length,
+                      itemBuilder: (context, index) {
+                        final workerDoc = freeWorkers[index];
+                        final data = workerDoc.data() as Map<String, dynamic>;
 
-                // Verificar si debe mostrarse en el mapa (para decidir si mostrar distancia)
-                final locationSettings =
-                    data['locationSettings'] as Map<String, dynamic>?;
-                final showOnMap =
-                    locationSettings?['showOnMap'] as bool? ?? true;
+                        // Solo mostrar si tiene los datos básicos necesarios
+                        final name = data['name'] as String?;
+                        if (name == null || name.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
 
-                if (workerLocation != null &&
-                    userLocation != null &&
-                    showOnMap) {
-                  final workerLat = (workerLocation['latitude'] as num?)
-                      ?.toDouble();
-                  final workerLng = (workerLocation['longitude'] as num?)
-                      ?.toDouble();
+                        // Calcular distancia real si ambos tienen ubicación
+                        String distance = '';
+                        final workerLocation =
+                            data['location'] as Map<String, dynamic>?;
 
-                  if (workerLat != null && workerLng != null) {
-                    final distanceInMeters = Geolocator.distanceBetween(
-                      userLocation.latitude,
-                      userLocation.longitude,
-                      workerLat,
-                      workerLng,
-                    );
-                    final distanceKm = distanceInMeters / 1000;
+                        // Verificar si debe mostrarse en el mapa (para decidir si mostrar distancia)
+                        final locationSettings =
+                            data['locationSettings'] as Map<String, dynamic>?;
+                        final showOnMap =
+                            locationSettings?['showOnMap'] as bool? ?? true;
 
-                    if (distanceKm < 1) {
-                      distance = '${distanceInMeters.toInt()}m';
-                    } else {
-                      distance = '${distanceKm.toStringAsFixed(1)} km';
-                    }
-                  }
-                }
+                        if (workerLocation != null &&
+                            userLocation != null &&
+                            showOnMap) {
+                          final workerLat = (workerLocation['latitude'] as num?)
+                              ?.toDouble();
+                          final workerLng =
+                              (workerLocation['longitude'] as num?)?.toDouble();
 
-                // Extraer profesión (primero revisar top-level `profession`, luego `profile.profession`, luego `professions` arrays)
-                final profileMap = data['profile'] as Map<String, dynamic>?;
-                String profession =
-                    (data['profession'] as String? ??
-                            profileMap?['profession'] as String? ??
-                            '')
-                        .toString();
-                final professionsData =
-                    (data['professions'] as List<dynamic>?) ??
-                    (profileMap?['professions'] as List<dynamic>?);
-                if (profession.isEmpty) {
-                  profession = 'Sin profesión especificada';
-                }
-                if (professionsData != null && professionsData.isNotEmpty) {
-                  // Recolectar todas las subcategorías de todas las profesiones
-                  final List<String> allSubcategories = [];
+                          if (workerLat != null && workerLng != null) {
+                            final distanceInMeters = Geolocator.distanceBetween(
+                              userLocation.latitude,
+                              userLocation.longitude,
+                              workerLat,
+                              workerLng,
+                            );
+                            final distanceKm = distanceInMeters / 1000;
 
-                  for (var prof in professionsData) {
-                    final profMap = prof as Map<String, dynamic>?;
-                    final subcategories =
-                        profMap?['subcategories'] as List<dynamic>?;
+                            if (distanceKm < 1) {
+                              distance = '${distanceInMeters.toInt()}m';
+                            } else {
+                              distance = '${distanceKm.toStringAsFixed(1)} km';
+                            }
+                          }
+                        }
 
-                    if (subcategories != null && subcategories.isNotEmpty) {
-                      allSubcategories.addAll(
-                        subcategories.map((s) => s.toString()),
-                      );
-                    }
-                  }
+                        // Extraer profesión
+                        final profileMap =
+                            data['profile'] as Map<String, dynamic>?;
+                        String profession =
+                            (data['profession'] as String? ??
+                                    profileMap?['profession'] as String? ??
+                                    '')
+                                .toString();
+                        final professionsData =
+                            (data['professions'] as List<dynamic>?) ??
+                            (profileMap?['professions'] as List<dynamic>?);
+                        if (profession.isEmpty) {
+                          profession = 'Sin profesión especificada';
+                        }
+                        if (professionsData != null &&
+                            professionsData.isNotEmpty) {
+                          final List<String> allSubcategories = [];
 
-                  // Si top-level profession está vacío o es el valor por defecto,
-                  // usar el array de profesiones para construir la visualización
-                  if (profession == 'Sin profesión especificada') {
-                    if (allSubcategories.isNotEmpty) {
-                      profession = allSubcategories.take(2).join(' • ');
-                    } else {
-                      // Si no tiene subcategorías, usar la categoría principal
-                      final firstProfession =
-                          professionsData[0] as Map<String, dynamic>?;
-                      final category =
-                          firstProfession?['category'] as String? ?? '';
-                      if (category.isNotEmpty) {
-                        profession = category;
-                      }
-                    }
-                  } else {
-                    // top-level profession is already set; keep it
-                  }
-                }
+                          for (var prof in professionsData) {
+                            final profMap = prof as Map<String, dynamic>?;
+                            final subcategories =
+                                profMap?['subcategories'] as List<dynamic>?;
 
-                return StreamBuilder<Map<String, dynamic>>(
-                  stream: LocationService.calculateWorkerRatingStream(
-                    workerDoc.id,
-                  ),
-                  builder: (context, ratingSnapshot) {
-                    final ratingData =
-                        ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+                            if (subcategories != null &&
+                                subcategories.isNotEmpty) {
+                              allSubcategories.addAll(
+                                subcategories.map((s) => s.toString()),
+                              );
+                            }
+                          }
 
-                    return _buildCompactWorkerCard(
-                      workerId: workerDoc.id,
-                      name: name,
-                      profession: profession,
-                      rating: (ratingData['rating'] as num).toDouble(),
-                      reviews: ratingData['reviews'] as int,
-                      price: (data['price']?.toString() ?? '').trim(),
-                      distance: distance,
-                      photoUrl: data['photoUrl'] as String?,
-                      phone: data['phoneNumber'] as String? ?? '',
-                      latitude: workerLocation?['latitude'] as double? ?? 0.0,
-                      longitude: workerLocation?['longitude'] as double? ?? 0.0,
-                      categories:
-                          professionsData
-                              ?.map(
-                                (p) =>
-                                    (p as Map<String, dynamic>?)?['category']
-                                        ?.toString() ??
-                                    '',
-                              )
-                              .where((c) => c.isNotEmpty)
-                              .toList() ??
-                          ['Servicios'],
-                      workerLocation: workerLocation,
-                    );
-                  },
+                          if (profession == 'Sin profesión especificada') {
+                            if (allSubcategories.isNotEmpty) {
+                              profession = allSubcategories.take(2).join(' • ');
+                            } else {
+                              final firstProfession =
+                                  professionsData[0] as Map<String, dynamic>?;
+                              final category =
+                                  firstProfession?['category'] as String? ?? '';
+                              if (category.isNotEmpty) {
+                                profession = category;
+                              }
+                            }
+                          }
+                        }
+
+                        return StreamBuilder<Map<String, dynamic>>(
+                          stream: LocationService.calculateWorkerRatingStream(
+                            workerDoc.id,
+                          ),
+                          builder: (context, ratingSnapshot) {
+                            final ratingData =
+                                ratingSnapshot.data ??
+                                {'rating': 0.0, 'reviews': 0};
+
+                            return _buildCompactWorkerCard(
+                              workerId: workerDoc.id,
+                              name: name,
+                              profession: profession,
+                              rating: (ratingData['rating'] as num).toDouble(),
+                              reviews: ratingData['reviews'] as int,
+                              price: (data['price']?.toString() ?? '').trim(),
+                              distance: distance,
+                              photoUrl: data['photoUrl'] as String?,
+                              phone: data['phoneNumber'] as String? ?? '',
+                              latitude:
+                                  workerLocation?['latitude'] as double? ?? 0.0,
+                              longitude:
+                                  workerLocation?['longitude'] as double? ??
+                                  0.0,
+                              categories:
+                                  professionsData
+                                      ?.map(
+                                        (p) =>
+                                            (p
+                                                    as Map<
+                                                      String,
+                                                      dynamic
+                                                    >?)?['category']
+                                                ?.toString() ??
+                                            '',
+                                      )
+                                      .where((c) => c.isNotEmpty)
+                                      .toList() ??
+                                  ['Servicios'],
+                              workerLocation: workerLocation,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
                 );
               },
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildPremiumWorkersSection(
+    List<QueryDocumentSnapshot> premiumWorkers,
+    Position? userLocation,
+    String? currentUserId,
+  ) {
+    return SizedBox(
+      height: 210, // Increased height slightly for better spacing
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: premiumWorkers.length,
+        itemBuilder: (context, index) {
+          final workerDoc = premiumWorkers[index];
+          final data = workerDoc.data() as Map<String, dynamic>;
+
+          final name = data['name'] as String? ?? '';
+          if (name.isEmpty) return const SizedBox.shrink();
+
+          // Calculate distance
+          String distance = '';
+          final workerLocation = data['location'] as Map<String, dynamic>?;
+          final locationSettings =
+              data['locationSettings'] as Map<String, dynamic>?;
+          final showOnMap = locationSettings?['showOnMap'] as bool? ?? true;
+
+          if (workerLocation != null && userLocation != null && showOnMap) {
+            final workerLat = (workerLocation['latitude'] as num?)?.toDouble();
+            final workerLng = (workerLocation['longitude'] as num?)?.toDouble();
+
+            if (workerLat != null && workerLng != null) {
+              final distanceInMeters = Geolocator.distanceBetween(
+                userLocation.latitude,
+                userLocation.longitude,
+                workerLat,
+                workerLng,
+              );
+              final distanceKm = distanceInMeters / 1000;
+
+              if (distanceKm < 1) {
+                distance = '${distanceInMeters.toInt()}m';
+              } else {
+                distance = '${distanceKm.toStringAsFixed(1)} km';
+              }
+            }
+          }
+
+          // Extract profession
+          final profileMap = data['profile'] as Map<String, dynamic>?;
+          String profession =
+              (data['profession'] as String? ??
+                      profileMap?['profession'] as String? ??
+                      '')
+                  .toString();
+          final professionsData =
+              (data['professions'] as List<dynamic>?) ??
+              (profileMap?['professions'] as List<dynamic>?);
+          if (profession.isEmpty) {
+            profession = 'Sin profesión especificada';
+          }
+          if (professionsData != null && professionsData.isNotEmpty) {
+            final List<String> allSubcategories = [];
+
+            for (var prof in professionsData) {
+              final profMap = prof as Map<String, dynamic>?;
+              final subcategories = profMap?['subcategories'] as List<dynamic>?;
+
+              if (subcategories != null && subcategories.isNotEmpty) {
+                allSubcategories.addAll(subcategories.map((s) => s.toString()));
+              }
+            }
+
+            if (profession == 'Sin profesión especificada') {
+              if (allSubcategories.isNotEmpty) {
+                profession = allSubcategories.take(2).join(' • ');
+              } else {
+                final firstProfession =
+                    professionsData[0] as Map<String, dynamic>?;
+                final category = firstProfession?['category'] as String? ?? '';
+                if (category.isNotEmpty) {
+                  profession = category;
+                }
+              }
+            }
+          }
+
+          return StreamBuilder<Map<String, dynamic>>(
+            stream: LocationService.calculateWorkerRatingStream(workerDoc.id),
+            builder: (context, ratingSnapshot) {
+              final ratingData =
+                  ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+
+              return _buildPremiumWorkerCard(
+                workerId: workerDoc.id,
+                name: name,
+                profession: profession,
+                rating: (ratingData['rating'] as num).toDouble(),
+                reviews: ratingData['reviews'] as int,
+                price: (data['price']?.toString() ?? '').trim(),
+                distance: distance,
+                photoUrl: data['photoUrl'] as String?,
+                phone: data['phoneNumber'] as String? ?? '',
+                latitude: workerLocation?['latitude'] as double? ?? 0.0,
+                longitude: workerLocation?['longitude'] as double? ?? 0.0,
+                categories:
+                    professionsData
+                        ?.map(
+                          (p) =>
+                              (p as Map<String, dynamic>?)?['category']
+                                  ?.toString() ??
+                              '',
+                        )
+                        .where((c) => c.isNotEmpty)
+                        .toList() ??
+                    ['Servicios'],
+                workerLocation: workerLocation,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPremiumWorkerCard({
+    required String workerId,
+    required String name,
+    required String profession,
+    required double rating,
+    required int reviews,
+    required String price,
+    required String distance,
+    String? photoUrl,
+    required String phone,
+    required double latitude,
+    required double longitude,
+    required List<String> categories,
+    Map<String, dynamic>? workerLocation,
+  }) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    return Container(
+      width: 320,
+      margin: const EdgeInsets.only(right: 16, bottom: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFF6F00), // Vibrant Orange
+            Color(0xFFFFC107), // Vibrant Yellow
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            // Left side: Profile image and Ver Perfil button
+            Expanded(
+              flex: 2,
+              child: GestureDetector(
+                onTap: () {
+                  _incrementWorkerViews(workerId);
+                  Modular.to.pushNamed(
+                    '/worker/public-profile',
+                    arguments: WorkerData(
+                      id: workerId,
+                      name: name,
+                      profession: profession,
+                      categories: categories,
+                      latitude: latitude,
+                      longitude: longitude,
+                      photoUrl: photoUrl,
+                      rating: rating,
+                      phone: phone,
+                      price: price,
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Profile Image with Favorite Button
+                    Stack(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[200],
+                            image: photoUrl != null && photoUrl.isNotEmpty
+                                ? DecorationImage(
+                                    image: NetworkImage(photoUrl),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: photoUrl == null || photoUrl.isEmpty
+                              ? Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey[400],
+                                )
+                              : null,
+                        ),
+                        // Favorite Button Overlay
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(authService.currentUser?.uid)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const SizedBox.shrink();
+                              }
+
+                              final userData =
+                                  snapshot.data!.data()
+                                      as Map<String, dynamic>?;
+                              final favorites =
+                                  (userData?['favoriteWorkers']
+                                      as List<dynamic>?) ??
+                                  [];
+                              final isFavorite = favorites.contains(workerId);
+
+                              return GestureDetector(
+                                onTap: () =>
+                                    _toggleFavorite(workerId, isFavorite),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    isFavorite
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    size: 16,
+                                    color: isFavorite
+                                        ? Colors.red
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Ver Perfil button
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Styles.primaryColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Ver Perfil',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Right side: Worker info
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Name and rating
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF212121),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${rating.toStringAsFixed(1)} ($reviews)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF616161),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Profession
+                    if (profession != 'Sin profesión especificada')
+                      Text(
+                        profession,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF616161),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 4),
+                    // Price
+                    if (price.isNotEmpty)
+                      Row(
+                        children: [
+                          const Text(
+                            'Desde ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF616161),
+                            ),
+                          ),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Styles.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 4),
+                    // Distance
+                    if (distance.isNotEmpty)
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            size: 12,
+                            color: Color(0xFF616161),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            distance,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF616161),
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                    // Action buttons
+                    Row(
+                      children: [
+                        // Llamar button
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _makePhoneCall(phone),
+                            icon: const Icon(Icons.phone, size: 16),
+                            label: const Text('Llamar'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Styles.primaryColor,
+                              side: const BorderSide(
+                                color: Styles.primaryColor,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              textStyle: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Mensaje button
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showContactOptions(
+                              context: context,
+                              workerId: workerId,
+                              workerName: name,
+                              workerPhoto: photoUrl,
+                              workerPhone: phone,
+                            ),
+                            icon: const Icon(Icons.message, size: 16),
+                            label: const Text('Mensaje'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                              textStyle: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -819,6 +1357,114 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   ],
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper methods for premium worker actions
+  Future<void> _makePhoneCall(String phone) async {
+    if (phone.isNotEmpty) {
+      final Uri launchUri = Uri(scheme: 'tel', path: phone);
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo realizar la llamada')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Número de teléfono no disponible')),
+        );
+      }
+    }
+  }
+
+  void _showContactOptions({
+    required BuildContext context,
+    required String workerId,
+    required String workerName,
+    String? workerPhoto,
+    required String workerPhone,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Contactar a $workerName',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            // WhatsApp option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF25D366),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.phone, color: Colors.white),
+              ),
+              title: const Text('Contactar por WhatsApp'),
+              subtitle: const Text('Enviar mensaje directo'),
+              onTap: () async {
+                Navigator.pop(context);
+                final whatsappUrl = Uri.parse('https://wa.me/$workerPhone');
+                if (await canLaunchUrl(whatsappUrl)) {
+                  await launchUrl(
+                    whatsappUrl,
+                    mode: LaunchMode.externalApplication,
+                  );
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No se pudo abrir WhatsApp'),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            const Divider(),
+            // In-app chat option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Styles.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.chat_bubble, color: Colors.white),
+              ),
+              title: const Text('Chat en la app'),
+              subtitle: const Text('Mensajería interna'),
+              onTap: () {
+                Navigator.pop(context);
+                Modular.to.pushNamed(
+                  '/worker/chat-detail',
+                  arguments: {
+                    'chatId': workerId,
+                    'otherUserId': workerId,
+                    'otherUserName': workerName,
+                    'otherUserPhoto': workerPhoto,
+                    'otherUserPhone': workerPhone,
+                  },
+                );
+              },
             ),
           ],
         ),
