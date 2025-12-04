@@ -78,4 +78,25 @@ class ImageService {
       headers: headers,
     );
   }
+
+  /// Sube múltiples imágenes y devuelve una lista de URLs
+  static Future<List<String>> uploadImages(
+    List<XFile> files,
+    String folderPath,
+  ) async {
+    final List<String> urls = [];
+    for (int i = 0; i < files.length; i++) {
+      try {
+        final url = await uploadImageToApi(
+          files[i],
+          folderPath: '$folderPath/image_$i',
+        );
+        urls.add(url);
+      } catch (e) {
+        print('Error uploading image $i: $e');
+        rethrow;
+      }
+    }
+    return urls;
+  }
 }

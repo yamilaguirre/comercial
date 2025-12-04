@@ -12,7 +12,12 @@ class PropertyService {
         .where('is_active', isEqualTo: true)
         .orderBy('created_at', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Property.fromFirestore(doc))
+              .where((property) => property.isActiveAndAvailable)
+              .toList(),
+        );
   }
 
   // Obtener propiedades por filtros
@@ -23,7 +28,9 @@ class PropertyService {
     double? minPrice,
     double? maxPrice,
   }) {
-    Query query = _firestore.collection('properties').where('is_active', isEqualTo: true);
+    Query query = _firestore
+        .collection('properties')
+        .where('is_active', isEqualTo: true);
 
     if (transactionType != null) {
       query = query.where('transaction_type', isEqualTo: transactionType);
@@ -35,9 +42,16 @@ class PropertyService {
       query = query.where('department', isEqualTo: department);
     }
 
-    return query.orderBy('created_at', descending: true).snapshots().map((snapshot) {
-      var properties = snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList();
-      
+    return query.orderBy('created_at', descending: true).snapshots().map((
+      snapshot,
+    ) {
+      var properties = snapshot.docs
+          .map((doc) => Property.fromFirestore(doc))
+          .toList();
+
+      // Filtrar por disponibilidad y expiración
+      properties = properties.where((p) => p.isActiveAndAvailable).toList();
+
       // Filtrar por precio en el cliente (Firestore no permite múltiples rangos)
       if (minPrice != null) {
         properties = properties.where((p) => p.price >= minPrice).toList();
@@ -45,7 +59,7 @@ class PropertyService {
       if (maxPrice != null) {
         properties = properties.where((p) => p.price <= maxPrice).toList();
       }
-      
+
       return properties;
     });
   }
@@ -53,7 +67,10 @@ class PropertyService {
   // Obtener propiedad por ID
   Future<Property?> getPropertyById(String propertyId) async {
     try {
-      final doc = await _firestore.collection('properties').doc(propertyId).get();
+      final doc = await _firestore
+          .collection('properties')
+          .doc(propertyId)
+          .get();
       if (doc.exists) {
         return Property.fromFirestore(doc);
       }
@@ -67,10 +84,10 @@ class PropertyService {
   // Obtener propiedades por lista de IDs
   Future<List<Property>> getPropertiesByIds(List<String> propertyIds) async {
     if (propertyIds.isEmpty) return [];
-    
+
     try {
       final List<Property> properties = [];
-      
+
       // Firestore 'in' query limit is 10, so we batch the requests
       for (int i = 0; i < propertyIds.length; i += 10) {
         final batch = propertyIds.skip(i).take(10).toList();
@@ -78,10 +95,12 @@ class PropertyService {
             .collection('properties')
             .where(FieldPath.documentId, whereIn: batch)
             .get();
-        
-        properties.addAll(snapshot.docs.map((doc) => Property.fromFirestore(doc)));
+
+        properties.addAll(
+          snapshot.docs.map((doc) => Property.fromFirestore(doc)),
+        );
       }
-      
+
       return properties;
     } catch (e) {
       print('Error getting properties by IDs: $e');

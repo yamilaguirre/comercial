@@ -7,6 +7,7 @@ class AccountHeader extends StatelessWidget {
   final String? photoUrl;
   final String userRole;
   final String? verificationStatus;
+  final bool isPremium;
 
   const AccountHeader({
     super.key,
@@ -15,6 +16,7 @@ class AccountHeader extends StatelessWidget {
     this.photoUrl,
     required this.userRole,
     this.verificationStatus,
+    this.isPremium = false,
   });
 
   @override
@@ -143,27 +145,54 @@ class AccountHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Plan Gratuito
+              // Plan Premium o Gratuito
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
-                child: const Text(
-                  'Plan Gratuito',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                decoration: BoxDecoration(
+                  color: isPremium
+                      ? const Color(0xFFFFD700).withOpacity(0.3)
+                      : Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: isPremium
+                      ? Border.all(color: const Color(0xFFFFD700), width: 1.5)
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isPremium)
+                      const Icon(
+                        Icons.workspace_premium,
+                        color: Color(0xFFFFD700),
+                        size: 16,
+                      ),
+                    if (isPremium) const SizedBox(width: 4),
+                    Text(
+                      isPremium ? 'Plan Premium' : 'Plan Gratuito',
+                      style: TextStyle(
+                        color: isPremium
+                            ? const Color(0xFFFFD700)
+                            : Colors.white,
+                        fontSize: 12,
+                        fontWeight: isPremium
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               // Estado de Verificación
               const SizedBox(width: 8),
               if (verificationStatus == 'verified')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF4CAF50),
                     borderRadius: BorderRadius.circular(20),
@@ -186,7 +215,10 @@ class AccountHeader extends StatelessWidget {
                 )
               else if (verificationStatus == 'pending')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange,
                     borderRadius: BorderRadius.circular(20),
@@ -209,7 +241,10 @@ class AccountHeader extends StatelessWidget {
                 )
               else if (verificationStatus == 'rejected')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.shade400,
                     borderRadius: BorderRadius.circular(20),
@@ -232,7 +267,10 @@ class AccountHeader extends StatelessWidget {
                 )
               else
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(20),

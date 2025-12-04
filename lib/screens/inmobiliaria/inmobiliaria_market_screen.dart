@@ -4,26 +4,25 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../theme/theme.dart';
-// Importamos los nuevos componentes visuales
-import 'components/category_selector.dart';
-import 'components/property_card_list_item.dart';
-import 'components/compact_property_card.dart';
-import 'components/add_to_collection_dialog.dart';
+// Importamos los componentes visuales del módulo de propiedad
+import '../property/components/category_selector.dart';
+import '../property/components/compact_property_card.dart';
+import '../property/components/add_to_collection_dialog.dart';
 
-// Asumo que estos archivos existen en tu proyecto
 import '../../models/property.dart';
 import '../../services/saved_list_service.dart';
-import 'property_location_search_screen.dart';
+import '../property/property_location_search_screen.dart';
 import '../../providers/auth_provider.dart';
 
-class PropertyListScreen extends StatefulWidget {
-  const PropertyListScreen({super.key});
+class InmobiliariaMarketScreen extends StatefulWidget {
+  const InmobiliariaMarketScreen({super.key});
 
   @override
-  State<PropertyListScreen> createState() => _PropertyListScreenState();
+  State<InmobiliariaMarketScreen> createState() =>
+      _InmobiliariaMarketScreenState();
 }
 
-class _PropertyListScreenState extends State<PropertyListScreen> {
+class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
   String selectedCategory = 'Comprar';
   bool _isLoading = true;
   Position? _currentPosition;
@@ -161,8 +160,9 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
 
         for (var doc in snapshot.docs) {
           final data = doc.data();
-          if (data['owner_id'] == currentUserId) continue;
-          
+          // No filtramos las propias propiedades aquí, queremos ver todo el mercado
+          // if (data['owner_id'] == currentUserId) continue;
+
           // Filtrar propiedades con available = false
           final available = data['available'];
           if (available == false) continue;
@@ -238,7 +238,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     });
   }
 
-  // Método para navegar al detalle (Migrado a Modular)
+  // Método para navegar al detalle
   void _goToDetail(Property property) {
     Modular.to.pushNamed(
       '/property/detail/${property.id}',
@@ -375,7 +375,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                               final isPremium = authService.isPremium;
                               final radiusText = isPremium ? '10 km' : '2 km';
                               return Text(
-                                'Recomendados cerca de ti ($radiusText aprox)',
+                                'Mercado Inmobiliario ($radiusText aprox)',
                                 style: TextStyles.title.copyWith(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,

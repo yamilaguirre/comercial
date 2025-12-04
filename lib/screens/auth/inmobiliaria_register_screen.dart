@@ -150,7 +150,7 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
-          onPressed: () => Modular.to.pop(),
+          onPressed: () => Modular.to.navigate('/inmobiliaria-login'),
         ),
         title: Text(
           'Registro de Inmobiliaria',

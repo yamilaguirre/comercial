@@ -217,4 +217,175 @@ class NotificationService {
       return false;
     }
   }
+
+  // ===== MÉTODOS PARA NOTIFICACIONES DE PROPIEDADES PREMIUM =====
+
+  // Crear notificación de propiedad premium en notification_property
+  Future<String?> createPropertyNotificationInPropertyCollection({
+    required NotificationType type,
+    required String title,
+    required String message,
+    required String propertyId,
+    double? oldPrice,
+    double? newPrice,
+  }) async {
+    try {
+      final docRef = await _firestore.collection('notification_property').add({
+        'type': type.toFirestore(),
+        'title': title,
+        'message': message,
+        'property_id': propertyId,
+        'created_at': FieldValue.serverTimestamp(),
+        if (oldPrice != null) 'old_price': oldPrice,
+        if (newPrice != null) 'new_price': newPrice,
+      });
+      return docRef.id;
+    } catch (e) {
+      print('Error creating property notification: $e');
+      return null;
+    }
+  }
+
+  // Crear notificación de nueva propiedad premium
+  Future<String?> createPremiumPropertyNotification({
+    required String propertyId,
+    required String propertyTitle,
+    required String propertyPrice,
+    required String propertyType,
+    required String location,
+  }) async {
+    try {
+      final docRef = await _firestore.collection('notification_property').add({
+        'type': NotificationType.premiumPropertyPublished.toFirestore(),
+        'title': '🌟 Nueva Propiedad Premium',
+        'message': '$propertyTitle en $location - $propertyPrice',
+        'property_id': propertyId,
+        'created_at': FieldValue.serverTimestamp(),
+        'metadata': {
+          'property_title': propertyTitle,
+          'property_price': propertyPrice,
+          'property_type': propertyType,
+          'location': location,
+        },
+      });
+      return docRef.id;
+    } catch (e) {
+      print('Error creating premium property notification: $e');
+      return null;
+    }
+  }
+
+  // Obtener notificaciones para el módulo de propiedades (notifications + notification_property)
+  Stream<List<AppNotification>> getNotificationsForPropertyModule(
+    String userId,
+  ) async* {
+    final readNotificationIds = await _getReadNotificationIds(userId);
+
+    await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
+      try {
+        final notificationsSnapshot = await _firestore
+            .collection('notifications')
+            .orderBy('created_at', descending: true)
+            .limit(50)
+            .get();
+
+        final propertyNotificationsSnapshot = await _firestore
+            .collection('notification_property')
+            .orderBy('created_at', descending: true)
+            .limit(50)
+            .get();
+
+        final allNotifications = [
+          ...notificationsSnapshot.docs.map(
+            (doc) => AppNotification.fromFirestore(doc),
+          ),
+          ...propertyNotificationsSnapshot.docs.map(
+            (doc) => AppNotification.fromFirestore(doc),
+          ),
+        ];
+
+        allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        final userNotifications = allNotifications
+            .where((notification) {
+              // 1. Si tiene un usuario específico, solo mostrar a ese usuario
+              if (notification.userId != null &&
+                  notification.userId!.isNotEmpty) {
+                return notification.userId == userId;
+              }
+
+              // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
+              return true;
+            })
+            .map(
+              (notification) => notification.copyWith(
+                isRead: readNotificationIds.contains(notification.id),
+              ),
+            )
+            .take(100)
+            .toList();
+
+        yield userNotifications;
+      } catch (e) {
+        print('Error fetching property notifications: $e');
+      }
+    }
+  }
+
+  // Obtener notificaciones para el módulo de inmobiliaria (notifications + notification_inmobiliaria)
+  Stream<List<AppNotification>> getNotificationsForInmobiliariaModule(
+    String userId,
+  ) async* {
+    final readNotificationIds = await _getReadNotificationIds(userId);
+
+    await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
+      try {
+        final notificationsSnapshot = await _firestore
+            .collection('notifications')
+            .orderBy('created_at', descending: true)
+            .limit(50)
+            .get();
+
+        final inmobiliariaNotificationsSnapshot = await _firestore
+            .collection('notification_inmobiliaria')
+            .orderBy('created_at', descending: true)
+            .limit(50)
+            .get();
+
+        final allNotifications = [
+          ...notificationsSnapshot.docs.map(
+            (doc) => AppNotification.fromFirestore(doc),
+          ),
+          ...inmobiliariaNotificationsSnapshot.docs.map(
+            (doc) => AppNotification.fromFirestore(doc),
+          ),
+        ];
+
+        allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        final userNotifications = allNotifications
+            .where((notification) {
+              // 1. Si tiene un usuario específico, solo mostrar a ese usuario
+              if (notification.userId != null &&
+                  notification.userId!.isNotEmpty) {
+                return notification.userId == userId;
+              }
+
+              // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
+              return true;
+            })
+            .map(
+              (notification) => notification.copyWith(
+                isRead: readNotificationIds.contains(notification.id),
+              ),
+            )
+            .take(100)
+            .toList();
+
+        yield userNotifications;
+      } catch (e) {
+        print('Error fetching inmobiliaria notifications: $e');
+      }
+    }
+  }
 }

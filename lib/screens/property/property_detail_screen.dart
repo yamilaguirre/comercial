@@ -20,6 +20,7 @@ import '../../providers/mobiliaria_provider.dart';
 import 'components/detail_feature_item.dart';
 import 'components/detail_owner_contact_card.dart';
 import 'components/add_to_collection_dialog.dart';
+import 'components/compact_property_card.dart';
 
 // --- CONSTANTES DE MAPA (RESTAURADAS) ---
 const String _mapboxAccessToken =
@@ -52,12 +53,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   int _currentImageIndex = 0;
   final PageController _carouselController = PageController();
   final SavedListService _savedListService = SavedListService();
+  List<Property> _similarProperties = [];
+  final Set<String> _savedPropertyIds = {};
 
   @override
   void initState() {
     super.initState();
     _loadData();
     _checkIfSaved();
+    _loadSimilarProperties();
   }
 
   @override
@@ -77,10 +81,49 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       userId,
       widget.propertyId,
     );
+    
+    final savedProperties = await _savedListService.getAllSavedProperties(userId);
+    
     if (mounted) {
       setState(() {
         _isFavorite = isSaved;
+        _savedPropertyIds.clear();
+        _savedPropertyIds.addAll(savedProperties.map((p) => p.id));
       });
+    }
+  }
+
+  // Cargar propiedades similares
+  Future<void> _loadSimilarProperties() async {
+    if (_property == null) return;
+
+    try {
+      final query = FirebaseFirestore.instance
+          .collection('properties')
+          .where('is_active', isEqualTo: true)
+          .where('transaction_type', isEqualTo: _property!.type)
+          .where('property_type', isEqualTo: _property!.propertyTypeRaw)
+          .limit(10);
+
+      final snapshot = await query.get();
+      final properties = snapshot.docs
+          .where((doc) => doc.id != widget.propertyId && (doc.data()['available'] ?? true))
+          .map((doc) => Property.fromFirestore(doc))
+          .toList();
+
+      properties.sort((a, b) {
+        final aDate = a.lastPublishedAt ?? a.createdAt ?? DateTime(2000);
+        final bDate = b.lastPublishedAt ?? b.createdAt ?? DateTime(2000);
+        return bDate.compareTo(aDate);
+      });
+
+      if (mounted) {
+        setState(() {
+          _similarProperties = properties.take(6).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error cargando propiedades similares: $e');
     }
   }
 
@@ -137,6 +180,30 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ).showSnackBar(const SnackBar(content: Text('Agregado a favoritos')));
         }
       }
+    }
+  }
+
+  // Abrir diálogo de colección para propiedades similares
+  Future<void> _openCollectionDialog(Property property) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid ?? '';
+
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Debes iniciar sesión para guardar propiedades'),
+        ),
+      );
+      return;
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AddToCollectionDialog(propertyId: property.id),
+    );
+
+    if (result == true) {
+      await _checkIfSaved();
     }
   }
 
@@ -502,6 +569,38 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             ),
             const SizedBox(height: 12),
             _buildMapSection(), // Se mantiene aquí
+            const SizedBox(height: 24),
+          ],
+          if (_similarProperties.isNotEmpty) ...[
+            const Divider(),
+            const SizedBox(height: 24),
+            Text(
+              'Te podría interesar',
+              style: TextStyles.subtitle.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: _similarProperties.length,
+              itemBuilder: (context, index) {
+                return CompactPropertyCard(
+                  property: _similarProperties[index],
+                  isFavorite: _savedPropertyIds.contains(_similarProperties[index].id),
+                  onFavoriteToggle: () => _openCollectionDialog(_similarProperties[index]),
+                  onTap: () => Modular.to.pushNamed(
+                    '/property/detail/${_similarProperties[index].id}',
+                    arguments: _similarProperties[index],
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 24),
           ],
           const SizedBox(height: 50), // Espacio extra al final del scroll

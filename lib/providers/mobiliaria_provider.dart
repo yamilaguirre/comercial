@@ -51,6 +51,7 @@ class MobiliariaProvider extends ChangeNotifier {
   Future<bool> saveProperty(
     Map<String, dynamic> propertyData, {
     String? propertyId,
+    bool? isPremiumUser,
   }) async {
     User? user = _auth.currentUser;
     if (user == null) {
@@ -72,8 +73,17 @@ class MobiliariaProvider extends ChangeNotifier {
         data['created_at'] = FieldValue.serverTimestamp();
         data['is_active'] = true; // Por defecto activa al crear
         data['favorites'] = 0; // Inicializar contador de favoritos
+
+        // NUEVO: Configurar disponibilidad y expiración
+        data['available'] = true; // Por defecto disponible
+        // Calcular fecha de expiración (7 días desde ahora)
+        final expirationDate = DateTime.now().add(const Duration(days: 7));
+        data['expires_at'] = Timestamp.fromDate(expirationDate);
+        data['last_published_at'] = FieldValue.serverTimestamp();
       }
       data['updated_at'] = FieldValue.serverTimestamp();
+
+      String? newPropertyId;
 
       if (propertyId != null) {
         // Obtener el precio anterior para comparar
@@ -88,27 +98,47 @@ class MobiliariaProvider extends ChangeNotifier {
         // Actualizar
         await _firestore.collection('properties').doc(propertyId).update(data);
 
-        // Crear notificación si el precio bajó
-        if (oldPrice != null && newPrice != null) {
+        // Crear notificación si el precio bajó Y el usuario es premium
+        if (isPremiumUser == true && oldPrice != null && newPrice != null) {
           final oldPriceNum = _parsePrice(oldPrice);
           final newPriceNum = _parsePrice(newPrice);
 
           if (newPriceNum < oldPriceNum) {
-            // El precio bajó, crear notificación
-            await _notificationService.createPropertyNotification(
-              type: NotificationType.priceDropHome,
-              title: '¡Rebaja de precio!',
-              message:
-                  '${data['name'] ?? 'Una propiedad'} bajó de Bs ${_formatPrice(oldPriceNum)} a Bs ${_formatPrice(newPriceNum)}',
-              propertyId: propertyId,
-              oldPrice: oldPriceNum,
-              newPrice: newPriceNum,
-            );
+            // El precio bajó, crear notificación en notification_property
+            await _notificationService
+                .createPropertyNotificationInPropertyCollection(
+                  type: NotificationType.priceDropHome,
+                  title: '¡Rebaja de precio!',
+                  message:
+                      '${data['title'] ?? 'Una propiedad'} bajó de Bs ${_formatPrice(oldPriceNum)} a Bs ${_formatPrice(newPriceNum)}',
+                  propertyId: propertyId,
+                  oldPrice: oldPriceNum,
+                  newPrice: newPriceNum,
+                );
           }
         }
       } else {
-        // Crear
-        await _firestore.collection('properties').add(data);
+        // Crear nueva propiedad
+        final docRef = await _firestore.collection('properties').add(data);
+        newPropertyId = docRef.id;
+
+        // Si el usuario es premium, crear notificación global
+        if (isPremiumUser == true) {
+          final propertyTitle = data['title'] ?? 'Propiedad sin título';
+          final propertyPrice =
+              '${data['currency'] ?? 'BS'} ${data['price'] ?? '0'}';
+          final propertyType = data['property_type'] ?? 'Propiedad';
+          final location =
+              '${data['department'] ?? 'Ubicación'}, ${data['zone_key'] ?? ''}';
+
+          await _notificationService.createPremiumPropertyNotification(
+            propertyId: newPropertyId,
+            propertyTitle: propertyTitle,
+            propertyPrice: propertyPrice,
+            propertyType: propertyType,
+            location: location,
+          );
+        }
       }
       return true;
     } catch (e) {
@@ -197,6 +227,49 @@ class MobiliariaProvider extends ChangeNotifier {
     } catch (e) {
       print('Error incrementing inquiries for property $propertyId: $e');
       // No mostramos error al usuario por esto, es silencioso
+    }
+  }
+
+  // --- GESTIÓN DE DISPONIBILIDAD ---
+
+  /// Toggle availability de una propiedad (habilitar/deshabilitar)
+  Future<bool> togglePropertyAvailability(
+    String propertyId,
+    bool newAvailability,
+  ) async {
+    User? user = _auth.currentUser;
+    if (user == null) return false;
+
+    try {
+      await _firestore.collection('properties').doc(propertyId).update({
+        'available': newAvailability,
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      _errorMessage = 'Error al cambiar disponibilidad: $e';
+      print('Error en togglePropertyAvailability: $_errorMessage');
+      return false;
+    }
+  }
+
+  /// Renovar fecha de publicación de una propiedad
+  Future<bool> renewProperty(String propertyId) async {
+    User? user = _auth.currentUser;
+    if (user == null) return false;
+
+    try {
+      await _firestore.collection('properties').doc(propertyId).update({
+        'last_published_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      return true;
+    } catch (e) {
+      _errorMessage = 'Error al renovar la propiedad: $e';
+      print('Error en renewProperty: $_errorMessage');
+      return false;
     }
   }
 }

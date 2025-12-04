@@ -7,6 +7,7 @@ enum NotificationType {
   propertyAvailable,
   newProperty,
   message,
+  premiumPropertyPublished,
   // Notificaciones de cambios de perfil
   profilePasswordChanged,
   profilePhotoChanged,
@@ -26,6 +27,8 @@ enum NotificationType {
         return 'Nueva propiedad';
       case NotificationType.message:
         return 'Mensaje';
+      case NotificationType.premiumPropertyPublished:
+        return 'Propiedad Premium';
       case NotificationType.profilePasswordChanged:
         return 'Contraseña actualizada';
       case NotificationType.profilePhotoChanged:
@@ -51,6 +54,8 @@ enum NotificationType {
         return NotificationType.newProperty;
       case 'message':
         return NotificationType.message;
+      case 'premium_property_published':
+        return NotificationType.premiumPropertyPublished;
       case 'profile_password_changed':
         return NotificationType.profilePasswordChanged;
       case 'profile_photo_changed':
@@ -78,6 +83,8 @@ enum NotificationType {
         return 'new_property';
       case NotificationType.message:
         return 'message';
+      case NotificationType.premiumPropertyPublished:
+        return 'premium_property_published';
       case NotificationType.profilePasswordChanged:
         return 'profile_password_changed';
       case NotificationType.profilePhotoChanged:

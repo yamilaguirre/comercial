@@ -39,6 +39,12 @@ class Property {
   final String? companyLogo;
   final String status;
 
+  // Availability and Expiration
+  final DateTime? createdAt;
+  final bool available;
+  final DateTime? expiresAt;
+  final DateTime? lastPublishedAt;
+
   Property({
     required this.id,
     required this.name,
@@ -66,6 +72,10 @@ class Property {
     this.companyName,
     this.companyLogo,
     this.status = 'active',
+    this.createdAt,
+    this.available = true,
+    this.expiresAt,
+    this.lastPublishedAt,
   });
 
   factory Property.fromFirestore(DocumentSnapshot doc) {
@@ -121,6 +131,10 @@ class Property {
       companyName: data['companyName'],
       companyLogo: data['companyLogo'],
       status: data['status'] ?? 'active',
+      createdAt: _parseTimestamp(data['created_at']),
+      available: data['available'] ?? true,
+      expiresAt: _parseTimestamp(data['expires_at']),
+      lastPublishedAt: _parseTimestamp(data['last_published_at']),
     );
   }
 
@@ -143,7 +157,40 @@ class Property {
     return null;
   }
 
+  // Helper para parsear Timestamp de forma segura
+  static DateTime? _parseTimestamp(dynamic timestampData) {
+    if (timestampData == null) return null;
+
+    if (timestampData is Timestamp) {
+      return timestampData.toDate();
+    }
+
+    if (timestampData is DateTime) {
+      return timestampData;
+    }
+
+    return null;
+  }
+
   // Getters para acceder a latitud y longitud desde geopoint
   double get latitude => geopoint?.latitude ?? 0.0;
   double get longitude => geopoint?.longitude ?? 0.0;
+
+  // Getter para verificar si la propiedad ha expirado
+  bool get isExpired {
+    if (expiresAt == null) return false;
+    return DateTime.now().isAfter(expiresAt!);
+  }
+
+  // Getter para verificar si la propiedad está activa (disponible y no expirada)
+  bool get isActive {
+    return available && !isExpired;
+  }
+
+  // Getter para obtener días restantes antes de expiración
+  int get daysUntilExpiration {
+    if (expiresAt == null) return 0;
+    final difference = expiresAt!.difference(DateTime.now());
+    return difference.inDays;
+  }
 }

@@ -27,6 +27,8 @@ class WorkerNotificationCard extends StatelessWidget {
         return Icons.new_releases;
       case NotificationType.message:
         return Icons.message;
+      case NotificationType.premiumPropertyPublished:
+        return Icons.star;
       case NotificationType.profilePasswordChanged:
         return Icons.lock;
       case NotificationType.profilePhotoChanged:
@@ -52,6 +54,8 @@ class WorkerNotificationCard extends StatelessWidget {
         return const Color(0xFFFF9800); // Naranja
       case NotificationType.message:
         return const Color(0xFF757575); // Gris
+      case NotificationType.premiumPropertyPublished:
+        return const Color(0xFFFFD700); // Dorado
       case NotificationType.profilePasswordChanged:
         return const Color(0xFFD32F2F); //Rojo oscuro
       case NotificationType.profilePhotoChanged:
