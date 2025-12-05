@@ -8,6 +8,8 @@ import '../../screens/property/property_form_wrapper.dart';
 import '../../screens/inmobiliaria/inmobiliaria_onboarding_screen.dart';
 import '../../screens/inmobiliaria/inmobiliaria_subscription_payment_screen.dart';
 import '../../screens/inmobiliaria/inmobiliaria_subscription_status_screen.dart';
+import '../../screens/inmobiliaria/inmobiliaria_alerts_screen.dart';
+import '../../screens/inmobiliaria/inmobiliaria_market_screen.dart';
 import '../../providers/mobiliaria_provider.dart';
 
 class InmobiliariaModule extends Module {
@@ -27,6 +29,11 @@ class InmobiliariaModule extends Module {
         ChildRoute(
           '/home',
           child: (context) => const InmobiliariaHomeScreen(),
+          transition: TransitionType.noTransition,
+        ),
+        ChildRoute(
+          '/market',
+          child: (context) => const InmobiliariaMarketScreen(),
           transition: TransitionType.noTransition,
         ),
         ChildRoute(
@@ -66,6 +73,11 @@ class InmobiliariaModule extends Module {
     r.child(
       '/new-property',
       child: (context) => const PropertyFormWrapper(),
+      transition: TransitionType.rightToLeft,
+    );
+    r.child(
+      '/alerts',
+      child: (context) => const InmobiliariaAlertsScreen(),
       transition: TransitionType.rightToLeft,
     );
   }

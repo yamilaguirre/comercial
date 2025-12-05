@@ -16,7 +16,6 @@ import '../../screens/property/collection_detail_screen.dart';
 import '../../screens/property/property_settings_screen.dart';
 import '../../screens/property/subscription_status_screen.dart';
 import '../../screens/property/subscription_qr_payment_screen.dart';
-import '../../screens/property/property_onboarding_screen.dart';
 import '../../providers/mobiliaria_provider.dart';
 import '../../screens/common/map_picker_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
@@ -62,15 +61,22 @@ class PropertyModule extends Module {
       ],
     );
 
-    // 2. RUTAS SECUNDARIAS
-    r.child('/onboarding', child: (context) => const PropertyOnboardingScreen());
     r.child('/new', child: (context) => const PropertyFormWrapper());
     r.child('/my', child: (context) => const MyPropertiesScreen());
     r.child('/map-picker', child: (context) => const MapPickerScreen());
-    r.child('/verification', child: (context) => const PropertyVerificationScreen());
+    r.child(
+      '/verification',
+      child: (context) => const PropertyVerificationScreen(),
+    );
     r.child('/settings', child: (context) => const PropertySettingsScreen());
-    r.child('/subscription-status', child: (context) => const SubscriptionStatusScreen());
-    r.child('/subscription-payment', child: (context) => const SubscriptionQRPaymentScreen());
+    r.child(
+      '/subscription-status',
+      child: (context) => const SubscriptionStatusScreen(),
+    );
+    r.child(
+      '/subscription-payment',
+      child: (context) => const SubscriptionQRPaymentScreen(),
+    );
     r.child(
       '/edit-profile',
       child: (context) => EditProfileScreen(userData: Modular.args.data),

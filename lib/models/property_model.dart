@@ -21,6 +21,10 @@ class Property {
   final DateTime createdAt;
   final int favorites;
 
+  // Availability and Expiration
+  final bool available;
+  final DateTime? expiresAt;
+
   Property({
     required this.id,
     required this.ownerId,
@@ -40,6 +44,8 @@ class Property {
     required this.isActive,
     required this.createdAt,
     this.favorites = 0,
+    this.available = true,
+    this.expiresAt,
   });
 
   factory Property.fromFirestore(DocumentSnapshot doc) {
@@ -61,8 +67,21 @@ class Property {
       amenities: data['amenities'] ?? {},
       geopoint: data['geopoint'] ?? const GeoPoint(0, 0),
       isActive: data['is_active'] ?? true,
-      createdAt: (data['created_at'] as Timestamp).toDate(),
+      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       favorites: data['favorites'] ?? 0,
+      available: data['available'] ?? true,
+      expiresAt: (data['expires_at'] as Timestamp?)?.toDate(),
     );
+  }
+
+  // Getter para verificar si la propiedad ha expirado
+  bool get isExpired {
+    if (expiresAt == null) return false;
+    return DateTime.now().isAfter(expiresAt!);
+  }
+
+  // Getter para verificar si la propiedad está activa (disponible y no expirada)
+  bool get isActiveAndAvailable {
+    return isActive && available && !isExpired;
   }
 }

@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/property.dart';
 import '../../theme/theme.dart';
 import '../../core/utils/property_constants.dart';
+import '../../providers/mobiliaria_provider.dart';
+import 'package:shimmer/shimmer.dart';
 
 class InmobiliariaPropertiesScreen extends StatefulWidget {
   const InmobiliariaPropertiesScreen({super.key});
@@ -16,7 +18,6 @@ class InmobiliariaPropertiesScreen extends StatefulWidget {
 
 class _InmobiliariaPropertiesScreenState
     extends State<InmobiliariaPropertiesScreen> {
-  final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
   void _editProperty(Property property) {
@@ -24,11 +25,33 @@ class _InmobiliariaPropertiesScreenState
   }
 
   Future<void> _deleteProperty(String propertyId) async {
-    try {
-      await _firestore.collection('properties').doc(propertyId).delete();
-    } catch (e) {
-      // Error silencioso
-    }
+    await Modular.get<MobiliariaProvider>().deleteProperty(propertyId);
+  }
+
+  String _getTimeAgo(DateTime? publishedAt) {
+    if (publishedAt == null) return 'Hace tiempo';
+    
+    final now = DateTime.now();
+    final difference = now.difference(publishedAt);
+    
+    if (difference.inMinutes < 1) return 'Hace un momento';
+    if (difference.inMinutes < 5) return 'Hace ${difference.inMinutes} minutos';
+    if (difference.inMinutes < 15) return 'Hace 15 minutos';
+    if (difference.inMinutes < 30) return 'Hace media hora';
+    if (difference.inHours < 1) return 'Hace una hora';
+    if (difference.inHours < 24) return 'Hace ${difference.inHours} horas';
+    if (difference.inDays == 1) return 'Hace 1 día';
+    if (difference.inDays < 7) return 'Hace ${difference.inDays} días';
+    return 'Hace ${difference.inDays} días';
+  }
+
+  void _toggleAvailability(String propertyId, bool currentAvailability) async {
+    await Modular.get<MobiliariaProvider>()
+        .togglePropertyAvailability(propertyId, !currentAvailability);
+  }
+
+  void _renewProperty(String propertyId) async {
+    await Modular.get<MobiliariaProvider>().renewProperty(propertyId);
   }
 
   @override
@@ -159,35 +182,34 @@ class _InmobiliariaPropertiesScreenState
   }
 
   Widget _buildPropertiesContent(User user) {
-    return SliverToBoxAdapter(
-      child: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('properties')
-            .where('owner_id', isEqualTo: user.uid)
-            .orderBy('created_at', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingState();
-          }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('properties')
+          .where('owner_id', isEqualTo: user.uid)
+          .orderBy('created_at', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SliverToBoxAdapter(child: _buildLoadingState());
+        }
 
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
-          }
+        if (snapshot.hasError) {
+          return SliverToBoxAdapter(
+            child: _buildErrorState(snapshot.error.toString()),
+          );
+        }
 
-          final properties =
-              snapshot.data?.docs
-                  .map((doc) => Property.fromFirestore(doc))
-                  .toList() ??
-              [];
+        final properties = snapshot.data?.docs
+                .map((doc) => Property.fromFirestore(doc))
+                .toList() ??
+            [];
 
-          if (properties.isEmpty) {
-            return _buildEmptyState();
-          }
+        if (properties.isEmpty) {
+          return SliverToBoxAdapter(child: _buildEmptyState());
+        }
 
-          return _buildPropertiesList(properties);
-        },
-      ),
+        return SliverToBoxAdapter(child: _buildPropertiesList(properties));
+      },
     );
   }
 
@@ -482,10 +504,14 @@ class _InmobiliariaPropertiesScreenState
   }
 
   Widget _buildModernPropertyCard(Property property, BuildContext context) {
+    final timeAgo = _getTimeAgo(property.lastPublishedAt);
+    final isOld = property.lastPublishedAt != null &&
+        DateTime.now().difference(property.lastPublishedAt!).inDays > 7;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: property.available ? Colors.white : Colors.red.shade50,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -495,27 +521,30 @@ class _InmobiliariaPropertiesScreenState
           ),
         ],
       ),
-      child: InkWell(
-        onTap: () => Modular.to.pushNamed(
-          '/property/detail/${property.id}',
-          arguments: property,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatusBar(isOld, timeAgo, property.id),
+          InkWell(
+            onTap: () => Modular.to.pushNamed(
+              '/property/detail/${property.id}',
+              arguments: property,
+            ),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                  child: Image.network(
-                    property.imageUrl,
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(0),
+                      child: Image.network(
+                        property.imageUrl,
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       width: double.infinity,
                       height: 200,
@@ -544,131 +573,220 @@ class _InmobiliariaPropertiesScreenState
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getTransactionColor(property.type).withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      PropertyConstants.getTransactionTitle(property.type),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      ],
+                        decoration: BoxDecoration(
+                          color: _getTransactionColor(property.type).withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          PropertyConstants.getTransactionTitle(property.type),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      _getPropertyIcon(property.type),
-                      size: 20,
-                      color: Styles.primaryColor,
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _getPropertyIcon(property.type),
+                          size: 20,
+                          color: Styles.primaryColor,
+                        ),
+                      ),
                     ),
+                    Positioned(
+                      bottom: 12,
+                      right: 12,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Transform.scale(
+                          scale: 0.7,
+                          child: Switch(
+                            value: property.available,
+                            onChanged: (value) =>
+                                _toggleAvailability(property.id, property.available),
+                            activeColor: Styles.primaryColor,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              property.name,
+                              style: TextStyles.subtitle.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Styles.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          _buildActionButtons(property),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Styles.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          property.price,
+                          style: TextStyles.subtitle.copyWith(
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              property.location,
+                              style: TextStyles.body.copyWith(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBar(bool isOld, String timeAgo, String propertyId) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            isOld ? Colors.orange.shade400 : Colors.green.shade400,
+            isOld ? Colors.orange.shade300 : Colors.green.shade300,
+          ],
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOld ? Icons.access_time : Icons.check_circle_outline,
+            size: 18,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              isOld ? 'Tu publicación es antigua' : timeAgo,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: InkWell(
+              onTap: () => _renewProperty(propertyId),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          property.name,
-                          style: TextStyles.subtitle.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: Styles.textPrimary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      _buildActionButtons(property),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                  Icon(Icons.refresh, size: 16, color: Styles.primaryColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Renovar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Styles.primaryColor,
                     ),
-                    decoration: BoxDecoration(
-                      color: Styles.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      property.price,
-                      style: TextStyles.subtitle.copyWith(
-                        color: Styles.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          property.location,
-                          style: TextStyles.body.copyWith(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

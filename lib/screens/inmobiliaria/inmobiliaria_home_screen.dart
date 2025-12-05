@@ -32,9 +32,9 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       final stats = await _statsService.getAgentStats(user.uid);
-      
+
       if (mounted) {
         setState(() {
           _companyData = doc.data();
@@ -49,7 +49,9 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Styles.primaryColor)),
+        body: Center(
+          child: CircularProgressIndicator(color: Styles.primaryColor),
+        ),
       );
     }
 
@@ -67,6 +69,15 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
               floating: false,
               pinned: true,
               backgroundColor: Styles.primaryColor,
+              actions: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    color: Colors.white,
+                  ),
+                  onPressed: () => Modular.to.pushNamed('/inmobiliaria/alerts'),
+                ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
                 title: Text(
@@ -188,17 +199,19 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.1),
-            color.withOpacity(0.05),
-          ],
+          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(0.2), width: 1),
@@ -281,7 +294,12 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildActionButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -365,10 +383,7 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'No hay actividad reciente',
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
                 ),
               ],
             ),

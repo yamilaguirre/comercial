@@ -4,16 +4,17 @@ import '../../theme/theme.dart';
 import '../../services/notification_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/notification_model.dart';
-import 'components/notification_card.dart';
+import '../property/components/notification_card.dart';
 
-class PropertyAlertsScreen extends StatefulWidget {
-  const PropertyAlertsScreen({super.key});
+class InmobiliariaAlertsScreen extends StatefulWidget {
+  const InmobiliariaAlertsScreen({super.key});
 
   @override
-  State<PropertyAlertsScreen> createState() => _PropertyAlertsScreenState();
+  State<InmobiliariaAlertsScreen> createState() =>
+      _InmobiliariaAlertsScreenState();
 }
 
-class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
+class _InmobiliariaAlertsScreenState extends State<InmobiliariaAlertsScreen> {
   final NotificationService _notificationService = NotificationService();
 
   Future<void> _markAllAsRead(
@@ -49,13 +50,13 @@ class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: Row(
           children: [
             Icon(Icons.notifications, color: Styles.primaryColor, size: 24),
             const SizedBox(width: 8),
             const Text(
-              'Avisos',
+              'Avisos Inmobiliaria',
               style: TextStyle(
                 color: Colors.black,
                 fontSize: 20,
@@ -157,7 +158,7 @@ class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Te notificaremos sobre cambios en propiedades',
+                    'Te notificaremos sobre cambios importantes',
                     style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
                 ],
@@ -167,7 +168,6 @@ class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              // El StreamBuilder se actualiza automáticamente
               await Future.delayed(const Duration(milliseconds: 500));
             },
             child: ListView.builder(
@@ -177,7 +177,7 @@ class _PropertyAlertsScreenState extends State<PropertyAlertsScreen> {
                 return NotificationCard(
                   notification: notification,
                   onTap: () {
-                    // Opcional: acción adicional al hacer tap
+                    // Opcional: acción adicional
                   },
                 );
               },

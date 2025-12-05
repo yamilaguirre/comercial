@@ -26,6 +26,12 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
       label: 'Inicio',
     ),
     _NavItem(
+      route: '/inmobiliaria/market',
+      icon: Icons.search,
+      activeIcon: Icons.search,
+      label: 'Explorar',
+    ),
+    _NavItem(
       route: '/inmobiliaria/properties',
       icon: Icons.home_work_outlined,
       activeIcon: Icons.home_work,
@@ -60,16 +66,17 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
   Future<void> _checkSubscription() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
-    
+
     if (user != null && authService.userRole == 'inmobiliaria_empresa') {
       try {
         final premiumDoc = await FirebaseFirestore.instance
             .collection('premium_users')
             .doc(user.uid)
             .get();
-        
-        final hasPremium = premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
-        
+
+        final hasPremium =
+            premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
+
         if (!hasPremium) {
           if (mounted) {
             Modular.to.navigate('/inmobiliaria/onboarding');
@@ -80,7 +87,7 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
         print('Error checking subscription: $e');
       }
     }
-    
+
     if (mounted) {
       setState(() => _isCheckingSubscription = false);
     }
@@ -108,13 +115,9 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
   @override
   Widget build(BuildContext context) {
     if (_isCheckingSubscription) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    
+
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: Container(

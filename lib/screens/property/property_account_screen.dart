@@ -379,120 +379,122 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
         }
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi Cuenta'),
-        backgroundColor: Styles.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Escuchamos cambios en tiempo real del usuario
-          StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.active) {
-                return const Center(
-                  child: CircularProgressIndicator(color: Styles.primaryColor),
-                );
-              }
-
-              final userData = snapshot.data!.data() as Map<String, dynamic>?;
-
-              final displayName =
-                  userData?['displayName'] ?? user.displayName ?? 'Usuario';
-              final email = userData?['email'] ?? user.email ?? 'Sin correo';
-              final photoUrl = userData?['photoURL'] ?? user.photoURL;
-              final userRole = userData?['role'] ?? 'cliente';
-
-              // ----------------------------------------------------
-              // 1. Opciones de Gestión (Propiedades + Botón de Módulo)
-              // ----------------------------------------------------
-              final List<Widget> managementItems = [];
-
-              // Añadir el botón de CAMBIAR MÓDULO (si el rol actual no es solo 'cliente' o si queremos que siempre esté disponible)
-              // Lo mantendremos visible si el rol es 'inmobiliaria' o 'cliente' para darle la opción de ir a trabajador.
-
-              managementItems.insertAll(0, [
-                AccountMenuItem(
-                  icon: Icons.swap_horiz, // Ícono genérico de cambio
-                  iconColor: Styles.infoColor,
-                  iconBgColor: Styles.infoColor.withOpacity(0.1),
-                  title: 'Cambiar de Módulo', // Título actualizado
-                  subtitle:
-                      'Ir a la selección de rol (Inmobiliaria/Trabajador)',
-                  onTap: _changeModule, // Llama a la nueva función
-                ),
-                AccountMenuSection.buildDivider(),
-              ]);
-
-              // Añadir opciones de gestión de propiedades (son estáticas ahora)
-              managementItems.addAll(_buildPropertyManagementItems());
-
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // A. Header (Componente externo)
-                    AccountHeader(
-                      displayName: displayName,
-                      email: email,
-                      photoUrl: photoUrl,
-                      userRole: userRole,
-                      verificationStatus: userData?['verificationStatus'],
+        appBar: AppBar(
+          title: const Text('Mi Cuenta'),
+          backgroundColor: Styles.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            // Escuchamos cambios en tiempo real del usuario
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.active) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Styles.primaryColor,
                     ),
+                  );
+                }
 
-                    // B. Opciones de Gestión (Módulo Propiedades + Botón de Cambio)
-                    AccountMenuSection(
-                      title: 'Gestión de Propiedades',
-                      items: managementItems,
-                    ),
+                final userData = snapshot.data!.data() as Map<String, dynamic>?;
 
-                    // C. Menú General (Componente externo)
-                    _buildGeneralMenu(userData),
+                final displayName =
+                    userData?['displayName'] ?? user.displayName ?? 'Usuario';
+                final email = userData?['email'] ?? user.email ?? 'Sin correo';
+                final photoUrl = userData?['photoURL'] ?? user.photoURL;
+                final userRole = userData?['role'] ?? 'cliente';
 
-                    // D. Botón Cerrar sesión (Mantenido aquí por el widget TextButton)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: Styles.spacingMedium,
+                // ----------------------------------------------------
+                // 1. Opciones de Gestión (Propiedades + Botón de Módulo)
+                // ----------------------------------------------------
+                final List<Widget> managementItems = [];
+
+                // Añadir el botón de CAMBIAR MÓDULO (si el rol actual no es solo 'cliente' o si queremos que siempre esté disponible)
+                // Lo mantendremos visible si el rol es 'inmobiliaria' o 'cliente' para darle la opción de ir a trabajador.
+
+                managementItems.insertAll(0, [
+                  AccountMenuItem(
+                    icon: Icons.swap_horiz, // Ícono genérico de cambio
+                    iconColor: Styles.infoColor,
+                    iconBgColor: Styles.infoColor.withOpacity(0.1),
+                    title: 'Cambiar de Módulo', // Título actualizado
+                    subtitle:
+                        'Ir a la selección de rol (Inmobiliaria/Trabajador)',
+                    onTap: _changeModule, // Llama a la nueva función
+                  ),
+                  AccountMenuSection.buildDivider(),
+                ]);
+
+                // Añadir opciones de gestión de propiedades (son estáticas ahora)
+                managementItems.addAll(_buildPropertyManagementItems());
+
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // A. Header (Componente externo)
+                      AccountHeader(
+                        displayName: displayName,
+                        email: email,
+                        photoUrl: photoUrl,
+                        userRole: userRole,
+                        verificationStatus: userData?['verificationStatus'],
+                        isPremium: authService.isPremium,
                       ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: TextButton.icon(
-                          onPressed: () =>
-                              _showLogoutDialog(context, authService),
-                          icon: const Icon(
-                            Icons.logout,
-                            color: Color(0xFFEF4444),
-                            size: 20,
-                          ),
-                          label: const Text(
-                            'Cerrar sesión',
-                            style: TextStyle(
+
+                      // B. Opciones de Gestión (Módulo Propiedades + Botón de Cambio)
+                      AccountMenuSection(
+                        title: 'Gestión de Propiedades',
+                        items: managementItems,
+                      ),
+
+                      // C. Menú General (Componente externo)
+                      _buildGeneralMenu(userData),
+
+                      // D. Botón Cerrar sesión (Mantenido aquí por el widget TextButton)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: Styles.spacingMedium,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: TextButton.icon(
+                            onPressed: () =>
+                                _showLogoutDialog(context, authService),
+                            icon: const Icon(
+                              Icons.logout,
                               color: Color(0xFFEF4444),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                              size: 20,
                             ),
-                          ),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                              vertical: Styles.spacingMedium,
+                            label: const Text(
+                              'Cerrar sesión',
+                              style: TextStyle(
+                                color: Color(0xFFEF4444),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.symmetric(
+                                vertical: Styles.spacingMedium,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: Styles.spacingLarge),
-                  ],
-                ),
-              );
-            },
-          ),
-
+                      SizedBox(height: Styles.spacingLarge),
+                    ],
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
