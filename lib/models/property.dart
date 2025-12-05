@@ -22,6 +22,7 @@ class Property {
   final GeoPoint? geopoint;
   final String ownerId;
   final List<String> imageUrls;
+  final List<String> videoUrls;
 
   // Campos opcionales para edición precisa
   final String? department;
@@ -62,6 +63,7 @@ class Property {
     this.geopoint,
     this.ownerId = '',
     this.imageUrls = const [],
+    this.videoUrls = const [],
     this.department,
     this.zone,
     this.views = 0,
@@ -95,6 +97,13 @@ class Property {
       ).where((url) => url.isNotEmpty).toList();
     }
 
+    List<String> videos = [];
+    if (data['videoUrls'] is List) {
+      videos = List<String>.from(
+        data['videoUrls'],
+      ).where((url) => url.isNotEmpty).toList();
+    }
+
     final firstImageUrl = urls.isNotEmpty
         ? urls.first
         : 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&h=300&fit=crop';
@@ -121,6 +130,7 @@ class Property {
       geopoint: _parseGeoPoint(data['geopoint']),
       ownerId: data['owner_id'] ?? '',
       imageUrls: urls,
+      videoUrls: videos,
       department: data['department'],
       zone: data['zone_key'],
       views: data['views'] ?? 0,

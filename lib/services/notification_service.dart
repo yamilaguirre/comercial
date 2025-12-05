@@ -280,6 +280,7 @@ class NotificationService {
     String userId,
   ) async* {
     final readNotificationIds = await _getReadNotificationIds(userId);
+    final userPropertyIds = await _getUserPropertyIds(userId);
 
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
@@ -314,7 +315,13 @@ class NotificationService {
                 return notification.userId == userId;
               }
 
-              // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
+              // 2. Si tiene property_id, solo mostrar si es del usuario
+              if (notification.propertyId != null &&
+                  notification.propertyId!.isNotEmpty) {
+                return userPropertyIds.contains(notification.propertyId);
+              }
+
+              // 3. Si NO tiene usuario ni property_id (es global), mostrar a todos
               return true;
             })
             .map(
@@ -337,6 +344,7 @@ class NotificationService {
     String userId,
   ) async* {
     final readNotificationIds = await _getReadNotificationIds(userId);
+    final userPropertyIds = await _getUserPropertyIds(userId);
 
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
@@ -371,7 +379,13 @@ class NotificationService {
                 return notification.userId == userId;
               }
 
-              // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
+              // 2. Si tiene property_id, solo mostrar si es del usuario
+              if (notification.propertyId != null &&
+                  notification.propertyId!.isNotEmpty) {
+                return userPropertyIds.contains(notification.propertyId);
+              }
+
+              // 3. Si NO tiene usuario ni property_id (es global), mostrar a todos
               return true;
             })
             .map(
@@ -386,6 +400,20 @@ class NotificationService {
       } catch (e) {
         print('Error fetching inmobiliaria notifications: $e');
       }
+    }
+  }
+
+  // Obtener IDs de propiedades del usuario
+  Future<Set<String>> _getUserPropertyIds(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('properties')
+          .where('owner_id', isEqualTo: userId)
+          .get();
+      return snapshot.docs.map((doc) => doc.id).toSet();
+    } catch (e) {
+      print('Error getting user property IDs: $e');
+      return {};
     }
   }
 }

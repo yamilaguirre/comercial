@@ -153,7 +153,7 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
           onPressed: () => Modular.to.navigate('/inmobiliaria-login'),
         ),
         title: Text(
-          'Registro de Inmobiliaria',
+          'Registro de Empresa o Agente Inmobiliario',
           style: TextStyles.subtitle.copyWith(
             color: Styles.textPrimary,
             fontWeight: FontWeight.bold,

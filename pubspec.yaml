@@ -32,6 +32,9 @@ dependencies:
   # ... otras dependencias ...
   http: ^1.2.1 # Para hacer la petición POST a tu API
   image_picker: ^1.1.0 # Para seleccionar archivos de la galería/cámara
+  flutter_image_compress: ^2.1.0 # Para comprimir imágenes
+  video_compress: ^3.1.3 # Para comprimir videos
+  video_player: ^2.8.2 # Para reproducir videos
 
   flutter_map: ^7.0.0 # O la versión más reciente compatible
   latlong2: ^0.9.1
