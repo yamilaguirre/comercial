@@ -116,7 +116,9 @@ class AppNotification {
   final String? userId; // Usuario específico (para notificaciones de perfil)
   final double? oldPrice;
   final double? newPrice;
-  final bool isRead;
+  final List<String>
+  readUsers; // Lista de usuarios que han leído la notificación
+  final bool isRead; // Propiedad derivada o asignada externamente
   final DateTime createdAt;
   final Map<String, dynamic>? metadata;
 
@@ -129,7 +131,8 @@ class AppNotification {
     this.userId,
     this.oldPrice,
     this.newPrice,
-    required this.isRead,
+    this.readUsers = const [],
+    this.isRead = false,
     required this.createdAt,
     this.metadata,
   });
@@ -157,6 +160,8 @@ class AppNotification {
       extraMetadata['verificationId'] = data['verificationId'];
     if (data['status'] != null) extraMetadata['status'] = data['status'];
 
+    final readUsersList = List<String>.from(data['read_users'] ?? []);
+
     return AppNotification(
       id: doc.id,
       type: NotificationType.fromString(data['type'] ?? 'message'),
@@ -166,7 +171,8 @@ class AppNotification {
       userId: data['user_id'],
       oldPrice: data['old_price']?.toDouble(),
       newPrice: data['new_price']?.toDouble(),
-      isRead: data['is_read'] ?? false, // Read directly from document
+      readUsers: readUsersList,
+      isRead: data['is_read'] ?? false, // Mantener compatibilidad por ahora
       createdAt: createdDate ?? DateTime.now(),
       metadata: extraMetadata.isNotEmpty ? extraMetadata : null,
     );
@@ -182,7 +188,7 @@ class AppNotification {
       'old_price': oldPrice,
       'new_price': newPrice,
       'created_at': Timestamp.fromDate(createdAt),
-      'is_read': isRead,
+      'read_users': readUsers,
       'metadata': metadata,
     };
   }
@@ -196,6 +202,7 @@ class AppNotification {
     String? userId,
     double? oldPrice,
     double? newPrice,
+    List<String>? readUsers,
     bool? isRead,
     DateTime? createdAt,
     Map<String, dynamic>? metadata,
@@ -209,6 +216,7 @@ class AppNotification {
       userId: userId ?? this.userId,
       oldPrice: oldPrice ?? this.oldPrice,
       newPrice: newPrice ?? this.newPrice,
+      readUsers: readUsers ?? this.readUsers,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
       metadata: metadata ?? this.metadata,

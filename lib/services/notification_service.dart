@@ -7,9 +7,9 @@ class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SavedListService _savedListService = SavedListService();
 
-  // Obtener notificaciones para un usuario (filtrado dinámico)
+  // Obtener notificaciones para un usuario (filtrado dinámico y estado de lectura real)
   Stream<List<AppNotification>> getNotificationsForUser(String userId) async* {
-    // 1. Obtener IDs de propiedades guardadas del usuario
+    // 1. Obtener IDs de propiedades guardadas (una sola vez al inicio)
     final savedPropertyIds = await _getSavedPropertyIds(userId);
 
     // 2. Stream de todas las notificaciones (UNIFICADO: lee de 'notifications')
@@ -17,31 +17,74 @@ class NotificationService {
         in _firestore
             .collection('notifications')
             .orderBy('created_at', descending: true)
-            .limit(100) // Limitar para rendimiento
+            .limit(100)
             .snapshots()) {
       final allNotifications = snapshot.docs
           .map((doc) => AppNotification.fromFirestore(doc))
           .toList();
 
       // 3. Filtrar notificaciones relevantes para el usuario
-      final userNotifications = allNotifications.where((notification) {
-        // Mensajes de sistema: mostrar a todos
-        if (notification.type == NotificationType.message) {
-          return true;
-        }
+      final userNotifications = allNotifications
+          .where((notification) {
+            // 1. PRIORIDAD: Si tiene un userId asignado, es PRIVADA.
+            if (notification.userId != null &&
+                notification.userId!.isNotEmpty) {
+              return notification.userId == userId;
+            }
 
-        // Notificaciones de propiedades: solo si el usuario tiene la propiedad guardada
-        if (notification.propertyId != null) {
-          return savedPropertyIds.contains(notification.propertyId);
-        }
+            // 2. Si tiene property_id, solo mostrar si es del usuario (guardada)
+            if (notification.propertyId != null &&
+                notification.propertyId!.isNotEmpty) {
+              return savedPropertyIds.contains(notification.propertyId);
+            }
 
-        // Notificaciones de perfil: solo si son para este usuario específico
-        if (notification.userId != null) {
-          return notification.userId == userId;
-        }
+            // 3. Si NO tiene userId (es Global), aplicamos filtros de seguridad
 
-        return false;
-      }).toList();
+            // BLOQUEAR TIPOS SENSIBLES QUE NUNCA DEBERÍAN SER GLOBALES
+            if (notification.type == NotificationType.verification ||
+                notification.type == NotificationType.profilePasswordChanged ||
+                notification.type == NotificationType.profilePhotoChanged ||
+                notification.type == NotificationType.profileNameChanged ||
+                notification.type == NotificationType.profilePhoneChanged ||
+                notification.type == NotificationType.profileEmailChanged ||
+                notification.type == NotificationType.propertyAvailable) {
+              return false;
+            }
+
+            // FILTRAR MENSAJES GLOBALES POR CONTENIDO
+            if (notification.type == NotificationType.message) {
+              // FILTRO DE SEGURIDAD:
+              // Bloquear notificaciones que parecen privadas pero no tienen ID (leaks)
+              final titleLower = notification.title.toLowerCase();
+              if (titleLower.contains('verificación') ||
+                  titleLower.contains('verification') ||
+                  titleLower.contains('suscripción') ||
+                  titleLower.contains('subscription') ||
+                  titleLower.contains('aprobada')) {
+                return false;
+              }
+              return true;
+            }
+
+            // PERMITIR TIPOS PÚBLICOS EXPLÍCITOS
+            if (notification.type ==
+                    NotificationType.premiumPropertyPublished ||
+                notification.type == NotificationType.newProperty ||
+                notification.type == NotificationType.priceDropHome ||
+                notification.type == NotificationType.priceDropTrend) {
+              return true;
+            }
+
+            // Por defecto, bloquear cualquier otro tipo desconocido para evitar leaks
+            return false;
+          })
+          .map((notification) {
+            // Mapear estado de lectura usando el array 'read_users' del documento
+            return notification.copyWith(
+              isRead: notification.readUsers.contains(userId),
+            );
+          })
+          .toList();
 
       yield userNotifications;
     }
@@ -65,14 +108,11 @@ class NotificationService {
     }
   }
 
-  // Marcar notificación como leída
+  // Marcar notificación como leída (Actualiza el array read_users en el documento)
   Future<bool> markAsRead(String userId, String notificationId) async {
     try {
-      final docId = '${userId}_$notificationId';
-      await _firestore.collection('notification_reads').doc(docId).set({
-        'user_id': userId,
-        'notification_id': notificationId,
-        'read_at': FieldValue.serverTimestamp(),
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'read_users': FieldValue.arrayUnion([userId]),
       });
       return true;
     } catch (e) {
@@ -90,11 +130,11 @@ class NotificationService {
       final batch = _firestore.batch();
 
       for (final notificationId in notificationIds) {
-        final docId = '${userId}_$notificationId';
-        batch.set(_firestore.collection('notification_reads').doc(docId), {
-          'user_id': userId,
-          'notification_id': notificationId,
-          'read_at': FieldValue.serverTimestamp(),
+        final docRef = _firestore
+            .collection('notifications')
+            .doc(notificationId);
+        batch.update(docRef, {
+          'read_users': FieldValue.arrayUnion([userId]),
         });
       }
 
@@ -254,7 +294,6 @@ class NotificationService {
   ) async* {
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
-        final readNotificationIds = await _getReadNotificationIds(userId);
         final userPropertyIds = await _getUserPropertyIds(userId);
 
         // Consultar colección unificada 'notifications'
@@ -287,7 +326,7 @@ class NotificationService {
             })
             .map(
               (notification) => notification.copyWith(
-                isRead: readNotificationIds.contains(notification.id),
+                isRead: notification.readUsers.contains(userId),
               ),
             )
             .take(100)
@@ -306,7 +345,6 @@ class NotificationService {
   ) async* {
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
-        final readNotificationIds = await _getReadNotificationIds(userId);
         final userPropertyIds = await _getUserPropertyIds(userId);
 
         // Consultar colección unificada 'notifications'
@@ -339,7 +377,7 @@ class NotificationService {
             })
             .map(
               (notification) => notification.copyWith(
-                isRead: readNotificationIds.contains(notification.id),
+                isRead: notification.readUsers.contains(userId),
               ),
             )
             .take(100)
@@ -362,23 +400,6 @@ class NotificationService {
       return snapshot.docs.map((doc) => doc.id).toSet();
     } catch (e) {
       print('Error getting user property IDs: $e');
-      return {};
-    }
-  }
-
-  // Obtener IDs de notificaciones leídas por el usuario
-  Future<Set<String>> _getReadNotificationIds(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('notification_reads')
-          .where('user_id', isEqualTo: userId)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => doc.data()['notification_id'] as String)
-          .toSet();
-    } catch (e) {
-      print('Error getting read notification IDs: $e');
       return {};
     }
   }
