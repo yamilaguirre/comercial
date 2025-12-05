@@ -74,7 +74,7 @@ class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
         ),
         actions: [
           StreamBuilder<List<AppNotification>>(
-            stream: _notificationService.getWorkerNotifications(userId),
+            stream: _notificationService.getNotificationsForUser(userId),
             builder: (context, snapshot) {
               final notifications = snapshot.data ?? [];
               final unreadIds = notifications
@@ -110,7 +110,7 @@ class _WorkerAlertsScreenState extends State<WorkerAlertsScreen> {
         ],
       ),
       body: StreamBuilder<List<AppNotification>>(
-        stream: _notificationService.getWorkerNotifications(userId),
+        stream: _notificationService.getNotificationsForUser(userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
