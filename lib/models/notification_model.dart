@@ -166,7 +166,7 @@ class AppNotification {
       userId: data['user_id'],
       oldPrice: data['old_price']?.toDouble(),
       newPrice: data['new_price']?.toDouble(),
-      isRead: false, // Will be determined client-side
+      isRead: data['is_read'] ?? false, // Read directly from document
       createdAt: createdDate ?? DateTime.now(),
       metadata: extraMetadata.isNotEmpty ? extraMetadata : null,
     );
@@ -182,6 +182,7 @@ class AppNotification {
       'old_price': oldPrice,
       'new_price': newPrice,
       'created_at': Timestamp.fromDate(createdAt),
+      'is_read': isRead,
       'metadata': metadata,
     };
   }

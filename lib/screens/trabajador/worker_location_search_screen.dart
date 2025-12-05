@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/map_drawing_detector.dart';
 import '../../utils/map_geometry_utils.dart';
-import 'premium_subscription_modal.dart';
+import '../../utils/map_geometry_utils.dart';
 
 // Token de Mapbox
 const String _mapboxAccessToken =
@@ -740,24 +740,10 @@ class _WorkerLocationSearchScreenState
                                       max: 10.0,
                                       divisions: 18,
                                       onChanged: (value) {
-                                        if (value > 3.0) {
-                                          // Mostrar modal Premium si supera 3km
-                                          showModalBottomSheet(
-                                            context: context,
-                                            isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
-                                            builder: (context) =>
-                                                const PremiumSubscriptionModal(),
-                                          );
-                                          // Resetear a 3.0
-                                          setState(() => _searchRadius = 3.0);
+                                        setState(() {
+                                          _searchRadius = value;
                                           _filterWorkersByLocation();
-                                        } else {
-                                          setState(() {
-                                            _searchRadius = value;
-                                            _filterWorkersByLocation();
-                                          });
-                                        }
+                                        });
                                       },
                                     ),
                                   ),

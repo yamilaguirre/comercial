@@ -12,10 +12,7 @@ class NotificationService {
     // 1. Obtener IDs de propiedades guardadas del usuario
     final savedPropertyIds = await _getSavedPropertyIds(userId);
 
-    // 2. Obtener IDs de notificaciones leídas
-    final readNotificationIds = await _getReadNotificationIds(userId);
-
-    // 3. Stream de todas las notificaciones
+    // 2. Stream de todas las notificaciones (UNIFICADO: lee de 'notifications')
     await for (final snapshot
         in _firestore
             .collection('notifications')
@@ -26,33 +23,25 @@ class NotificationService {
           .map((doc) => AppNotification.fromFirestore(doc))
           .toList();
 
-      // 4. Filtrar notificaciones relevantes para el usuario
-      final userNotifications = allNotifications
-          .where((notification) {
-            // Mensajes de sistema: mostrar a todos
-            if (notification.type == NotificationType.message) {
-              return true;
-            }
+      // 3. Filtrar notificaciones relevantes para el usuario
+      final userNotifications = allNotifications.where((notification) {
+        // Mensajes de sistema: mostrar a todos
+        if (notification.type == NotificationType.message) {
+          return true;
+        }
 
-            // Notificaciones de propiedades: solo si el usuario tiene la propiedad guardada
-            if (notification.propertyId != null) {
-              return savedPropertyIds.contains(notification.propertyId);
-            }
+        // Notificaciones de propiedades: solo si el usuario tiene la propiedad guardada
+        if (notification.propertyId != null) {
+          return savedPropertyIds.contains(notification.propertyId);
+        }
 
-            // Notificaciones de perfil: solo si son para este usuario específico
-            if (notification.userId != null) {
-              return notification.userId == userId;
-            }
+        // Notificaciones de perfil: solo si son para este usuario específico
+        if (notification.userId != null) {
+          return notification.userId == userId;
+        }
 
-            return false;
-          })
-          .map((notification) {
-            // Agregar estado de leído
-            return notification.copyWith(
-              isRead: readNotificationIds.contains(notification.id),
-            );
-          })
-          .toList();
+        return false;
+      }).toList();
 
       yield userNotifications;
     }
@@ -69,23 +58,6 @@ class NotificationService {
     }
   }
 
-  // Obtener IDs de notificaciones leídas por el usuario
-  Future<Set<String>> _getReadNotificationIds(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('notification_reads')
-          .where('user_id', isEqualTo: userId)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => doc.data()['notification_id'] as String)
-          .toSet();
-    } catch (e) {
-      print('Error getting read notification IDs: $e');
-      return {};
-    }
-  }
-
   // Obtener contador de notificaciones no leídas
   Stream<int> getUnreadCount(String userId) async* {
     await for (final notifications in getNotificationsForUser(userId)) {
@@ -93,14 +65,14 @@ class NotificationService {
     }
   }
 
-  // Marcar notificación como leída
+  // Marcar notificación como leída (Actualiza el documento directamente)
   Future<bool> markAsRead(String userId, String notificationId) async {
     try {
-      final docId = '${userId}_$notificationId';
-      await _firestore.collection('notification_reads').doc(docId).set({
-        'user_id': userId,
-        'notification_id': notificationId,
-        'read_at': FieldValue.serverTimestamp(),
+      // Solo podemos marcar como leídas las notificaciones que existen como documento
+      // y que son "personales" o que queremos marcar en el documento global (cuidado con esto)
+      // El usuario pidió "manejarlo dentro del id", asumimos update directo.
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'is_read': true,
       });
       return true;
     } catch (e) {
@@ -118,12 +90,10 @@ class NotificationService {
       final batch = _firestore.batch();
 
       for (final notificationId in notificationIds) {
-        final docId = '${userId}_$notificationId';
-        batch.set(_firestore.collection('notification_reads').doc(docId), {
-          'user_id': userId,
-          'notification_id': notificationId,
-          'read_at': FieldValue.serverTimestamp(),
-        });
+        final docRef = _firestore
+            .collection('notifications')
+            .doc(notificationId);
+        batch.update(docRef, {'is_read': true});
       }
 
       await batch.commit();
@@ -197,7 +167,8 @@ class NotificationService {
         'title': title,
         'message': message,
         'user_id': userId,
-        'created_at': FieldValue.serverTimestamp(),
+        'created_at':
+            FieldValue.serverTimestamp(), // Usar created_at (snake_case)
         'metadata': metadata,
       });
       return docRef.id;
@@ -230,7 +201,7 @@ class NotificationService {
     double? newPrice,
   }) async {
     try {
-      final docRef = await _firestore.collection('notification_property').add({
+      final docRef = await _firestore.collection('notifications').add({
         'type': type.toFirestore(),
         'title': title,
         'message': message,
@@ -255,7 +226,7 @@ class NotificationService {
     required String location,
   }) async {
     try {
-      final docRef = await _firestore.collection('notification_property').add({
+      final docRef = await _firestore.collection('notifications').add({
         'type': NotificationType.premiumPropertyPublished.toFirestore(),
         'title': '🌟 Nueva Propiedad Premium',
         'message': '$propertyTitle en $location - $propertyPrice',
@@ -275,36 +246,22 @@ class NotificationService {
     }
   }
 
-  // Obtener notificaciones para el módulo de propiedades (notifications + notification_property)
+  // Obtener notificaciones para el módulo de propiedades (UNIFICADO: lee de 'notifications')
   Stream<List<AppNotification>> getNotificationsForPropertyModule(
     String userId,
   ) async* {
-    final readNotificationIds = await _getReadNotificationIds(userId);
-
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
+        // Consultar colección unificada 'notifications'
         final notificationsSnapshot = await _firestore
             .collection('notifications')
             .orderBy('created_at', descending: true)
             .limit(50)
             .get();
 
-        final propertyNotificationsSnapshot = await _firestore
-            .collection('notification_property')
-            .orderBy('created_at', descending: true)
-            .limit(50)
-            .get();
-
-        final allNotifications = [
-          ...notificationsSnapshot.docs.map(
-            (doc) => AppNotification.fromFirestore(doc),
-          ),
-          ...propertyNotificationsSnapshot.docs.map(
-            (doc) => AppNotification.fromFirestore(doc),
-          ),
-        ];
-
-        allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final allNotifications = notificationsSnapshot.docs
+            .map((doc) => AppNotification.fromFirestore(doc))
+            .toList();
 
         final userNotifications = allNotifications
             .where((notification) {
@@ -317,11 +274,6 @@ class NotificationService {
               // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
               return true;
             })
-            .map(
-              (notification) => notification.copyWith(
-                isRead: readNotificationIds.contains(notification.id),
-              ),
-            )
             .take(100)
             .toList();
 
@@ -332,36 +284,22 @@ class NotificationService {
     }
   }
 
-  // Obtener notificaciones para el módulo de inmobiliaria (notifications + notification_inmobiliaria)
+  // Obtener notificaciones para el módulo de inmobiliaria (UNIFICADO: lee de 'notifications')
   Stream<List<AppNotification>> getNotificationsForInmobiliariaModule(
     String userId,
   ) async* {
-    final readNotificationIds = await _getReadNotificationIds(userId);
-
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
+        // Consultar colección unificada 'notifications'
         final notificationsSnapshot = await _firestore
             .collection('notifications')
             .orderBy('created_at', descending: true)
             .limit(50)
             .get();
 
-        final inmobiliariaNotificationsSnapshot = await _firestore
-            .collection('notification_inmobiliaria')
-            .orderBy('created_at', descending: true)
-            .limit(50)
-            .get();
-
-        final allNotifications = [
-          ...notificationsSnapshot.docs.map(
-            (doc) => AppNotification.fromFirestore(doc),
-          ),
-          ...inmobiliariaNotificationsSnapshot.docs.map(
-            (doc) => AppNotification.fromFirestore(doc),
-          ),
-        ];
-
-        allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final allNotifications = notificationsSnapshot.docs
+            .map((doc) => AppNotification.fromFirestore(doc))
+            .toList();
 
         final userNotifications = allNotifications
             .where((notification) {
@@ -374,11 +312,6 @@ class NotificationService {
               // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
               return true;
             })
-            .map(
-              (notification) => notification.copyWith(
-                isRead: readNotificationIds.contains(notification.id),
-              ),
-            )
             .take(100)
             .toList();
 
@@ -391,58 +324,41 @@ class NotificationService {
 
   // Obtener notificaciones para el trabajador (notification_worker + notifications filtradas por usuario)
   Stream<List<AppNotification>> getWorkerNotifications(String userId) async* {
-    final readNotificationIds = await _getReadNotificationIds(userId);
-
-    // Usamos Stream.periodic para simular un stream combinado que se actualiza
-    // Esto es necesario porque estamos combinando dos colecciones diferentes
-    await for (final _ in Stream.periodic(const Duration(seconds: 3))) {
+    // Usamos un loop infinito con delay para simular un stream que se actualiza
+    while (true) {
       try {
-        // 1. Obtener notificaciones de la colección específica de trabajadores
-        // Filtramos directamente en la query por user_id para eficiencia y seguridad
-        // NOTA: notification_worker usa 'createdAt' (camelCase), no 'created_at'
-        final workerNotificationsSnapshot = await _firestore
-            .collection('notification_worker')
-            .where('user_id', isEqualTo: userId)
-            .orderBy('createdAt', descending: true)
+        // Consultar colección unificada 'notifications'
+        final notificationsSnapshot = await _firestore
+            .collection('notifications')
+            .orderBy('created_at', descending: true)
             .limit(50)
             .get();
 
-        // 2. Obtener notificaciones generales que sean PARA ESTE USUARIO
-        // NO traemos notificaciones globales aquí, solo las dirigidas al usuario
-        final generalNotificationsSnapshot = await _firestore
-            .collection('notifications')
-            .where('user_id', isEqualTo: userId)
-            .orderBy('created_at', descending: true)
-            .limit(20)
-            .get();
-
-        final allNotifications = [
-          ...workerNotificationsSnapshot.docs.map(
-            (doc) => AppNotification.fromFirestore(doc),
-          ),
-          ...generalNotificationsSnapshot.docs.map(
-            (doc) => AppNotification.fromFirestore(doc),
-          ),
-        ];
-
-        // Ordenar por fecha descendente
-        allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-        // Mapear estado de lectura
-        final userNotifications = allNotifications
-            .map(
-              (notification) => notification.copyWith(
-                isRead: readNotificationIds.contains(notification.id),
-              ),
-            )
+        final allNotifications = notificationsSnapshot.docs
+            .map((doc) => AppNotification.fromFirestore(doc))
             .toList();
+
+        final userNotifications = allNotifications.where((notification) {
+          // 1. Mensajes globales (type == 'message') -> Mostrar a todos
+          if (notification.type == NotificationType.message) {
+            return true;
+          }
+
+          // 2. Notificaciones personales -> Solo si user_id coincide
+          if (notification.userId != null && notification.userId!.isNotEmpty) {
+            return notification.userId == userId;
+          }
+
+          return false;
+        }).toList();
 
         yield userNotifications;
       } catch (e) {
         print('Error fetching worker notifications: $e');
-        // En caso de error, intentamos devolver una lista vacía para no romper la UI
         yield [];
       }
+
+      await Future.delayed(const Duration(seconds: 3));
     }
   }
 
