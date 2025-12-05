@@ -340,7 +340,14 @@ class NotificationService {
 
         final userNotifications = allNotifications.where((notification) {
           // 1. Mensajes globales (type == 'message') -> Mostrar a todos
+          // PERO FILTRAR: Evitar que notificaciones de verificación (que a veces llegan como globales por error)
+          // se muestren a todos. Solo permitir anuncios reales.
           if (notification.type == NotificationType.message) {
+            // Si el título contiene "Verificación", asume que es privada y NO la muestres como global
+            if (notification.title.contains('Verificación') ||
+                notification.title.contains('Verification')) {
+              return false;
+            }
             return true;
           }
 
