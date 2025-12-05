@@ -15,6 +15,7 @@ import 'worker_location_search_screen.dart';
 
 import 'components/add_to_worker_collection_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/chat_service.dart';
 
 class HomeWorkScreen extends StatefulWidget {
   const HomeWorkScreen({super.key});
@@ -805,7 +806,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
 
     return Container(
-      width: 320,
+      width: 340, // Increased width to prevent overflow
       margin: const EdgeInsets.only(right: 16, bottom: 8),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1063,27 +1064,34 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       children: [
                         // Llamar button
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: OutlinedButton(
                             onPressed: () => _makePhoneCall(phone),
-                            icon: const Icon(Icons.phone, size: 16),
-                            label: const Text('Llamar'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Styles.primaryColor,
                               side: const BorderSide(
                                 color: Styles.primaryColor,
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
+                                horizontal: 4, // Reduced padding
+                                vertical: 10, // Increased height
                               ),
-                              textStyle: const TextStyle(fontSize: 11),
+                              minimumSize: Size.zero, // Compact
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.phone, size: 14),
+                                SizedBox(width: 4),
+                                Text('Llamar', style: TextStyle(fontSize: 11)),
+                              ],
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         // Mensaje button
                         Expanded(
-                          child: ElevatedButton.icon(
+                          child: ElevatedButton(
                             onPressed: () => _showContactOptions(
                               context: context,
                               workerId: workerId,
@@ -1091,16 +1099,23 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                               workerPhoto: photoUrl,
                               workerPhone: phone,
                             ),
-                            icon: const Icon(Icons.message, size: 16),
-                            label: const Text('Mensaje'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
+                                horizontal: 4, // Reduced padding
+                                vertical: 10, // Increased height
                               ),
-                              textStyle: const TextStyle(fontSize: 11),
+                              minimumSize: Size.zero, // Compact
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.message, size: 14),
+                                SizedBox(width: 4),
+                                Text('Mensaje', style: TextStyle(fontSize: 11)),
+                              ],
                             ),
                           ),
                         ),
@@ -1409,7 +1424,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Container(
+      builder: (modalContext) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1432,7 +1447,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               title: const Text('Contactar por WhatsApp'),
               subtitle: const Text('Enviar mensaje directo'),
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(modalContext);
                 final whatsappUrl = Uri.parse('https://wa.me/$workerPhone');
                 if (await canLaunchUrl(whatsappUrl)) {
                   await launchUrl(
@@ -1440,7 +1455,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     mode: LaunchMode.externalApplication,
                   );
                 } else {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('No se pudo abrir WhatsApp'),
@@ -1463,18 +1478,62 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               ),
               title: const Text('Chat en la app'),
               subtitle: const Text('Mensajería interna'),
-              onTap: () {
-                Navigator.pop(context);
-                Modular.to.pushNamed(
-                  '/worker/chat-detail',
-                  arguments: {
-                    'chatId': workerId,
-                    'otherUserId': workerId,
-                    'otherUserName': workerName,
-                    'otherUserPhoto': workerPhoto,
-                    'otherUserPhone': workerPhone,
-                  },
+              onTap: () async {
+                Navigator.pop(modalContext);
+
+                // Use the PARENT context (passed to _showContactOptions) for Provider
+                // This context is still valid after the modal is popped.
+                if (!context.mounted) return;
+
+                final authService = Provider.of<AuthService>(
+                  context,
+                  listen: false,
                 );
+                final currentUser = authService.currentUser;
+                if (currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Debes iniciar sesión')),
+                  );
+                  return;
+                }
+
+                try {
+                  final chatService = ChatService();
+                  final userIds = [currentUser.uid, workerId];
+                  String? chatId = await chatService.findExistingChat(
+                    'general',
+                    userIds,
+                  );
+
+                  if (chatId == null) {
+                    chatId = await chatService.createChat(
+                      propertyId: 'general',
+                      userIds: userIds,
+                      initialMessage:
+                          'Hola, vi tu perfil y me interesa tu servicio.',
+                      senderId: currentUser.uid,
+                    );
+                  }
+
+                  if (chatId != null) {
+                    Modular.to.pushNamed(
+                      '/worker/chat-detail',
+                      arguments: {
+                        'chatId': chatId,
+                        'otherUserId': workerId,
+                        'otherUserName': workerName,
+                        'otherUserPhoto': workerPhoto,
+                        'otherUserPhone': workerPhone,
+                      },
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  }
+                }
               },
             ),
           ],
