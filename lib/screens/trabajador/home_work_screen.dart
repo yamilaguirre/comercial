@@ -10,6 +10,7 @@ import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 
 import '../../services/location_service.dart';
+import '../../services/profile_views_service.dart';
 import 'worker_location_search_screen.dart';
 
 import 'components/add_to_worker_collection_dialog.dart';
@@ -66,12 +67,22 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
   }
 
   Future<void> _incrementWorkerViews(String workerId) async {
+    // Obtener el usuario actual que está viendo el perfil
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final viewerId = authService.currentUser?.uid;
+
+    if (viewerId == null || viewerId == workerId) {
+      // No registrar si no hay usuario logueado o si el trabajador se ve a sí mismo
+      return;
+    }
+
     try {
-      await FirebaseFirestore.instance.collection('users').doc(workerId).set({
-        'views': FieldValue.increment(1),
-      }, SetOptions(merge: true));
+      await ProfileViewsService.registerProfileView(
+        workerId: workerId,
+        viewerId: viewerId,
+      );
     } catch (e) {
-      debugPrint('Error incrementing views: $e');
+      debugPrint('Error registrando vista de perfil: $e');
     }
   }
 
