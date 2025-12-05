@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For Clipboard
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:geolocator/geolocator.dart';
+
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -23,6 +24,188 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
   @override
   void initState() {
     super.initState();
+  }
+
+  Future<void> _shareWorkerProfile() async {
+    final worker = widget.worker;
+    final String shareText =
+        '''
+¡Mira este perfil de trabajador en Job Chasky!
+Nombre: ${worker.name}
+Profesión: ${worker.profession}
+Calificación: ${worker.rating.toStringAsFixed(1)} ⭐
+Teléfono: ${worker.phone}
+
+Descarga la app para contactarlo.
+''';
+    await Clipboard.setData(ClipboardData(text: shareText));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Información copiada al portapapeles')),
+      );
+    }
+  }
+
+  Future<void> _handleRating() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.currentUser;
+
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para calificar')),
+      );
+      return;
+    }
+
+    if (currentUser.uid == widget.worker.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No puedes calificarte a ti mismo')),
+      );
+      return;
+    }
+
+    _showRatingDialog(currentUser.uid);
+  }
+
+  void _showRatingDialog(String userId) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        double currentRating = 0;
+        bool isLoading = true;
+        String? feedbackId;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            if (isLoading) {
+              // Cargar calificación existente
+              FirebaseFirestore.instance
+                  .collection('feedback')
+                  .where('userId', isEqualTo: userId)
+                  .where('workerId', isEqualTo: widget.worker.id)
+                  .limit(1)
+                  .get()
+                  .then((snapshot) {
+                    if (snapshot.docs.isNotEmpty) {
+                      final data = snapshot.docs.first.data();
+                      if (mounted) {
+                        setState(() {
+                          currentRating = (data['rating'] as num).toDouble();
+                          feedbackId = snapshot.docs.first.id;
+                          isLoading = false;
+                        });
+                      }
+                    } else {
+                      if (mounted) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                      }
+                    }
+                  });
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return AlertDialog(
+              title: Text(
+                feedbackId != null
+                    ? 'Editar tu calificación'
+                    : 'Calificar a ${widget.worker.name}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Toca las estrellas para calificar'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < currentRating
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: Colors.amber,
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            currentRating = index + 1.0;
+                          });
+                        },
+                      );
+                    }),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancelar',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: currentRating > 0
+                      ? () async {
+                          try {
+                            final feedbackRef = FirebaseFirestore.instance
+                                .collection('feedback');
+
+                            if (feedbackId != null) {
+                              // Actualizar existente
+                              await feedbackRef.doc(feedbackId).update({
+                                'rating': currentRating,
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
+                            } else {
+                              // Crear nuevo
+                              await feedbackRef.add({
+                                'userId': userId,
+                                'workerId': widget.worker.id,
+                                'rating': currentRating,
+                                'createdAt': FieldValue.serverTimestamp(),
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
+                            }
+
+                            if (mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '¡Gracias por tu calificación!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF001BB7),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -66,7 +249,6 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                 .trim();
         final List<dynamic> portfolioImagesList =
             profile?['portfolioImages'] as List<dynamic>? ?? [];
-        final int reviews = (data['reviews'] as num?)?.toInt() ?? 0;
 
         // Extraer servicios desde professions
         final List<String> services = [];
@@ -105,7 +287,7 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.share_outlined, color: Colors.black),
-                onPressed: () {},
+                onPressed: _shareWorkerProfile,
               ),
             ],
           ),
@@ -261,30 +443,119 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
                               ),
 
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.star,
-                                  size: 16,
-                                  color: Colors.amber,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  widget.worker.rating.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                            const SizedBox(height: 8),
+                            StreamBuilder<Map<String, dynamic>>(
+                              stream:
+                                  LocationService.calculateWorkerRatingStream(
+                                    widget.worker.id,
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '($reviews)',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                              builder: (context, snapshot) {
+                                final ratingData =
+                                    snapshot.data ??
+                                    {'rating': 0.0, 'reviews': 0};
+                                final rating = (ratingData['rating'] as num)
+                                    .toDouble();
+                                final reviews = ratingData['reviews'] as int;
+
+                                return Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      size: 16,
+                                      color: Colors.amber,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      rating.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '($reviews)',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            const SizedBox(height: 8),
+                            // Sección de Calificación del Usuario
+                            Consumer<AuthService>(
+                              builder: (context, auth, _) {
+                                final currentUser = auth.currentUser;
+                                if (currentUser == null) {
+                                  // Si no hay sesión, mostrar botón genérico o nada
+                                  return const SizedBox.shrink();
+                                }
+
+                                return StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('feedback')
+                                      .where(
+                                        'userId',
+                                        isEqualTo: currentUser.uid,
+                                      )
+                                      .where(
+                                        'workerId',
+                                        isEqualTo: widget.worker.id,
+                                      )
+                                      .limit(1)
+                                      .snapshots(),
+                                  builder: (context, snapshot) {
+                                    double myRating = 0;
+                                    if (snapshot.hasData &&
+                                        snapshot.data!.docs.isNotEmpty) {
+                                      final data =
+                                          snapshot.data!.docs.first.data()
+                                              as Map<String, dynamic>;
+                                      myRating = (data['rating'] as num)
+                                          .toDouble();
+                                    }
+
+                                    return GestureDetector(
+                                      onTap: _handleRating,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            myRating > 0
+                                                ? 'Tu Calificación'
+                                                : 'Calificar',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: myRating > 0
+                                                  ? const Color(0xFF001BB7)
+                                                  : Colors.grey[600],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: List.generate(5, (index) {
+                                              return Icon(
+                                                index < myRating
+                                                    ? Icons.star
+                                                    : Icons.star_border,
+                                                size: 20,
+                                                color: Colors.amber,
+                                              );
+                                            }),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
                             ),
                           ],
                         ),
