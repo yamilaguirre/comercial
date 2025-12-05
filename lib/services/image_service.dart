@@ -1,14 +1,33 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 class ImageService {
   // --- CARPETAS CONSTANTES Y PÚBLICAS ---
   static const String IMAGE_PROFILE_FOLDER = 'user_avatars';
   static const String IMAGE_PROPERTY_FOLDER = 'property_images';
   // ----------------------------------------
+
+  /// Comprime una imagen antes de subirla
+  static Future<Uint8List> _compressImage(XFile file) async {
+    if (kIsWeb) {
+      final bytes = await file.readAsBytes();
+      return bytes;
+    }
+
+    final result = await FlutterImageCompress.compressWithFile(
+      file.path,
+      quality: 70,
+      minWidth: 1920,
+      minHeight: 1080,
+    );
+
+    return result ?? await file.readAsBytes();
+  }
 
   /// Sube la imagen a la API personalizada y devuelve la URL.
   ///
@@ -17,34 +36,26 @@ class ImageService {
   /// @param webBytes (Opcional) Bytes para entorno web.
   static Future<String> uploadImageToApi(
     XFile file, {
-    required String folderPath, // Usamos folderPath en lugar de userId
+    required String folderPath,
     Uint8List? webBytes,
     Map<String, String>? headers,
   }) async {
-    // La URI de tu API de subida
     final uri = Uri.parse(
       'https://apiplazacomida.chaskydev.com/api/v1/images/save',
     );
 
-    // Creamos la solicitud Multipart
     final request = http.MultipartRequest('POST', uri)
-      ..fields['folder'] =
-          folderPath; // Carpeta dinámica: 'property_images/{pid}', etc.
+      ..fields['folder'] = folderPath;
 
-    // Añadir headers si son necesarios (ej: Token de autenticación)
     if (headers != null && headers.isNotEmpty) {
       request.headers.addAll(headers);
     }
 
-    // Añadir el archivo al cuerpo de la solicitud
-    if (kIsWeb) {
-      final bytes = webBytes ?? await file.readAsBytes();
-      request.files.add(
-        http.MultipartFile.fromBytes('file', bytes, filename: file.name),
-      );
-    } else {
-      request.files.add(await http.MultipartFile.fromPath('file', file.path));
-    }
+    // Comprimir imagen antes de subir
+    final compressedBytes = await _compressImage(file);
+    request.files.add(
+      http.MultipartFile.fromBytes('file', compressedBytes, filename: file.name),
+    );
 
     final streamed = await request.send();
     final resp = await http.Response.fromStream(streamed);
@@ -72,14 +83,13 @@ class ImageService {
   }) async {
     return uploadImageToApi(
       file,
-      // Usamos la constante estática
       folderPath: '$IMAGE_PROFILE_FOLDER/$userId',
       webBytes: webBytes,
       headers: headers,
     );
   }
 
-  /// Sube múltiples imágenes y devuelve una lista de URLs
+  /// Sube múltiples imágenes comprimidas y devuelve una lista de URLs
   static Future<List<String>> uploadImages(
     List<XFile> files,
     String folderPath,

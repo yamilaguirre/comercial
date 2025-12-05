@@ -14,6 +14,7 @@ import '../../theme/theme.dart';
 import '../../core/utils/property_constants.dart';
 import '../../core/utils/firestore_data_loader.dart';
 import '../../services/image_service.dart';
+import '../../services/video_service.dart';
 import '../../models/property.dart';
 import '../../core/utils/amenity_helper.dart';
 
@@ -64,10 +65,13 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   bool _isLoadingCatalogs = true;
   bool _isSaving = false;
   bool _showError = false;
+  String _savingStatus = '';
 
   Map<String, bool> _amenityState = {};
   List<String> _existingImageUrls = [];
   List<XFile> _newImageFiles = [];
+  List<String> _existingVideoUrls = [];
+  List<XFile> _newVideoFiles = [];
 
   Property? get _propertyToEdit => Modular.args.data is Property
       ? Modular.args.data as Property
@@ -90,6 +94,8 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   }
 
   double get progress => completedSteps / 8;
+
+  int get totalMediaCount => _existingImageUrls.length + _newImageFiles.length + _existingVideoUrls.length + _newVideoFiles.length;
 
   @override
   void initState() {
@@ -174,6 +180,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     _selectedZone = property.zone;
     _currentGeopoint = property.geopoint;
     _existingImageUrls = List.from(property.imageUrls);
+    _existingVideoUrls = List.from(property.videoUrls);
 
     for (var key in property.amenities) {
       if (_amenityState.containsKey(key)) _amenityState[key] = true;
@@ -223,11 +230,37 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   }
 
   Future<void> _pickImages() async {
+    if (totalMediaCount >= 20) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Máximo 20 imágenes y videos en total')),
+      );
+      return;
+    }
     final List<XFile> pickedFiles = await _picker.pickMultiImage(
       imageQuality: 70,
     );
     if (pickedFiles.isNotEmpty) {
-      setState(() => _newImageFiles.addAll(pickedFiles));
+      final remaining = 20 - totalMediaCount;
+      setState(() => _newImageFiles.addAll(pickedFiles.take(remaining)));
+    }
+  }
+
+  Future<void> _pickVideos() async {
+    if (totalMediaCount >= 20) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Máximo 20 imágenes y videos en total')),
+      );
+      return;
+    }
+    if (_existingVideoUrls.length + _newVideoFiles.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Máximo 5 videos')),
+      );
+      return;
+    }
+    final XFile? pickedFile = await _picker.pickVideo(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() => _newVideoFiles.add(pickedFile));
     }
   }
 
@@ -236,6 +269,146 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
 
   void _removeNewImage(int index) =>
       setState(() => _newImageFiles.removeAt(index));
+
+  void _removeExistingVideo(int index) =>
+      setState(() => _existingVideoUrls.removeAt(index));
+
+  void _removeNewVideo(int index) =>
+      setState(() => _newVideoFiles.removeAt(index));
+
+  Widget _buildVideoSection() {
+    final hasVideos = _existingVideoUrls.isNotEmpty || _newVideoFiles.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Videos (opcional)',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              '${_existingVideoUrls.length + _newVideoFiles.length}/5',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Agrega hasta 5 videos para mostrar mejor tu propiedad.',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 16),
+        if (!hasVideos)
+          GestureDetector(
+            onTap: _pickVideos,
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300, width: 1.5),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.videocam_outlined, size: 32, color: Styles.primaryColor),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Seleccionar videos',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Styles.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _existingVideoUrls.length + _newVideoFiles.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0 && (_existingVideoUrls.length + _newVideoFiles.length) < 5) {
+                  return GestureDetector(
+                    onTap: _pickVideos,
+                    child: Container(
+                      width: 100,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add, size: 24, color: Styles.primaryColor),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Añadir',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Styles.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                final videoIndex = index - 1;
+                final isExisting = videoIndex < _existingVideoUrls.length;
+                final displayIndex = isExisting ? videoIndex : videoIndex - _existingVideoUrls.length;
+                return Stack(
+                  children: [
+                    Container(
+                      width: 150,
+                      margin: const EdgeInsets.only(right: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 20,
+                      child: GestureDetector(
+                        onTap: () => isExisting
+                            ? _removeExistingVideo(displayIndex)
+                            : _removeNewVideo(displayIndex),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 
   Future<void> _selectLocationOnMap() async {
     Map<String, double>? extras;
@@ -270,7 +443,10 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _savingStatus = 'Preparando...';
+    });
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -279,13 +455,26 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       // 1. Subir nuevas imágenes
       List<String> uploadedUrls = [];
       if (_newImageFiles.isNotEmpty) {
-        uploadedUrls = await ImageService.uploadImages(
-          _newImageFiles,
-          'properties/${user.uid}',
-        );
+        setState(() => _savingStatus = 'Subiendo imágenes ${0}/${_newImageFiles.length}...');
+        for (int i = 0; i < _newImageFiles.length; i++) {
+          final url = await ImageService.uploadImages([_newImageFiles[i]], 'properties/${user.uid}');
+          uploadedUrls.addAll(url);
+          if (mounted) setState(() => _savingStatus = 'Subiendo imágenes ${i + 1}/${_newImageFiles.length}...');
+        }
+      }
+
+      // 2. Subir nuevos videos
+      List<String> uploadedVideoUrls = [];
+      if (_newVideoFiles.isNotEmpty) {
+        for (int i = 0; i < _newVideoFiles.length; i++) {
+          if (mounted) setState(() => _savingStatus = 'Subiendo video ${i + 1}/${_newVideoFiles.length}...');
+          final url = await VideoService.uploadVideo(_newVideoFiles[i], 'properties/${user.uid}');
+          uploadedVideoUrls.add(url);
+        }
       }
 
       final allImageUrls = [..._existingImageUrls, ...uploadedUrls];
+      final allVideoUrls = [..._existingVideoUrls, ...uploadedVideoUrls];
       final selectedAmenities = _amenityState.entries
           .where((entry) => entry.value)
           .map((entry) => entry.key)
@@ -306,9 +495,12 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         'geopoint': _currentGeopoint,
         'amenities': selectedAmenities,
         'imageUrls': allImageUrls,
+        'videoUrls': allVideoUrls,
         'owner_id': user.uid,
         'is_active': true,
       };
+
+      if (mounted) setState(() => _savingStatus = 'Guardando propiedad...');
 
       // Obtener estado premium del usuario
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -327,7 +519,10 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     } catch (e) {
       // Error silencioso
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) setState(() {
+        _isSaving = false;
+        _savingStatus = '';
+      });
     }
   }
 
@@ -380,7 +575,20 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                 onRemoveExisting: _removeExistingImage,
                 onRemoveNew: _removeNewImage,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              Consumer<AuthService>(
+                builder: (context, authService, _) {
+                  if (authService.isPremium) {
+                    return Column(
+                      children: [
+                        _buildVideoSection(),
+                        const SizedBox(height: 32),
+                      ],
+                    );
+                  }
+                  return const SizedBox(height: 32);
+                },
+              ),
               PropertyFormBasicInfo(
                 selectedTransactionType: _selectedTransactionType,
                 titleController: _titleController,
@@ -455,13 +663,30 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           label: _isSaving
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        _savingStatus,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 )
               : Text(
                   _showError

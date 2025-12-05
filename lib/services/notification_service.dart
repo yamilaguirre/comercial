@@ -65,14 +65,14 @@ class NotificationService {
     }
   }
 
-  // Marcar notificación como leída (Actualiza el documento directamente)
+  // Marcar notificación como leída
   Future<bool> markAsRead(String userId, String notificationId) async {
     try {
-      // Solo podemos marcar como leídas las notificaciones que existen como documento
-      // y que son "personales" o que queremos marcar en el documento global (cuidado con esto)
-      // El usuario pidió "manejarlo dentro del id", asumimos update directo.
-      await _firestore.collection('notifications').doc(notificationId).update({
-        'is_read': true,
+      final docId = '${userId}_$notificationId';
+      await _firestore.collection('notification_reads').doc(docId).set({
+        'user_id': userId,
+        'notification_id': notificationId,
+        'read_at': FieldValue.serverTimestamp(),
       });
       return true;
     } catch (e) {
@@ -90,10 +90,12 @@ class NotificationService {
       final batch = _firestore.batch();
 
       for (final notificationId in notificationIds) {
-        final docRef = _firestore
-            .collection('notifications')
-            .doc(notificationId);
-        batch.update(docRef, {'is_read': true});
+        final docId = '${userId}_$notificationId';
+        batch.set(_firestore.collection('notification_reads').doc(docId), {
+          'user_id': userId,
+          'notification_id': notificationId,
+          'read_at': FieldValue.serverTimestamp(),
+        });
       }
 
       await batch.commit();
@@ -252,6 +254,9 @@ class NotificationService {
   ) async* {
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
+        final readNotificationIds = await _getReadNotificationIds(userId);
+        final userPropertyIds = await _getUserPropertyIds(userId);
+
         // Consultar colección unificada 'notifications'
         final notificationsSnapshot = await _firestore
             .collection('notifications')
@@ -271,9 +276,20 @@ class NotificationService {
                 return notification.userId == userId;
               }
 
-              // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
+              // 2. Si tiene property_id, solo mostrar si es del usuario
+              if (notification.propertyId != null &&
+                  notification.propertyId!.isNotEmpty) {
+                return userPropertyIds.contains(notification.propertyId);
+              }
+
+              // 3. Si NO tiene usuario ni property_id (es global), mostrar a todos
               return true;
             })
+            .map(
+              (notification) => notification.copyWith(
+                isRead: readNotificationIds.contains(notification.id),
+              ),
+            )
             .take(100)
             .toList();
 
@@ -290,6 +306,9 @@ class NotificationService {
   ) async* {
     await for (final _ in Stream.periodic(const Duration(seconds: 2))) {
       try {
+        final readNotificationIds = await _getReadNotificationIds(userId);
+        final userPropertyIds = await _getUserPropertyIds(userId);
+
         // Consultar colección unificada 'notifications'
         final notificationsSnapshot = await _firestore
             .collection('notifications')
@@ -309,9 +328,20 @@ class NotificationService {
                 return notification.userId == userId;
               }
 
-              // 2. Si NO tiene usuario específico (es pública/global), mostrar a todos
+              // 2. Si tiene property_id, solo mostrar si es del usuario
+              if (notification.propertyId != null &&
+                  notification.propertyId!.isNotEmpty) {
+                return userPropertyIds.contains(notification.propertyId);
+              }
+
+              // 3. Si NO tiene usuario ni property_id (es global), mostrar a todos
               return true;
             })
+            .map(
+              (notification) => notification.copyWith(
+                isRead: readNotificationIds.contains(notification.id),
+              ),
+            )
             .take(100)
             .toList();
 
@@ -322,61 +352,34 @@ class NotificationService {
     }
   }
 
-  // Obtener notificaciones para el trabajador (notification_worker + notifications filtradas por usuario)
-  Stream<List<AppNotification>> getWorkerNotifications(String userId) async* {
-    // Usamos un loop infinito con delay para simular un stream que se actualiza
-    while (true) {
-      try {
-        // Consultar colección unificada 'notifications'
-        final notificationsSnapshot = await _firestore
-            .collection('notifications')
-            .orderBy('created_at', descending: true)
-            .limit(50)
-            .get();
-
-        final allNotifications = notificationsSnapshot.docs
-            .map((doc) => AppNotification.fromFirestore(doc))
-            .toList();
-
-        final userNotifications = allNotifications.where((notification) {
-          // 1. PRIORIDAD: Si tiene un userId asignado, es PRIVADA.
-          // Solo se muestra si coincide con el usuario actual.
-          if (notification.userId != null && notification.userId!.isNotEmpty) {
-            return notification.userId == userId;
-          }
-
-          // 2. Si NO tiene userId (es Global), aplicamos filtros de seguridad
-          if (notification.type == NotificationType.message) {
-            // FILTRO DE SEGURIDAD:
-            // Bloquear notificaciones que parecen privadas pero no tienen ID (leaks)
-            final titleLower = notification.title.toLowerCase();
-            if (titleLower.contains('verificación') ||
-                titleLower.contains('verification') ||
-                titleLower.contains('suscripción') ||
-                titleLower.contains('subscription') ||
-                titleLower.contains('aprobada')) {
-              return false;
-            }
-            return true;
-          }
-
-          return false;
-        }).toList();
-
-        yield userNotifications;
-      } catch (e) {
-        print('Error fetching worker notifications: $e');
-        yield [];
-      }
-
-      await Future.delayed(const Duration(seconds: 3));
+  // Obtener IDs de propiedades del usuario
+  Future<Set<String>> _getUserPropertyIds(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('properties')
+          .where('owner_id', isEqualTo: userId)
+          .get();
+      return snapshot.docs.map((doc) => doc.id).toSet();
+    } catch (e) {
+      print('Error getting user property IDs: $e');
+      return {};
     }
   }
 
-  // Obtener contador de notificaciones no leídas para trabajador
-  Stream<int> getWorkerUnreadCount(String userId) async* {
-    await for (final notifications in getWorkerNotifications(userId)) {
-      yield notifications.where((n) => !n.isRead).length;
+  // Obtener IDs de notificaciones leídas por el usuario
+  Future<Set<String>> _getReadNotificationIds(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('notification_reads')
+          .where('user_id', isEqualTo: userId)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => doc.data()['notification_id'] as String)
+          .toSet();
+    } catch (e) {
+      print('Error getting read notification IDs: $e');
+      return {};
     }
   }
 }

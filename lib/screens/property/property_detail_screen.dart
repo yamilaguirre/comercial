@@ -7,6 +7,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../models/property.dart';
 import '../../theme/theme.dart';
@@ -610,8 +611,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   }
 
   // Carrusel (Se mantiene la lógica en la pantalla)
-  Widget _buildCarouselSection(List<String> imagesToShow) {
-    if (imagesToShow.isEmpty) {
+  Widget _buildCarouselSection(List<Map<String, dynamic>> mediaItems) {
+    if (mediaItems.isEmpty) {
       return Container(
         height: 350,
         color: Colors.grey[200],
@@ -627,7 +628,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         children: [
           PageView.builder(
             controller: _carouselController,
-            itemCount: imagesToShow.length,
+            itemCount: mediaItems.length,
             physics: const ClampingScrollPhysics(),
             onPageChanged: (index) {
               if (mounted) {
@@ -635,10 +636,21 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               }
             },
             itemBuilder: (context, index) {
+              final item = mediaItems[index];
+              if (item['type'] == 'video') {
+                return _VideoPlayerWidget(videoUrl: item['url']);
+              }
               return GestureDetector(
-                onTap: () => _openFullScreenGallery(imagesToShow, index),
+                onTap: () {
+                  final images = mediaItems
+                      .where((m) => m['type'] == 'image')
+                      .map((m) => m['url'] as String)
+                      .toList();
+                  final imageIndex = images.indexOf(item['url']);
+                  _openFullScreenGallery(images, imageIndex);
+                },
                 child: Image.network(
-                  imagesToShow[index],
+                  item['url'],
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,
@@ -688,7 +700,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 size: 30,
               ),
               onPressed: () {
-                if (_currentImageIndex < imagesToShow.length - 1) {
+                if (_currentImageIndex < mediaItems.length - 1) {
                   _carouselController.nextPage(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.ease,
@@ -738,14 +750,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             ),
           ),
           // Indicadores de página
-          if (imagesToShow.length > 1)
+          if (mediaItems.length > 1)
             Positioned(
               bottom: 20,
               left: 0,
               right: 0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: imagesToShow.asMap().entries.map((entry) {
+                children: mediaItems.asMap().entries.map((entry) {
                   final isActive = _currentImageIndex == entry.key;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -760,27 +772,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 }).toList(),
               ),
             ),
-          // Botón de pantalla completa
-          Positioned(
-            bottom: 20,
-            right: 16,
-            child: GestureDetector(
-              onTap: () =>
-                  _openFullScreenGallery(imagesToShow, _currentImageIndex),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.fullscreen,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
+
         ],
       ),
     );
@@ -868,9 +860,16 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       );
     }
 
+    // Solo imágenes para el carrusel (sin videos)
     final List<String> imagesToShow = _property!.imageUrls.isNotEmpty
         ? _property!.imageUrls.where((url) => url.isNotEmpty).toList()
         : (_property!.imageUrl.isNotEmpty ? [_property!.imageUrl] : []);
+
+    // Combinar imágenes y videos para el carrusel
+    final List<Map<String, dynamic>> mediaItems = [
+      ...imagesToShow.map((url) => {'type': 'image', 'url': url}),
+      ..._property!.videoUrls.map((url) => {'type': 'video', 'url': url}),
+    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -879,7 +878,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Carrusel (350 de altura)
-            _buildCarouselSection(imagesToShow),
+            _buildCarouselSection(mediaItems),
 
             // 2. Card de Contacto del Dueño
             DetailOwnerContactCard(
@@ -922,6 +921,12 @@ class _FullScreenGalleryDialogState extends State<_FullScreenGalleryDialog> {
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
@@ -955,6 +960,74 @@ class _FullScreenGalleryDialogState extends State<_FullScreenGalleryDialog> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// Widget para reproducir videos
+class _VideoPlayerWidget extends StatefulWidget {
+  final String videoUrl;
+  const _VideoPlayerWidget({required this.videoUrl});
+
+  @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _isInitialized = true);
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _controller.value.isPlaying ? _controller.pause() : _controller.play();
+        });
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _controller.value.size.width,
+              height: _controller.value.size.height,
+              child: VideoPlayer(_controller),
+            ),
+          ),
+          if (!_controller.value.isPlaying)
+            Center(
+              child: Icon(
+                Icons.play_circle_outline,
+                size: 64,
+                color: Colors.white.withOpacity(0.8),
+              ),
+            ),
         ],
       ),
     );

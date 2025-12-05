@@ -73,18 +73,19 @@ class _LoginScreenState extends State<LoginScreen> {
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         final role = userDoc.data()?['role'];
-        
+
         // Bloquear si es empresa inmobiliaria
         if (role == 'inmobiliaria_empresa') {
           await _authService.signOut();
           setState(() {
-            _passwordError = 'Esta es una cuenta de empresa. Usa el portal inmobiliario';
+            _passwordError =
+                'Esta es una cuenta de empresa. Usa el portal inmobiliario';
           });
           return;
         }
-        
+
         Future.microtask(() {
           // Redirección inmediata a /select-role
           Modular.to.navigate('/select-role');
@@ -441,7 +442,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: WrapAlignment.center,
                     children: [
                       Text(
-                        '¿Eres una empresa inmobiliaria? ',
+                        '¿Eres una empresa o agente inmobiliario? ',
                         style: TextStyles.body.copyWith(
                           color: Styles.textSecondary,
                         ),
@@ -463,7 +464,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => Modular.to.navigate('/inmobiliaria-register'),
+                        onTap: () =>
+                            Modular.to.navigate('/inmobiliaria-register'),
                         child: Text(
                           'Regístrate aquí',
                           style: TextStyles.body.copyWith(
