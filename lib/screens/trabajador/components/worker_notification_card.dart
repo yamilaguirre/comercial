@@ -39,6 +39,8 @@ class WorkerNotificationCard extends StatelessWidget {
         return Icons.phone;
       case NotificationType.profileEmailChanged:
         return Icons.email;
+      case NotificationType.verification:
+        return Icons.verified_user;
     }
   }
 
@@ -66,6 +68,8 @@ class WorkerNotificationCard extends StatelessWidget {
         return const Color(0xFF388E3C); // Verde
       case NotificationType.profileEmailChanged:
         return const Color(0xFFFF6F00); // Naranja oscuro
+      case NotificationType.verification:
+        return const Color(0xFF4CAF50); // Verde
     }
   }
 

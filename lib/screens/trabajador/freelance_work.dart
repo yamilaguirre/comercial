@@ -8,6 +8,8 @@ import '../../theme/theme.dart';
 import 'widgets/profession_selector.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/image_service.dart';
+import '../../services/notification_service.dart';
+import '../../models/notification_model.dart';
 
 class FreelanceWorkScreen extends StatefulWidget {
   const FreelanceWorkScreen({super.key});
@@ -41,6 +43,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   final List<String> _portfolioUrls = [];
 
   bool _isLoading = false;
+  bool _isNewProfile = true; // Flag para detectar si es la primera vez
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -76,6 +79,9 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           final profile = data?['profile'] as Map<String, dynamic>?;
 
           if (profile != null) {
+            // Si ya existe perfil, no es nuevo
+            _isNewProfile = false;
+
             setState(() {
               _descriptionController.text = profile['description'] ?? '';
               // Prefer profile specific price, otherwise check root-level price
@@ -305,6 +311,28 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
       }
       await user.updateDisplayName(_nameController.text.trim());
       await user.reload();
+
+      // Crear notificación de actualización de perfil
+      final notificationService = NotificationService();
+
+      if (_isNewProfile) {
+        // Notificación GLOBAL para todos los usuarios (solo la primera vez)
+        await notificationService.createSystemMessage(
+          title: '¡Nuevo Profesional!',
+          message:
+              'Un nuevo trabajador llamado ${_nameController.text.trim()} está ofreciendo sus servicios de $professionTopLevel',
+          metadata: {'userId': user.uid, 'profession': professionTopLevel},
+        );
+      } else {
+        // Notificación personal de actualización
+        await notificationService.createProfileChangeNotification(
+          userId: user.uid,
+          type:
+              NotificationType.profileNameChanged, // Usamos este como genérico
+          title: 'Perfil Actualizado',
+          message: 'Tu perfil de trabajador ha sido actualizado exitosamente.',
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
