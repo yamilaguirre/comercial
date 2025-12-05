@@ -165,7 +165,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
       final notificationService = NotificationService();
 
       return StreamBuilder<int>(
-        stream: notificationService.getUnreadCount(currentUserId),
+        stream: notificationService.getWorkerUnreadCount(currentUserId),
         builder: (context, snapshot) {
           final unreadCount = snapshot.data ?? 0;
 

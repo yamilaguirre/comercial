@@ -13,7 +13,9 @@ enum NotificationType {
   profilePhotoChanged,
   profileNameChanged,
   profilePhoneChanged,
-  profileEmailChanged;
+  profileEmailChanged,
+  // Notificaciones de trabajador
+  verification;
 
   String get displayName {
     switch (this) {
@@ -39,6 +41,8 @@ enum NotificationType {
         return 'Teléfono actualizado';
       case NotificationType.profileEmailChanged:
         return 'Email actualizado';
+      case NotificationType.verification:
+        return 'Verificación';
     }
   }
 
@@ -66,6 +70,8 @@ enum NotificationType {
         return NotificationType.profilePhoneChanged;
       case 'profile_email_changed':
         return NotificationType.profileEmailChanged;
+      case 'verification':
+        return NotificationType.verification;
       default:
         return NotificationType.message;
     }
@@ -95,6 +101,8 @@ enum NotificationType {
         return 'profile_phone_changed';
       case NotificationType.profileEmailChanged:
         return 'profile_email_changed';
+      case NotificationType.verification:
+        return 'verification';
     }
   }
 }
@@ -128,6 +136,27 @@ class AppNotification {
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Manejo flexible de fecha (createdAt o created_at)
+    DateTime? createdDate;
+    if (data['created_at'] != null) {
+      createdDate = (data['created_at'] as Timestamp).toDate();
+    } else if (data['createdAt'] != null) {
+      createdDate = (data['createdAt'] as Timestamp).toDate();
+    }
+
+    // Recopilar metadatos extra
+    final Map<String, dynamic> extraMetadata = {};
+    if (data['metadata'] != null) {
+      extraMetadata.addAll(data['metadata'] as Map<String, dynamic>);
+    }
+    // Agregar campos específicos de verificación a metadata si existen
+    if (data['rejectionReason'] != null)
+      extraMetadata['rejectionReason'] = data['rejectionReason'];
+    if (data['verificationId'] != null)
+      extraMetadata['verificationId'] = data['verificationId'];
+    if (data['status'] != null) extraMetadata['status'] = data['status'];
+
     return AppNotification(
       id: doc.id,
       type: NotificationType.fromString(data['type'] ?? 'message'),
@@ -138,8 +167,8 @@ class AppNotification {
       oldPrice: data['old_price']?.toDouble(),
       newPrice: data['new_price']?.toDouble(),
       isRead: false, // Will be determined client-side
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      metadata: data['metadata'] as Map<String, dynamic>?,
+      createdAt: createdDate ?? DateTime.now(),
+      metadata: extraMetadata.isNotEmpty ? extraMetadata : null,
     );
   }
 

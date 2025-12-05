@@ -388,4 +388,68 @@ class NotificationService {
       }
     }
   }
+
+  // Obtener notificaciones para el trabajador (notification_worker + notifications filtradas por usuario)
+  Stream<List<AppNotification>> getWorkerNotifications(String userId) async* {
+    final readNotificationIds = await _getReadNotificationIds(userId);
+
+    // Usamos Stream.periodic para simular un stream combinado que se actualiza
+    // Esto es necesario porque estamos combinando dos colecciones diferentes
+    await for (final _ in Stream.periodic(const Duration(seconds: 3))) {
+      try {
+        // 1. Obtener notificaciones de la colección específica de trabajadores
+        // Filtramos directamente en la query por user_id para eficiencia y seguridad
+        // NOTA: notification_worker usa 'createdAt' (camelCase), no 'created_at'
+        final workerNotificationsSnapshot = await _firestore
+            .collection('notification_worker')
+            .where('user_id', isEqualTo: userId)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .get();
+
+        // 2. Obtener notificaciones generales que sean PARA ESTE USUARIO
+        // NO traemos notificaciones globales aquí, solo las dirigidas al usuario
+        final generalNotificationsSnapshot = await _firestore
+            .collection('notifications')
+            .where('user_id', isEqualTo: userId)
+            .orderBy('created_at', descending: true)
+            .limit(20)
+            .get();
+
+        final allNotifications = [
+          ...workerNotificationsSnapshot.docs.map(
+            (doc) => AppNotification.fromFirestore(doc),
+          ),
+          ...generalNotificationsSnapshot.docs.map(
+            (doc) => AppNotification.fromFirestore(doc),
+          ),
+        ];
+
+        // Ordenar por fecha descendente
+        allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        // Mapear estado de lectura
+        final userNotifications = allNotifications
+            .map(
+              (notification) => notification.copyWith(
+                isRead: readNotificationIds.contains(notification.id),
+              ),
+            )
+            .toList();
+
+        yield userNotifications;
+      } catch (e) {
+        print('Error fetching worker notifications: $e');
+        // En caso de error, intentamos devolver una lista vacía para no romper la UI
+        yield [];
+      }
+    }
+  }
+
+  // Obtener contador de notificaciones no leídas para trabajador
+  Stream<int> getWorkerUnreadCount(String userId) async* {
+    await for (final notifications in getWorkerNotifications(userId)) {
+      yield notifications.where((n) => !n.isRead).length;
+    }
+  }
 }

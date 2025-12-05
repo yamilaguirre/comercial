@@ -8,6 +8,8 @@ import '../../theme/theme.dart';
 import 'widgets/profession_selector.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/image_service.dart';
+import '../../services/notification_service.dart';
+import '../../models/notification_model.dart';
 
 class FreelanceWorkScreen extends StatefulWidget {
   const FreelanceWorkScreen({super.key});
@@ -305,6 +307,16 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
       }
       await user.updateDisplayName(_nameController.text.trim());
       await user.reload();
+
+      // Crear notificación de actualización de perfil
+      final notificationService = NotificationService();
+      await notificationService.createProfileChangeNotification(
+        userId: user.uid,
+        type: NotificationType
+            .profileNameChanged, // Usamos este como genérico para actualización de perfil
+        title: 'Perfil Actualizado',
+        message: 'Tu perfil de trabajador ha sido actualizado exitosamente.',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
