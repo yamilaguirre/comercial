@@ -138,11 +138,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       Future.delayed(const Duration(milliseconds: 100), () {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       });
     }
   }
@@ -158,26 +160,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _isSending = true;
     });
 
-    final success = await _chatService.sendMessage(
-      widget.chatId,
-      currentUserId,
-      message,
-    );
+    try {
+      final success = await _chatService.sendMessage(
+        widget.chatId,
+        currentUserId,
+        message,
+      );
 
-    if (success) {
-      _messageController.clear();
-      _scrollToBottom();
-    } else {
+      if (success) {
+        _messageController.clear();
+        _scrollToBottom();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error al enviar mensaje')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error sending message: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error al enviar mensaje')),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
     }
-
-    setState(() {
-      _isSending = false;
-    });
   }
 
   Future<void> _pickAndSendImage() async {
@@ -227,9 +240,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
     }
   }
 
@@ -325,83 +340,160 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Lista de mensajes
-            Expanded(
-              child: StreamBuilder<Chat?>(
-                stream: _chatService.getChatById(widget.chatId),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+      body: Column(
+        children: [
+          // Lista de mensajes
+          Expanded(
+            child: StreamBuilder<Chat?>(
+              stream: _chatService.getChatById(widget.chatId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Styles.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Cargando mensajes...',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
+                if (snapshot.hasError) {
+                  debugPrint('StreamBuilder error: ${snapshot.error}');
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Styles.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Cargando mensajes...',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-                  final chat = snapshot.data;
-                  if (chat == null) {
-                    return const Center(child: Text('Chat no encontrado'));
-                  }
+                final chat = snapshot.data;
+                if (chat == null || chat.messages.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: Colors.grey[300],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No hay mensajes aún',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Envía un mensaje para comenzar',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    _scrollToBottom();
-                  });
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToBottom();
+                });
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: chat.messages.length,
-                    itemBuilder: (context, index) {
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: chat.messages.length,
+                  itemBuilder: (context, index) {
+                    try {
                       final message = chat.messages[index];
                       final isMe = message.senderId == currentUserId;
 
+                      // Validar que el mensaje tenga datos válidos
+                      if (message.text.isEmpty &&
+                          message.attachmentUrl == null) {
+                        return const SizedBox.shrink();
+                      }
+
                       return _MessageBubble(message: message, isMe: isMe);
-                    },
-                  );
-                },
+                    } catch (e) {
+                      debugPrint('Error rendering message at index $index: $e');
+                      return const SizedBox.shrink();
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+
+          // Indicador de subida
+          if (_isUploading)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              color: Colors.blue.withOpacity(0.1),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Styles.primaryColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Subiendo imagen...'),
+                ],
               ),
             ),
 
-            // Indicador de subida
-            if (_isUploading)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                color: Colors.blue.withOpacity(0.1),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 12),
-                    Text('Subiendo imagen...'),
-                  ],
+          // Campo de entrada de mensaje
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
                 ),
-              ),
-
-            // Campo de entrada de mensaje
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
-              padding: EdgeInsets.only(
-                left: 8,
-                right: 8,
-                top: 8,
-                bottom: 8 + MediaQuery.of(context).viewInsets.bottom,
-              ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: SafeArea(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -438,6 +530,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ),
                         maxLines: null,
                         textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
                   ),
@@ -471,8 +564,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -483,6 +576,31 @@ class _MessageBubble extends StatelessWidget {
   final bool isMe;
 
   const _MessageBubble({required this.message, required this.isMe});
+
+  String _formatTimestamp(dynamic timestamp) {
+    try {
+      // Manejo seguro de null
+      if (timestamp == null) return '';
+
+      DateTime dateTime;
+
+      if (timestamp is DateTime) {
+        dateTime = timestamp;
+      } else if (timestamp is Timestamp) {
+        dateTime = timestamp.toDate();
+      } else if (timestamp is int) {
+        // Manejar timestamp en milisegundos
+        dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      } else {
+        return '';
+      }
+
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      debugPrint('Error formatting timestamp: $e');
+      return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -532,10 +650,14 @@ class _MessageBubble extends StatelessWidget {
                           fit: BoxFit.cover,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
-                            return const Center(
+                            return Center(
                               child: Padding(
-                                padding: EdgeInsets.all(20.0),
-                                child: CircularProgressIndicator(),
+                                padding: const EdgeInsets.all(20.0),
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isMe ? Colors.white : Styles.primaryColor,
+                                  ),
+                                ),
                               ),
                             );
                           },
@@ -588,7 +710,7 @@ class _MessageBubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}',
+                        _formatTimestamp(message.timestamp),
                         style: TextStyle(
                           color: isMe ? Colors.white70 : Colors.grey[600],
                           fontSize: 11,
