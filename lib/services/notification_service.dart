@@ -339,21 +339,25 @@ class NotificationService {
             .toList();
 
         final userNotifications = allNotifications.where((notification) {
-          // 1. Mensajes globales (type == 'message') -> Mostrar a todos
-          // PERO FILTRAR: Evitar que notificaciones de verificación (que a veces llegan como globales por error)
-          // se muestren a todos. Solo permitir anuncios reales.
+          // 1. PRIORIDAD: Si tiene un userId asignado, es PRIVADA.
+          // Solo se muestra si coincide con el usuario actual.
+          if (notification.userId != null && notification.userId!.isNotEmpty) {
+            return notification.userId == userId;
+          }
+
+          // 2. Si NO tiene userId (es Global), aplicamos filtros de seguridad
           if (notification.type == NotificationType.message) {
-            // Si el título contiene "Verificación", asume que es privada y NO la muestres como global
-            if (notification.title.contains('Verificación') ||
-                notification.title.contains('Verification')) {
+            // FILTRO DE SEGURIDAD:
+            // Bloquear notificaciones que parecen privadas pero no tienen ID (leaks)
+            final titleLower = notification.title.toLowerCase();
+            if (titleLower.contains('verificación') ||
+                titleLower.contains('verification') ||
+                titleLower.contains('suscripción') ||
+                titleLower.contains('subscription') ||
+                titleLower.contains('aprobada')) {
               return false;
             }
             return true;
-          }
-
-          // 2. Notificaciones personales -> Solo si user_id coincide
-          if (notification.userId != null && notification.userId!.isNotEmpty) {
-            return notification.userId == userId;
           }
 
           return false;
