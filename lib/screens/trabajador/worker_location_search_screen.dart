@@ -9,7 +9,8 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/map_drawing_detector.dart';
 import '../../utils/map_geometry_utils.dart';
-import '../../utils/map_geometry_utils.dart';
+import '../../core/data/professions_data.dart';
+import '../../services/location_service.dart';
 
 // Token de Mapbox
 const String _mapboxAccessToken =
@@ -34,7 +35,8 @@ class _WorkerLocationSearchScreenState
   LatLng? _userLocation; // Ubicación real del usuario
   bool _isLocating = false;
   double _searchRadius = 5.0; // Radio en kilómetros
-  final Set<String> _selectedCategories = {};
+  // Nuevo: Map para subcategorías seleccionadas (como en ProfessionSelector)
+  final Map<String, List<String>> _selectedSubcategories = {};
   List<WorkerData> _workers = [];
   List<WorkerData> _filteredWorkers = [];
 
@@ -46,13 +48,9 @@ class _WorkerLocationSearchScreenState
   bool _isDrawingMode = false;
   List<LatLng>? _searchPolygon; // Polígono de búsqueda dibujado
 
-  // Categorías disponibles con sus colores e iconos
-  final Map<String, Map<String, dynamic>> _categoryStyles = {
-    'Técnicos': {'color': Colors.orange, 'icon': Icons.build},
-    'Mano de obra': {'color': Colors.green, 'icon': Icons.handyman},
-    'Profesionales': {'color': Colors.purple, 'icon': Icons.work},
-    'Servicios': {'color': Colors.blue, 'icon': Icons.cleaning_services},
-  };
+  // Estado del panel de categorías
+  bool _isCategoryPanelOpen = false;
+  final Set<String> _expandedCategories = {};
 
   @override
   void initState() {
@@ -109,6 +107,12 @@ class _WorkerLocationSearchScreenState
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.uid;
+
+      // Fetch premium users to check isPremium status
+      final premiumSnapshot = await FirebaseFirestore.instance
+          .collection('premium_users')
+          .get();
+      final premiumUserIds = premiumSnapshot.docs.map((doc) => doc.id).toSet();
 
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
@@ -188,6 +192,7 @@ class _WorkerLocationSearchScreenState
                 locationName: location['locationName'] as String?,
                 isFixedLocation: location['isFixed'] as bool? ?? false,
                 locationType: location['locationType'] as String?,
+                isPremium: premiumUserIds.contains(doc.id),
               ),
             );
           }
@@ -207,16 +212,12 @@ class _WorkerLocationSearchScreenState
     if (_userLocation == null) return;
 
     final filtered = _workers.where((worker) {
-      // Filtrar por categoría (ahora soporta múltiples categorías)
-      if (_selectedCategories.isNotEmpty) {
-        bool hasMatchingCategory = false;
-        for (var category in worker.categories) {
-          if (_selectedCategories.contains(category)) {
-            hasMatchingCategory = true;
-            break;
-          }
-        }
-        if (!hasMatchingCategory) return false;
+      // Filtrar por subcategorías seleccionadas
+      if (_hasAnySubcategorySelected()) {
+        bool hasMatchingSubcategory = _workerMatchesSelectedSubcategories(
+          worker,
+        );
+        if (!hasMatchingSubcategory) return false;
       }
 
       // Filtrar por distancia desde la ubicación del usuario
@@ -247,36 +248,140 @@ class _WorkerLocationSearchScreenState
       return distanceA.compareTo(distanceB);
     });
 
+    // Sort premium workers first, then by distance
+    filtered.sort((a, b) {
+      // First priority: premium status (premium first)
+      if (a.isPremium && !b.isPremium) return -1;
+      if (!a.isPremium && b.isPremium) return 1;
+
+      // Second priority: distance (closer first)
+      final distanceA = Geolocator.distanceBetween(
+        _userLocation!.latitude,
+        _userLocation!.longitude,
+        a.latitude,
+        a.longitude,
+      );
+      final distanceB = Geolocator.distanceBetween(
+        _userLocation!.latitude,
+        _userLocation!.longitude,
+        b.latitude,
+        b.longitude,
+      );
+      return distanceA.compareTo(distanceB);
+    });
+
     setState(() {
       _filteredWorkers = filtered;
     });
   }
 
-  void _toggleCategory(String category) {
-    setState(() {
-      if (_selectedCategories.contains(category)) {
-        _selectedCategories.remove(category);
-      } else {
-        _selectedCategories.add(category);
+  // Verifica si hay alguna subcategoría seleccionada
+  bool _hasAnySubcategorySelected() {
+    for (var subs in _selectedSubcategories.values) {
+      if (subs.isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  // Verifica si el trabajador coincide con alguna subcategoría seleccionada
+  bool _workerMatchesSelectedSubcategories(WorkerData worker) {
+    // Recorrer todas las subcategorías seleccionadas
+    for (var entry in _selectedSubcategories.entries) {
+      final selectedSubs = entry.value;
+      if (selectedSubs.isEmpty) continue;
+
+      // Verificar si el trabajador tiene esta subcategoría en su perfil
+      // (comparando contra worker.profession o worker.categories)
+      for (var sub in selectedSubs) {
+        if (worker.profession.toLowerCase().contains(sub.toLowerCase())) {
+          return true;
+        }
+        // También verificar en las categorías (que contienen subcategorías cargadas)
+        for (var cat in worker.categories) {
+          if (cat.toLowerCase().contains(sub.toLowerCase()) ||
+              sub.toLowerCase().contains(cat.toLowerCase())) {
+            return true;
+          }
+        }
       }
-      _filterWorkersByLocation();
+    }
+    return false;
+  }
+
+  // Cuenta el total de subcategorías seleccionadas
+  int _getSelectedSubcategoriesCount() {
+    int count = 0;
+    for (var subs in _selectedSubcategories.values) {
+      count += subs.length;
+    }
+    return count;
+  }
+
+  // Toggle de subcategoría (compatible con ProfessionSelector)
+  void _toggleSubcategory(String category, String subcategory) {
+    setState(() {
+      if (!_selectedSubcategories.containsKey(category)) {
+        _selectedSubcategories[category] = [];
+      }
+
+      final list = _selectedSubcategories[category]!;
+      if (list.contains(subcategory)) {
+        list.remove(subcategory);
+      } else {
+        list.add(subcategory);
+      }
+
+      // Limpiar si está vacía
+      if (list.isEmpty) {
+        _selectedSubcategories.remove(category);
+      }
     });
+  }
+
+  // Limpia todas las selecciones
+  void _clearAllSelections() {
+    setState(() {
+      _selectedSubcategories.clear();
+    });
+  }
+
+  // Toggle de expansión de categoría
+  void _toggleCategoryExpansion(String category) {
+    setState(() {
+      if (_expandedCategories.contains(category)) {
+        _expandedCategories.remove(category);
+      } else {
+        _expandedCategories.add(category);
+      }
+    });
+  }
+
+  // Obtener icono para cada categoría
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Mano de obra':
+        return Icons.construction;
+      case 'Técnicos':
+        return Icons.build;
+      case 'Profesionales':
+        return Icons.work;
+      case 'Otros':
+        return Icons.more_horiz;
+      default:
+        return Icons.category;
+    }
   }
 
   void _filterWorkersByPolygon() {
     if (_searchPolygon == null || _searchPolygon!.isEmpty) return;
 
     final filtered = _workers.where((worker) {
-      // Filtrar por categoría (ahora soporta múltiples categorías)
-      if (_selectedCategories.isNotEmpty) {
-        bool hasMatchingCategory = false;
-        for (var category in worker.categories) {
-          if (_selectedCategories.contains(category)) {
-            hasMatchingCategory = true;
-            break;
-          }
-        }
-        if (!hasMatchingCategory) return false;
+      // Filtrar por subcategorías seleccionadas
+      if (_hasAnySubcategorySelected()) {
+        bool hasMatchingSubcategory = _workerMatchesSelectedSubcategories(
+          worker,
+        );
+        if (!hasMatchingSubcategory) return false;
       }
 
       final workerLocation = LatLng(worker.latitude, worker.longitude);
@@ -318,6 +423,26 @@ class _WorkerLocationSearchScreenState
       return distanceA.compareTo(distanceB);
     });
 
+    // Sort premium workers first, then by distance
+    filtered.sort((a, b) {
+      // First priority: premium status (premium first)
+      if (a.isPremium && !b.isPremium) return -1;
+      if (!a.isPremium && b.isPremium) return 1;
+
+      // Second priority: distance from polygon center
+      final distanceA = Distance().as(
+        LengthUnit.Meter,
+        center,
+        LatLng(a.latitude, a.longitude),
+      );
+      final distanceB = Distance().as(
+        LengthUnit.Meter,
+        center,
+        LatLng(b.latitude, b.longitude),
+      );
+      return distanceA.compareTo(distanceB);
+    });
+
     setState(() {
       _filteredWorkers = filtered;
     });
@@ -338,147 +463,150 @@ class _WorkerLocationSearchScreenState
     return Scaffold(
       body: Stack(
         children: [
-          // Mapa
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _mapCenter,
-              initialZoom: 14.5,
-              onPositionChanged: (position, hasGesture) {
-                if (hasGesture) {
-                  setState(() => _isLocating = false);
-                }
-              },
-              onTap: (_, __) {
-                if (_selectedWorkerIndex != -1) {
-                  setState(() => _selectedWorkerIndex = -1);
-                }
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
-                userAgentPackageName: 'com.mobiliaria.app',
+          // Mapa con padding para el status bar
+          Padding(
+            padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+            child: FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _mapCenter,
+                initialZoom: 14.5,
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture) {
+                    setState(() => _isLocating = false);
+                  }
+                },
+                onTap: (_, __) {
+                  if (_selectedWorkerIndex != -1) {
+                    setState(() => _selectedWorkerIndex = -1);
+                  }
+                },
               ),
-
-              if (_searchPolygon != null && _searchPolygon!.isNotEmpty)
-                PolygonLayer(
-                  polygons: [
-                    Polygon(
-                      points: _searchPolygon!,
-                      color: const Color(0xFF0033CC).withOpacity(0.15),
-                      borderColor: const Color(0xFF0033CC),
-                      borderStrokeWidth: 3.0,
-                      isFilled: true,
-                    ),
-                  ],
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
+                  userAgentPackageName: 'com.mobiliaria.app',
                 ),
 
-              // Círculo de radio de búsqueda (Usuario)
-              if (_userLocation != null)
-                CircleLayer(
-                  circles: [
-                    CircleMarker(
-                      point: _userLocation!,
-                      radius: _searchRadius * 1000,
-                      color: const Color(0xFF0033CC).withOpacity(0.05),
-                      borderColor: const Color(0xFF0033CC).withOpacity(0.2),
-                      borderStrokeWidth: 1,
-                      useRadiusInMeter: true,
-                    ),
-                  ],
-                ),
-
-              // Marcador de ubicación del usuario
-              if (_userLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _userLocation!,
-                      width: 24,
-                      height: 24,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0033CC),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
+                if (_searchPolygon != null && _searchPolygon!.isNotEmpty)
+                  PolygonLayer(
+                    polygons: [
+                      Polygon(
+                        points: _searchPolygon!,
+                        color: const Color(0xFF0033CC).withOpacity(0.15),
+                        borderColor: const Color(0xFF0033CC),
+                        borderStrokeWidth: 3.0,
+                        isFilled: true,
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
 
-              MarkerLayer(
-                markers: _filteredWorkers.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final worker = entry.value;
-                  final isSelected = index == _selectedWorkerIndex;
+                // Círculo de radio de búsqueda (Usuario)
+                if (_userLocation != null)
+                  CircleLayer(
+                    circles: [
+                      CircleMarker(
+                        point: _userLocation!,
+                        radius: _searchRadius * 1000,
+                        color: const Color(0xFF0033CC).withOpacity(0.05),
+                        borderColor: const Color(0xFF0033CC).withOpacity(0.2),
+                        borderStrokeWidth: 1,
+                        useRadiusInMeter: true,
+                      ),
+                    ],
+                  ),
 
-                  return Marker(
-                    point: LatLng(worker.latitude, worker.longitude),
-                    width: isSelected ? 70 : 55,
-                    height: isSelected ? 70 : 55,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedWorkerIndex = index);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
+                // Marcador de ubicación del usuario
+                if (_userLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _userLocation!,
+                        width: 24,
+                        height: 24,
+                        child: Container(
+                          decoration: BoxDecoration(
                             color: const Color(0xFF0033CC),
-                            width: isSelected ? 4 : 3,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child:
-                              worker.photoUrl != null &&
-                                  worker.photoUrl!.isNotEmpty
-                              ? Image.network(
-                                  worker.photoUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: const Color(0xFF0033CC),
-                                      child: Icon(
-                                        Icons.person,
-                                        color: Colors.white,
-                                        size: isSelected ? 35 : 28,
-                                      ),
-                                    );
-                                  },
-                                )
-                              : Container(
-                                  color: const Color(0xFF0033CC),
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: isSelected ? 35 : 28,
-                                  ),
-                                ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
+                    ],
+                  ),
+
+                MarkerLayer(
+                  markers: _filteredWorkers.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final worker = entry.value;
+                    final isSelected = index == _selectedWorkerIndex;
+
+                    return Marker(
+                      point: LatLng(worker.latitude, worker.longitude),
+                      width: isSelected ? 70 : 55,
+                      height: isSelected ? 70 : 55,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedWorkerIndex = index);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF0033CC),
+                              width: isSelected ? 4 : 3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipOval(
+                            child:
+                                worker.photoUrl != null &&
+                                    worker.photoUrl!.isNotEmpty
+                                ? Image.network(
+                                    worker.photoUrl!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: const Color(0xFF0033CC),
+                                        child: Icon(
+                                          Icons.person,
+                                          color: Colors.white,
+                                          size: isSelected ? 35 : 28,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    color: const Color(0xFF0033CC),
+                                    child: Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: isSelected ? 35 : 28,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
           ),
 
           MapDrawingDetector(
@@ -525,48 +653,70 @@ class _WorkerLocationSearchScreenState
                     colors: [Colors.black.withOpacity(0.6), Colors.transparent],
                   ),
                 ),
-                child: Column(
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.search, color: Colors.grey),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Buscar servicios...',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search, color: Colors.grey),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _hasAnySubcategorySelected()
+                                    ? '${_getSelectedSubcategoriesCount()} filtros activos'
+                                    : 'Buscar servicios...',
+                                style: TextStyle(
+                                  color: _hasAnySubcategorySelected()
+                                      ? const Color(0xFF0033CC)
+                                      : Colors.grey,
+                                  fontSize: 16,
+                                  fontWeight: _hasAnySubcategorySelected()
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                            if (_hasAnySubcategorySelected())
+                              GestureDetector(
+                                onTap: () {
+                                  _clearAllSelections();
+                                  _filterWorkersByLocation();
+                                },
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.grey,
+                                  size: 20,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Botón para abrir panel de categorías
+                    Stack(
+                      children: [
                         Container(
                           height: 50,
                           width: 50,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0033CC),
+                            color: _isCategoryPanelOpen
+                                ? Colors.white
+                                : const Color(0xFF0033CC),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
@@ -577,64 +727,371 @@ class _WorkerLocationSearchScreenState
                             ],
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.tune, color: Colors.white),
+                            icon: Icon(
+                              Icons.tune,
+                              color: _isCategoryPanelOpen
+                                  ? const Color(0xFF0033CC)
+                                  : Colors.white,
+                            ),
                             onPressed: () {
-                              // Mostrar modal de filtros avanzados
+                              setState(() {
+                                _isCategoryPanelOpen = !_isCategoryPanelOpen;
+                              });
                             },
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _categoryStyles.entries.map((entry) {
-                          final isSelected = _selectedCategories.contains(
-                            entry.key,
-                          );
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: Text(entry.key),
-                              selected: isSelected,
-                              onSelected: (_) => _toggleCategory(entry.key),
-                              backgroundColor: Colors.white,
-                              selectedColor: const Color(0xFF0033CC),
-                              labelStyle: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.black87,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                        // Badge de cantidad
+                        if (_getSelectedSubcategoriesCount() > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
                               ),
-                              avatar: Icon(
-                                entry.value['icon'],
-                                size: 18,
-                                color: isSelected
-                                    ? Colors.white
-                                    : entry.value['color'],
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(
-                                  color: isSelected
-                                      ? Colors.transparent
-                                      : Colors.grey[300]!,
+                              child: Text(
+                                '${_getSelectedSubcategoriesCount()}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                              showCheckmark: false,
                             ),
-                          );
-                        }).toList(),
-                      ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
           ),
+
+          // Panel lateral de categorías (compacto y flotante)
+          if (_isCategoryPanelOpen)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 70,
+              right: 12,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.75 > 280
+                      ? 280
+                      : MediaQuery.of(context).size.width * 0.75,
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.55,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header del panel (más compacto)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0033CC),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isCategoryPanelOpen = false;
+                                });
+                              },
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Filtrar',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (_hasAnySubcategorySelected())
+                              TextButton(
+                                onPressed: () {
+                                  _clearAllSelections();
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Limpiar',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Lista de categorías (scrollable con Flexible)
+                      Flexible(
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: professionsData.length,
+                          itemBuilder: (context, index) {
+                            final category = professionsData[index];
+                            final isExpanded = _expandedCategories.contains(
+                              category.category,
+                            );
+                            final selectedCount =
+                                _selectedSubcategories[category.category]
+                                    ?.length ??
+                                0;
+
+                            return Column(
+                              children: [
+                                // Categoría principal (expandible)
+                                InkWell(
+                                  onTap: () => _toggleCategoryExpansion(
+                                    category.category,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: selectedCount > 0
+                                          ? const Color(
+                                              0xFF0033CC,
+                                            ).withOpacity(0.05)
+                                          : Colors.transparent,
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey[200]!,
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _getCategoryIcon(category.category),
+                                          size: 22,
+                                          color: selectedCount > 0
+                                              ? const Color(0xFF0033CC)
+                                              : Colors.grey[600],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            category.category,
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: selectedCount > 0
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w500,
+                                              color: selectedCount > 0
+                                                  ? const Color(0xFF0033CC)
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        if (selectedCount > 0)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF0033CC),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              '$selectedCount',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          isExpanded
+                                              ? Icons.keyboard_arrow_up
+                                              : Icons.keyboard_arrow_down,
+                                          color: Colors.grey[500],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                // Subcategorías (si está expandido)
+                                if (isExpanded)
+                                  Container(
+                                    color: Colors.grey[50],
+                                    child: Column(
+                                      children: category.subcategories.map((
+                                        subcategory,
+                                      ) {
+                                        final isSelected =
+                                            (_selectedSubcategories[category
+                                                        .category] ??
+                                                    [])
+                                                .contains(subcategory);
+                                        return InkWell(
+                                          onTap: () {
+                                            _toggleSubcategory(
+                                              category.category,
+                                              subcategory,
+                                            );
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 12,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const SizedBox(width: 34),
+                                                Container(
+                                                  width: 22,
+                                                  height: 22,
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? const Color(
+                                                            0xFF0033CC,
+                                                          )
+                                                        : Colors.transparent,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: isSelected
+                                                          ? const Color(
+                                                              0xFF0033CC,
+                                                            )
+                                                          : Colors.grey[400]!,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: isSelected
+                                                      ? const Icon(
+                                                          Icons.check,
+                                                          size: 16,
+                                                          color: Colors.white,
+                                                        )
+                                                      : null,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Text(
+                                                    subcategory,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: isSelected
+                                                          ? const Color(
+                                                              0xFF0033CC,
+                                                            )
+                                                          : Colors.grey[700],
+                                                      fontWeight: isSelected
+                                                          ? FontWeight.w500
+                                                          : FontWeight.normal,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      // Botón Aplicar
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, -2),
+                            ),
+                          ],
+                        ),
+                        child: SafeArea(
+                          top: false,
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isCategoryPanelOpen = false;
+                                });
+                                _filterWorkersByLocation();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0033CC),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                _hasAnySubcategorySelected()
+                                    ? 'Aplicar ${_getSelectedSubcategoriesCount()} filtros'
+                                    : 'Aplicar Filtros',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // Panel deslizable con lista de trabajadores
           DraggableScrollableSheet(
@@ -874,206 +1331,279 @@ class _WorkerLocationSearchScreenState
   }
 
   Widget _buildWorkerCard(WorkerData worker, String distance) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            _incrementWorkerViews(worker.id);
-            Modular.to.pushNamed('/worker/public-profile', arguments: worker);
-          },
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Foto con indicador de estado
-                    Stack(
-                      children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            image: worker.photoUrl != null
-                                ? DecorationImage(
-                                    image: NetworkImage(worker.photoUrl!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                            color: Colors.grey[200],
-                          ),
-                          child: worker.photoUrl == null
-                              ? Icon(
-                                  Icons.person,
-                                  size: 35,
-                                  color: Colors.grey[400],
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          right: -2,
-                          top: -2,
-                          child: Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
+    // Use StreamBuilder to get real-time rating from feedback
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: LocationService.calculateWorkerRatingStream(worker.id),
+      builder: (context, ratingSnapshot) {
+        final ratingData = ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+        final rating = (ratingData['rating'] as num?)?.toDouble() ?? 0.0;
+        final reviews = (ratingData['reviews'] as num?)?.toInt() ?? 0;
+        final isPremium = worker.isPremium;
 
-                    // Info Central
-                    Expanded(
-                      child: Column(
+        // Premium gradient wrapper
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            gradient: isPremium
+                ? const LinearGradient(
+                    colors: [
+                      Color(0xFFFF6F00), // Vibrant Orange
+                      Color(0xFFFFC107), // Vibrant Yellow
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: isPremium
+                    ? const Color(0xFFFF6F00).withOpacity(0.3)
+                    : Colors.black.withOpacity(0.08),
+                blurRadius: isPremium ? 12 : 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Container(
+            margin: isPremium ? const EdgeInsets.all(3) : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(isPremium ? 17 : 20),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(isPremium ? 17 : 20),
+                onTap: () {
+                  _incrementWorkerViews(worker.id);
+                  Modular.to.pushNamed(
+                    '/worker/public-profile',
+                    arguments: worker,
+                  );
+                },
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Nombre y ubicación en la misma línea
-                          Row(
+                          // Foto con indicador de estado
+                          Stack(
                             children: [
-                              Flexible(
-                                child: Text(
-                                  worker.name,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF212121),
+                              Container(
+                                width: 70,
+                                height: 70,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  image: worker.photoUrl != null
+                                      ? DecorationImage(
+                                          image: NetworkImage(worker.photoUrl!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
+                                  color: Colors.grey[200],
+                                ),
+                                child: worker.photoUrl == null
+                                    ? Icon(
+                                        Icons.person,
+                                        size: 35,
+                                        color: Colors.grey[400],
+                                      )
+                                    : null,
+                              ),
+                              Positioned(
+                                right: -2,
+                                top: -2,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+
+                          // Info Central
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Nombre y ubicación en la misma línea
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        worker.name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF212121),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    // Mostrar nombre de taller/domicilio si existe
+                                    if (worker.locationName != null &&
+                                        worker.locationName!.isNotEmpty) ...[
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                        ),
+                                        child: Text(
+                                          '|',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                      Icon(
+                                        worker.locationType == 'home'
+                                            ? Icons.home
+                                            : Icons.store,
+                                        size: 14,
+                                        color: const Color(0xFF0033CC),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          worker.locationName!,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF0033CC),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  worker.profession,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              // Mostrar nombre de taller/domicilio si existe
-                              if (worker.locationName != null &&
-                                  worker.locationName!.isNotEmpty) ...[
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 6),
-                                  child: Text(
-                                    '|',
-                                    style: TextStyle(
-                                      fontSize: 14,
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    // Indicador de nivel (ej. Avanzado)
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.circle,
+                                          size: 8,
+                                          color: Colors.amber[700],
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.circle,
+                                          size: 8,
+                                          color: Colors.amber[700],
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.circle,
+                                          size: 8,
+                                          color: Colors.amber[700],
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Avanzado',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[700],
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      size: 16,
+                                      color: Colors.amber,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      rating.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF212121),
+                                      ),
+                                    ),
+                                    // Show reviews count if available
+                                    if (reviews > 0) ...[
+                                      Text(
+                                        ' ($reviews)',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(width: 12),
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 16,
                                       color: Colors.grey,
                                     ),
-                                  ),
-                                ),
-                                Icon(
-                                  worker.locationType == 'home'
-                                      ? Icons.home
-                                      : Icons.store,
-                                  size: 14,
-                                  color: const Color(0xFF0033CC),
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    worker.locationName!,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF0033CC),
-                                      fontWeight: FontWeight.w500,
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      distance,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey,
+                                      ),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                  ],
                                 ),
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            worker.profession,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 8),
-                          Row(
+
+                          // Precio (Derecha)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              // Indicador de nivel (ej. Avanzado)
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: Colors.amber[700],
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: Colors.amber[700],
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: Colors.amber[700],
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Avanzado',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[700],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                size: 16,
-                                color: Colors.amber,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                worker.rating.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF212121),
+                              const Text(
+                                'Desde',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              const Icon(
-                                Icons.location_on_outlined,
-                                size: 16,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(width: 2),
+                              const SizedBox(height: 2),
                               Text(
-                                distance,
+                                worker.price.isNotEmpty
+                                    ? 'Bs ${worker.price}'
+                                    : 'A convenir',
                                 style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0033CC),
                                 ),
                               ),
                             ],
@@ -1082,67 +1612,45 @@ class _WorkerLocationSearchScreenState
                       ),
                     ),
 
-                    // Precio (Derecha)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'Desde',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                    // Botón inferior
+                    Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0033CC),
+                        borderRadius: BorderRadius.vertical(
+                          bottom: Radius.circular(20),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          worker.price.isNotEmpty
-                              ? 'Bs ${worker.price}'
-                              : 'A convenir',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0033CC),
-                          ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Ver perfil completo',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.arrow_forward,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
-
-              // Botón inferior
-              Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0033CC),
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(20),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Ver perfil completo',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.arrow_forward,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -1162,6 +1670,7 @@ class WorkerData {
   final String? locationName;
   final bool isFixedLocation;
   final String? locationType;
+  final bool isPremium;
 
   WorkerData({
     required this.id,
@@ -1178,6 +1687,7 @@ class WorkerData {
     this.locationName,
     this.isFixedLocation = false,
     this.locationType,
+    this.isPremium = false,
   });
 
   // Getter para compatibilidad

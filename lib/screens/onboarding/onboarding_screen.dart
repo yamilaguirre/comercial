@@ -175,17 +175,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildPage(OnboardingPageData page) {
-    // Splash screen especial (Página 0)
+    // Splash screen especial (Página 0) con degradé azul
     if (page.isSplash) {
       return Container(
-        decoration: Styles.backgroundDecoration(),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xFF0033CC), // Azul oscuro izquierda
+              Color.fromARGB(255, 71, 140, 244), // Azul medio
+              Color.fromARGB(255, 88, 191, 243), // Azul claro / cyan derecha
+            ],
+            stops: [0.0, 0.5, 1.0],
+          ),
+        ),
         child: Center(
-          child: Hero(
-            tag: 'app_logo',
-            child: Image.asset(
-              page.imagePath, // 'assets/images/logo.png' (blanco)
-              height: 200,
-              fit: BoxFit.contain,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Hero(
+              tag: 'app_logo',
+              child: Image.asset(
+                page.imagePath, // 'assets/images/logo.png' (blanco)
+                height: 150,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),
