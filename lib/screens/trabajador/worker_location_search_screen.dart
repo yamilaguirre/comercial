@@ -193,6 +193,8 @@ class _WorkerLocationSearchScreenState
                 isFixedLocation: location['isFixed'] as bool? ?? false,
                 locationType: location['locationType'] as String?,
                 isPremium: premiumUserIds.contains(doc.id),
+                experienceLevel: (profile?['experienceLevel'] as String?) ?? 'Intermedio',
+                currency: (profile?['currency'] as String?) ?? 'Bs',
               ),
             );
           }
@@ -455,6 +457,34 @@ class _WorkerLocationSearchScreenState
       }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('Error incrementing views: $e');
+    }
+  }
+
+  // Helper para obtener color según nivel de experiencia
+  Color _getLevelColor(String level) {
+    switch (level) {
+      case 'Básico':
+        return const Color(0xFF2196F3); // Azul
+      case 'Intermedio':
+        return const Color(0xFFFF9800); // Naranja
+      case 'Avanzado':
+        return const Color(0xFF4CAF50); // Verde
+      default:
+        return const Color(0xFF9E9E9E); // Gris
+    }
+  }
+
+  // Helper para obtener icono según nivel de experiencia
+  IconData _getLevelIcon(String level) {
+    switch (level) {
+      case 'Básico':
+        return Icons.star_border;
+      case 'Intermedio':
+        return Icons.star_half;
+      case 'Avanzado':
+        return Icons.star;
+      default:
+        return Icons.circle;
     }
   }
 
@@ -1438,49 +1468,36 @@ class _WorkerLocationSearchScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Nombre y ubicación en la misma línea
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        worker.name,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF212121),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    // Mostrar nombre de taller/domicilio si existe
-                                    if (worker.locationName != null &&
-                                        worker.locationName!.isNotEmpty) ...[
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                        ),
-                                        child: Text(
-                                          '|',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
+                                // Nombre (línea separada para evitar overflow)
+                                Text(
+                                  worker.name,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF212121),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                // Ubicación (línea separada si existe)
+                                if (worker.locationName != null &&
+                                    worker.locationName!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
                                       Icon(
                                         worker.locationType == 'home'
                                             ? Icons.home
                                             : Icons.store,
-                                        size: 14,
+                                        size: 12,
                                         color: const Color(0xFF0033CC),
                                       ),
                                       const SizedBox(width: 4),
-                                      Flexible(
+                                      Expanded(
                                         child: Text(
                                           worker.locationName!,
                                           style: const TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 11,
                                             color: Color(0xFF0033CC),
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -1489,51 +1506,59 @@ class _WorkerLocationSearchScreenState
                                         ),
                                       ),
                                     ],
-                                  ],
-                                ),
+                                  ),
+                                ],
                                 const SizedBox(height: 4),
                                 Text(
                                   worker.profession,
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     color: Colors.grey[600],
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
                                 Row(
                                   children: [
-                                    // Indicador de nivel (ej. Avanzado)
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.circle,
-                                          size: 8,
-                                          color: Colors.amber[700],
+                                    // Badge de nivel de experiencia (más compacto)
+                                    Flexible(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 3,
                                         ),
-                                        const SizedBox(width: 2),
-                                        Icon(
-                                          Icons.circle,
-                                          size: 8,
-                                          color: Colors.amber[700],
-                                        ),
-                                        const SizedBox(width: 2),
-                                        Icon(
-                                          Icons.circle,
-                                          size: 8,
-                                          color: Colors.amber[700],
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Avanzado',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[700],
-                                            fontWeight: FontWeight.w500,
+                                        decoration: BoxDecoration(
+                                          color: _getLevelColor(worker.experienceLevel).withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: _getLevelColor(worker.experienceLevel),
+                                            width: 1,
                                           ),
                                         ),
-                                      ],
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              _getLevelIcon(worker.experienceLevel),
+                                              size: 10,
+                                              color: _getLevelColor(worker.experienceLevel),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Flexible(
+                                              child: Text(
+                                                worker.experienceLevel,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: _getLevelColor(worker.experienceLevel),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1584,27 +1609,30 @@ class _WorkerLocationSearchScreenState
                             ),
                           ),
 
-                          // Precio (Derecha)
+                          // Precio (Derecha) - Más compacto
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text(
                                 'Desde',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   color: Colors.grey,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 worker.price.isNotEmpty
-                                    ? 'Bs ${worker.price}'
-                                    : 'A convenir',
+                                    ? '${worker.currency} ${worker.price}'
+                                    : 'Convenir',
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF0033CC),
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
@@ -1671,6 +1699,8 @@ class WorkerData {
   final bool isFixedLocation;
   final String? locationType;
   final bool isPremium;
+  final String experienceLevel;
+  final String currency;
 
   WorkerData({
     required this.id,
@@ -1688,6 +1718,8 @@ class WorkerData {
     this.isFixedLocation = false,
     this.locationType,
     this.isPremium = false,
+    this.experienceLevel = 'Intermedio',
+    this.currency = 'Bs',
   });
 
   // Getter para compatibilidad

@@ -779,6 +779,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                                   ['Servicios'],
                               workerLocation: workerLocation,
                               experienceLevel: profileMap?['experienceLevel'] as String? ?? '',
+                              currency: (profileMap?['currency'] as String?) ?? 'Bs',
                             );
                           },
                         );
@@ -910,6 +911,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     ['Servicios'],
                 workerLocation: workerLocation,
                 experienceLevel: profileMap?['experienceLevel'] as String? ?? '',
+                currency: (profileMap?['currency'] as String?) ?? 'Bs',
               );
             },
           );
@@ -933,6 +935,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required List<String> categories,
     Map<String, dynamic>? workerLocation,
     required String experienceLevel,
+    required String currency,
   }) {
     final authService = Provider.of<AuthService>(context, listen: false);
 
@@ -1196,7 +1199,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                             ),
                           ),
                           Text(
-                            price,
+                            '$currency $price',
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -1314,6 +1317,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required List<String> categories,
     Map<String, dynamic>? workerLocation,
     required String experienceLevel,
+    required String currency,
   }) {
     final authService = context.read<AuthService>();
     final currentUserId = authService.currentUser?.uid ?? '';
@@ -1334,6 +1338,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             rating: rating,
             phone: phone,
             price: price,
+            currency: currency,
           ),
         );
       },
@@ -1578,7 +1583,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     const SizedBox(height: 4),
                     // Price
                     Text(
-                      price.isNotEmpty ? 'Bs $price' : 'Consultar',
+                      price.isNotEmpty ? '$currency $price' : 'Consultar',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
