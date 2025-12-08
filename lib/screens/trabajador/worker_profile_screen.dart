@@ -15,6 +15,64 @@ class WorkerProfileScreen extends StatefulWidget {
 }
 
 class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
+  Future<void> _deleteWorkerProfile(String userId) async {
+    try {
+      // Mostrar indicador de carga
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(color: Styles.primaryColor),
+          ),
+        );
+      }
+
+      // Eliminar datos del perfil de trabajador en Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'profile': FieldValue.delete(),
+        'professions': FieldValue.delete(),
+        'price': FieldValue.delete(),
+        'profession': FieldValue.delete(),
+      });
+
+      // Cerrar indicador de carga
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Mostrar mensaje de éxito
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Perfil de trabajador eliminado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Redirigir a la pantalla de registro de trabajador
+      if (mounted) {
+        Modular.to.pushReplacementNamed('/worker/freelance-work');
+      }
+    } catch (e) {
+      // Cerrar indicador de carga
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Mostrar mensaje de error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al eliminar perfil: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -217,9 +275,66 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                                       Modular.to.navigate('/');
                                                     }
                                                   }
+                                                } else if (value == 'delete_profile') {
+                                                  // Confirmar eliminación de perfil de trabajador
+                                                  final confirmDelete =
+                                                      await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (context) => AlertDialog(
+                                                          title: const Text(
+                                                            'Eliminar Perfil de Trabajador',
+                                                          ),
+                                                          content: const Text(
+                                                            '¿Estás seguro de que deseas eliminar tu perfil de trabajador? Se eliminarán todos tus datos profesionales, portafolio y profesiones registradas. Esta acción no se puede deshacer.',
+                                                          ),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                    context,
+                                                                    false,
+                                                                  ),
+                                                              child: const Text(
+                                                                'Cancelar',
+                                                              ),
+                                                            ),
+                                                            TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                    context,
+                                                                    true,
+                                                                  ),
+                                                              child: const Text(
+                                                                'Eliminar',
+                                                                style: TextStyle(
+                                                                  color: Colors
+                                                                      .red,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+
+                                                  if (confirmDelete == true) {
+                                                    await _deleteWorkerProfile(user.uid);
+                                                  }
                                                 }
                                               },
                                               itemBuilder: (context) => [
+                                                const PopupMenuItem(
+                                                  value: 'delete_profile',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.delete_forever,
+                                                        color: Colors.red,
+                                                      ),
+                                                      SizedBox(width: 12),
+                                                      Text('Eliminar Perfil Trabajador', style: TextStyle(color: Colors.red)),
+                                                    ],
+                                                  ),
+                                                ),
                                                 const PopupMenuItem(
                                                   value: 'logout',
                                                   child: Row(
