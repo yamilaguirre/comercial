@@ -19,12 +19,12 @@ class WorkerRepublishService {
         return true;
       }
 
-      // Verificar si han pasado 4 horas (14400 segundos)
+      // Verificar si han pasado 7 días
       final now = DateTime.now();
       final lastRepublishDate = lastRepublish.toDate();
       final difference = now.difference(lastRepublishDate);
 
-      return difference.inHours >= 4;
+      return difference.inDays >= 7;
     } catch (e) {
       print('Error checking republish eligibility: $e');
       return false;
@@ -46,7 +46,7 @@ class WorkerRepublishService {
 
       final now = DateTime.now();
       final lastRepublishDate = lastRepublish.toDate();
-      final nextRepublishDate = lastRepublishDate.add(const Duration(hours: 4));
+      final nextRepublishDate = lastRepublishDate.add(const Duration(days: 7));
 
       if (now.isAfter(nextRepublishDate)) {
         return Duration.zero; // Puede republicarse ya
@@ -59,7 +59,7 @@ class WorkerRepublishService {
     }
   }
 
-  // Re-publicar trabajador (actualizar timestamp)
+  // Re-publicar trabajador (actualizar timestamp y programar notificación)
   Future<bool> republishWorker(String userId) async {
     try {
       // Verificar si puede republicarse
@@ -71,6 +71,11 @@ class WorkerRepublishService {
       // Actualizar timestamp de última re-publicación
       await _firestore.collection('users').doc(userId).update({
         'lastRepublish': FieldValue.serverTimestamp(),
+      });
+
+      // Programar notificación para dentro de 7 días
+      Future.delayed(const Duration(days: 7), () async {
+        await _notificationService.createRepublishNotification(userId: userId);
       });
 
       return true;

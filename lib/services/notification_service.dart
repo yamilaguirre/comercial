@@ -203,7 +203,7 @@ class NotificationService {
       final docRef = await _firestore.collection('notifications').add({
         'type': NotificationType.message.toFirestore(),
         'title': '📢 ¡Destaca tu perfil!',
-        'message': 'Han pasado 4 horas. Re-publica tu perfil para aparecer al inicio de la lista y conseguir más clientes.',
+        'message': 'Han pasado 7 días. Re-publica tu perfil para aparecer al inicio de la lista y conseguir más clientes.',
         'user_id': userId,
         'created_at': FieldValue.serverTimestamp(),
         'metadata': {'action': 'republish_worker'},
