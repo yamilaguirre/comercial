@@ -378,10 +378,7 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
         ),
         Text(
           label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11),
         ),
       ],
     );
@@ -414,15 +411,13 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
             _userData?['email'] ?? 'No disponible',
             () => _contactAgent('email'),
           ),
-          if (_userData?['phoneNumber'] != null) ...[
-            const SizedBox(height: 16),
-            _buildContactTile(
-              Icons.phone_outlined,
-              'Teléfono',
-              _userData?['phoneNumber'],
-              () => _contactAgent('call'),
-            ),
-          ],
+          const SizedBox(height: 16),
+          _buildContactTile(
+            Icons.phone_outlined,
+            'Teléfono',
+            _userData?['phoneNumber'] ?? 'No disponible',
+            () => _contactAgent('call'),
+          ),
           const SizedBox(height: 80), // Espacio para el bottom bar
         ],
       ),

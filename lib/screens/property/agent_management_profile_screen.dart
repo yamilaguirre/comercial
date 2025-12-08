@@ -326,11 +326,7 @@ class _AgentManagementProfileScreenState
               IconButton(
                 icon: Icon(Icons.edit_outlined, color: Styles.primaryColor),
                 onPressed: () {
-                  // Asumo que '/property/account/edit-profile' está anidado en /account
-                  Modular.to.pushNamed(
-                    '/property/account/edit-profile',
-                    arguments: userData,
-                  );
+                  Modular.to.pushNamed('/property/edit-profile');
                 },
               ),
             ],

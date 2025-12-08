@@ -18,8 +18,8 @@ import '../../screens/property/subscription_status_screen.dart';
 import '../../screens/property/subscription_qr_payment_screen.dart';
 import '../../providers/mobiliaria_provider.dart';
 import '../../screens/common/map_picker_screen.dart';
-import '../../screens/profile/edit_profile_screen.dart';
 import '../../../models/saved_collection_model.dart';
+import '../../screens/property/edit_profile_screen.dart';
 
 class PropertyModule extends Module {
   @override
@@ -53,11 +53,6 @@ class PropertyModule extends Module {
           '/account',
           child: (context) => const PropertyAccountScreen(),
         ),
-        // RUTA DE EDICIÓN DE PERFIL (Se usa la pantalla de gestión como perfil de edición)
-        ChildRoute(
-          '/account/edit-profile', // Anidada bajo /account
-          child: (context) => const AgentManagementProfileScreen(),
-        ),
       ],
     );
 
@@ -77,10 +72,7 @@ class PropertyModule extends Module {
       '/subscription-payment',
       child: (context) => const SubscriptionQRPaymentScreen(),
     );
-    r.child(
-      '/edit-profile',
-      child: (context) => EditProfileScreen(userData: Modular.args.data),
-    );
+    r.child('/edit-profile', child: (context) => const EditProfileScreen());
 
     // RUTAS DE CHAT
     r.child(

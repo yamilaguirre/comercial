@@ -23,13 +23,9 @@ class _PropertyVerificationScreenState
 
   File? _ciFront;
   File? _ciBack;
-  File? _photoFront;
-  File? _photoSide;
 
   String? _ciFrontUrl;
   String? _ciBackUrl;
-  String? _photoFrontUrl;
-  String? _photoSideUrl;
 
   String _status = 'unverified';
   String? _rejectionReason;
@@ -66,8 +62,6 @@ class _PropertyVerificationScreenState
               _rejectionReason = requestData['rejectionReason'];
               _ciFrontUrl = requestData['ciFrontUrl'];
               _ciBackUrl = requestData['ciBackUrl'];
-              _photoFrontUrl = requestData['photoFrontUrl'];
-              _photoSideUrl = requestData['photoSideUrl'];
             }
           });
         }
@@ -94,12 +88,6 @@ class _PropertyVerificationScreenState
             case 'ciBack':
               _ciBack = File(image.path);
               break;
-            case 'photoFront':
-              _photoFront = File(image.path);
-              break;
-            case 'photoSide':
-              _photoSide = File(image.path);
-              break;
           }
         });
       }
@@ -121,13 +109,11 @@ class _PropertyVerificationScreenState
   }
 
   Future<void> _submitVerification() async {
-    if (_ciFront == null && _ciFrontUrl == null ||
-        _ciBack == null && _ciBackUrl == null ||
-        _photoFront == null && _photoFrontUrl == null ||
-        _photoSide == null && _photoSideUrl == null) {
+    if ((_ciFront == null && _ciFrontUrl == null) ||
+        (_ciBack == null && _ciBackUrl == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor sube todas las fotos requeridas'),
+          content: Text('Por favor sube el CI anverso y reverso'),
         ),
       );
       return;
@@ -146,18 +132,9 @@ class _PropertyVerificationScreenState
       final ciBackUrl = _ciBack != null
           ? await _uploadFile(_ciBack!, 'verification/${user.uid}')
           : _ciBackUrl;
-      final photoFrontUrl = _photoFront != null
-          ? await _uploadFile(_photoFront!, 'verification/${user.uid}')
-          : _photoFrontUrl;
-      final photoSideUrl = _photoSide != null
-          ? await _uploadFile(_photoSide!, 'verification/${user.uid}')
-          : _photoSideUrl;
 
-      if (ciFrontUrl == null ||
-          ciBackUrl == null ||
-          photoFrontUrl == null ||
-          photoSideUrl == null) {
-        throw Exception('Error al subir una o más imágenes');
+      if (ciFrontUrl == null || ciBackUrl == null) {
+        throw Exception('Error al subir las imágenes del CI');
       }
 
       await FirebaseFirestore.instance
@@ -171,8 +148,6 @@ class _PropertyVerificationScreenState
             'submittedAt': FieldValue.serverTimestamp(),
             'ciFrontUrl': ciFrontUrl,
             'ciBackUrl': ciBackUrl,
-            'photoFrontUrl': photoFrontUrl,
-            'photoSideUrl': photoSideUrl,
           });
 
       await FirebaseFirestore.instance
@@ -254,8 +229,6 @@ class _PropertyVerificationScreenState
                     const SizedBox(height: 10),
                     _buildImagePreview('CI Anverso', _ciFrontUrl, null),
                     _buildImagePreview('CI Reverso', _ciBackUrl, null),
-                    _buildImagePreview('Foto Frontal', _photoFrontUrl, null),
-                    _buildImagePreview('Foto Lateral', _photoSideUrl, null),
                   ] else ...[
                     if (_status == 'rejected')
                       _buildStatusCard(
@@ -268,7 +241,7 @@ class _PropertyVerificationScreenState
                       ),
 
                     const Text(
-                      'Sube tus documentos para verificar tu identidad y obtener la insignia de verificado.',
+                      'Sube tu documento de identidad (CI) para verificar tu cuenta y obtener la insignia de verificado.',
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                     const SizedBox(height: 24),
@@ -298,37 +271,6 @@ class _PropertyVerificationScreenState
                             'ciBack',
                             _ciBack,
                             _ciBackUrl,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Fotos Personales',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildImageUpload(
-                            'Frontal',
-                            'photoFront',
-                            _photoFront,
-                            _photoFrontUrl,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildImageUpload(
-                            'Lateral',
-                            'photoSide',
-                            _photoSide,
-                            _photoSideUrl,
                           ),
                         ),
                       ],

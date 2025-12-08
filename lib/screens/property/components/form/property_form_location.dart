@@ -35,61 +35,53 @@ class PropertyFormLocation extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: selectedDepartment,
-                decoration: InputDecoration(
-                  labelText: 'Departamento',
-                  prefixIcon: Icon(Icons.map, color: Styles.primaryColor),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                items: regions.keys.map((String value) {
+        DropdownButtonFormField<String>(
+          value: selectedDepartment,
+          decoration: InputDecoration(
+            labelText: 'Departamento',
+            prefixIcon: Icon(Icons.map, color: Styles.primaryColor),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+          items: regions.keys.map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value),
+            );
+          }).toList(),
+          onChanged: onDepartmentChanged,
+          validator: (value) =>
+              value == null ? 'Selecciona un departamento' : null,
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: selectedZone,
+          decoration: InputDecoration(
+            labelText: 'Zona',
+            prefixIcon: Icon(
+              Icons.location_city,
+              color: Styles.primaryColor,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
+          items: selectedDepartment != null
+              ? regions[selectedDepartment]!.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
                     child: Text(value),
                   );
-                }).toList(),
-                onChanged: onDepartmentChanged,
-                validator: (value) =>
-                    value == null ? 'Selecciona un departamento' : null,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: selectedZone,
-                decoration: InputDecoration(
-                  labelText: 'Zona',
-                  prefixIcon: Icon(
-                    Icons.location_city,
-                    color: Styles.primaryColor,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                items: selectedDepartment != null
-                    ? regions[selectedDepartment]!.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList()
-                    : [],
-                onChanged: onZoneChanged,
-                validator: (value) =>
-                    value == null ? 'Selecciona una zona' : null,
-              ),
-            ),
-          ],
+                }).toList()
+              : [],
+          onChanged: onZoneChanged,
+          validator: (value) =>
+              value == null ? 'Selecciona una zona' : null,
         ),
         const SizedBox(height: 24),
         const Text(

@@ -215,10 +215,23 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
 
         // Auto-seleccionar solo para nueva propiedad
         if (_propertyToEdit == null && _regions.isNotEmpty) {
-          _selectedDepartment ??= _regions.keys.first;
-          if (_selectedDepartment != null) {
-            final zones = _regions[_selectedDepartment];
-            _selectedZone ??= zones?.isNotEmpty == true ? zones!.first : null;
+          // Intentar establecer Cochabamba como valor por defecto
+          if (_regions.containsKey('Cochabamba')) {
+            _selectedDepartment ??= 'Cochabamba';
+            final zones = _regions['Cochabamba'];
+            // Intentar establecer Centro (Cercado) como valor por defecto
+            if (zones != null && zones.contains('Centro (Cercado)')) {
+              _selectedZone ??= 'Centro (Cercado)';
+            } else if (zones?.isNotEmpty == true) {
+              _selectedZone ??= zones!.first;
+            }
+          } else {
+            // Fallback a primer departamento disponible
+            _selectedDepartment ??= _regions.keys.first;
+            if (_selectedDepartment != null) {
+              final zones = _regions[_selectedDepartment];
+              _selectedZone ??= zones?.isNotEmpty == true ? zones!.first : null;
+            }
           }
         }
       });
