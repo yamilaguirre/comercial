@@ -203,7 +203,13 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
           IconButton(
             icon: const Icon(Icons.search, color: Colors.black),
             onPressed: () {
-              // TODO: Implementar búsqueda
+              showSearch(
+                context: context,
+                delegate: FavoritesSearchDelegate(
+                  userId: userId,
+                  savedService: _savedService,
+                ),
+              );
             },
           ),
         ],
@@ -1080,6 +1086,426 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
           },
         );
       },
+    );
+  }
+}
+
+// Delegate para búsqueda de trabajadores guardados/favoritos
+class FavoritesSearchDelegate extends SearchDelegate<String> {
+  final String userId;
+  final WorkerSavedService savedService;
+
+  FavoritesSearchDelegate({
+    required this.userId,
+    required this.savedService,
+  });
+
+  @override
+  String get searchFieldLabel => 'Buscar trabajador...';
+
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.clear),
+        onPressed: () {
+          query = '';
+        },
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () {
+        close(context, '');
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  Widget _buildSearchResults(BuildContext context) {
+    if (query.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search, size: 48, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              'Busca por nombre o profesión',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: savedService.getFilteredSavedWorkers(userId, ContactFilter.all),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No hay trabajadores guardados'));
+        }
+
+        // Filtrar por búsqueda
+        final workers = snapshot.data!.where((data) {
+          final name = (data['name'] ?? '').toString().toLowerCase();
+          final profileMap = data['profile'] as Map<String, dynamic>?;
+          
+          String profession = (data['profession'] as String? ?? 
+                              profileMap?['profession'] as String? ?? '')
+                              .toString()
+                              .toLowerCase();
+          
+          final professionsData = (data['professions'] as List<dynamic>?) ??
+                                 (profileMap?['professions'] as List<dynamic>?);
+          
+          if (professionsData != null && professionsData.isNotEmpty) {
+            for (var prof in professionsData) {
+              final profMap = prof as Map<String, dynamic>?;
+              final category = (profMap?['category'] as String? ?? '').toLowerCase();
+              final subcategories = profMap?['subcategories'] as List<dynamic>?;
+              
+              if (category.contains(query.toLowerCase())) {
+                return true;
+              }
+              
+              if (subcategories != null) {
+                for (var sub in subcategories) {
+                  if (sub.toString().toLowerCase().contains(query.toLowerCase())) {
+                    return true;
+                  }
+                }
+              }
+            }
+          }
+
+          return name.contains(query.toLowerCase()) ||
+                 profession.contains(query.toLowerCase());
+        }).toList();
+
+        if (workers.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'No se encontraron resultados para "$query"',
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return StreamBuilder<Position>(
+          stream: Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 10,
+            ),
+          ),
+          builder: (context, positionSnapshot) {
+            final userLocation = positionSnapshot.data;
+
+            return GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 200,
+                childAspectRatio: 0.62,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: workers.length,
+              itemBuilder: (context, index) {
+                final data = workers[index];
+                final workerId = data['id'] as String;
+                final name = data['name'] ?? 'Sin nombre';
+
+                // Calcular distancia
+                String distance = '';
+                final workerLocation = data['location'] as Map<String, dynamic>?;
+
+                if (workerLocation != null && userLocation != null) {
+                  final workerLat = (workerLocation['latitude'] as num?)?.toDouble();
+                  final workerLng = (workerLocation['longitude'] as num?)?.toDouble();
+
+                  if (workerLat != null && workerLng != null) {
+                    final distanceInMeters = Geolocator.distanceBetween(
+                      userLocation.latitude,
+                      userLocation.longitude,
+                      workerLat,
+                      workerLng,
+                    );
+                    final distanceKm = distanceInMeters / 1000;
+
+                    if (distanceKm < 1) {
+                      distance = '${distanceInMeters.toInt()}m';
+                    } else {
+                      distance = '${distanceKm.toStringAsFixed(1)} km';
+                    }
+                  }
+                }
+
+                // Extraer profesión
+                final profileMap = data['profile'] as Map<String, dynamic>?;
+                String profession = (data['profession'] as String? ??
+                        profileMap?['profession'] as String? ??
+                        '')
+                    .toString();
+                final professionsData = (data['professions'] as List<dynamic>?) ??
+                    (profileMap?['professions'] as List<dynamic>?);
+                
+                if (profession.isEmpty) {
+                  profession = 'Sin profesión especificada';
+                }
+                
+                if (professionsData != null && professionsData.isNotEmpty) {
+                  final List<String> allSubcategories = [];
+
+                  for (var prof in professionsData) {
+                    final profMap = prof as Map<String, dynamic>?;
+                    final subcategories = profMap?['subcategories'] as List<dynamic>?;
+
+                    if (subcategories != null && subcategories.isNotEmpty) {
+                      allSubcategories.addAll(
+                        subcategories.map((s) => s.toString()),
+                      );
+                    }
+                  }
+
+                  if (profession == 'Sin profesión especificada') {
+                    if (allSubcategories.isNotEmpty) {
+                      profession = allSubcategories.take(2).join(' • ');
+                    } else {
+                      final firstProfession =
+                          professionsData[0] as Map<String, dynamic>?;
+                      final category =
+                          firstProfession?['category'] as String? ?? '';
+                      if (category.isNotEmpty) {
+                        profession = category;
+                      }
+                    }
+                  }
+                }
+
+                return StreamBuilder<Map<String, dynamic>>(
+                  stream: LocationService.calculateWorkerRatingStream(workerId),
+                  builder: (context, ratingSnapshot) {
+                    final ratingData = ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+                    final rating = (ratingData['rating'] as num).toDouble();
+                    final reviews = ratingData['reviews'] as int;
+
+                    return _SearchFavoriteCard(
+                      workerId: workerId,
+                      name: name,
+                      profession: profession,
+                      rating: rating,
+                      reviews: reviews,
+                      price: (data['price']?.toString() ?? '').trim(),
+                      distance: distance,
+                      photoUrl: data['photoUrl'] as String?,
+                      phone: data['phoneNumber'] as String? ?? '',
+                      latitude: workerLocation?['latitude'] as double? ?? 0.0,
+                      longitude: workerLocation?['longitude'] as double? ?? 0.0,
+                      categories: professionsData
+                              ?.map(
+                                (p) =>
+                                    (p as Map<String, dynamic>?)?['category']
+                                        ?.toString() ??
+                                    '',
+                              )
+                              .where((c) => c.isNotEmpty)
+                              .toList() ??
+                          ['Servicios'],
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// Widget para tarjeta compacta en búsqueda
+class _SearchFavoriteCard extends StatelessWidget {
+  final String workerId;
+  final String name;
+  final String profession;
+  final double rating;
+  final int reviews;
+  final String price;
+  final String distance;
+  final String? photoUrl;
+  final String phone;
+  final double latitude;
+  final double longitude;
+  final List<String> categories;
+
+  const _SearchFavoriteCard({
+    required this.workerId,
+    required this.name,
+    required this.profession,
+    required this.rating,
+    required this.reviews,
+    required this.price,
+    required this.distance,
+    this.photoUrl,
+    required this.phone,
+    required this.latitude,
+    required this.longitude,
+    required this.categories,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Modular.to.pushNamed(
+          '/worker/public-profile',
+          arguments: WorkerData(
+            id: workerId,
+            name: name,
+            profession: profession,
+            categories: categories,
+            latitude: latitude,
+            longitude: longitude,
+            photoUrl: photoUrl,
+            rating: rating,
+            phone: phone,
+            price: price,
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Imagen de perfil
+            Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                image: photoUrl != null && photoUrl!.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(photoUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: photoUrl == null || photoUrl!.isEmpty
+                  ? Icon(Icons.person, size: 50, color: Colors.grey[400])
+                  : null,
+            ),
+            // Contenido
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    if (profession != 'Sin profesión especificada')
+                      Text(
+                        profession,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, size: 12, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        if (distance.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              distance,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (price.isNotEmpty)
+                      Text(
+                        'Bs $price',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF001BB7),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -21,11 +21,19 @@ class WorkerSavedScreen extends StatefulWidget {
 
 class _WorkerSavedScreenState extends State<WorkerSavedScreen> {
   bool _locationInitialized = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _initializeWorkerLocation();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeWorkerLocation() async {
@@ -67,7 +75,12 @@ class _WorkerSavedScreenState extends State<WorkerSavedScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: Colors.black87),
-            onPressed: () {},
+            onPressed: () {
+              showSearch(
+                context: context,
+                delegate: WorkerSearchDelegate(currentUserId: currentUserId),
+              );
+            },
           ),
         ],
       ),
@@ -942,6 +955,457 @@ class _WorkerSavedScreenState extends State<WorkerSavedScreen> {
           },
         );
       },
+    );
+  }
+}
+
+// Delegate para búsqueda de trabajadores guardados
+class WorkerSearchDelegate extends SearchDelegate<String> {
+  final String currentUserId;
+
+  WorkerSearchDelegate({required this.currentUserId});
+
+  @override
+  String get searchFieldLabel => 'Buscar trabajador guardado...';
+
+  @override
+  List<Widget> buildActions(BuildContext context) {
+    return [
+      IconButton(
+        icon: const Icon(Icons.clear),
+        onPressed: () {
+          query = '';
+        },
+      ),
+    ];
+  }
+
+  @override
+  Widget buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () {
+        close(context, '');
+      },
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults(context);
+  }
+
+  Widget _buildSearchResults(BuildContext context) {
+    if (query.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Busca por nombre o profesión',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId)
+          .snapshots(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!userSnapshot.hasData) {
+          return const Center(child: Text('No hay trabajadores guardados'));
+        }
+
+        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+        final favoriteWorkers =
+            (userData?['favoriteWorkers'] as List<dynamic>?) ?? [];
+
+        if (favoriteWorkers.isEmpty) {
+          return const Center(child: Text('No hay trabajadores guardados'));
+        }
+
+        return FutureBuilder<List<DocumentSnapshot>>(
+          future: Future.wait(
+            favoriteWorkers.map((workerId) {
+              return FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(workerId)
+                  .get();
+            }),
+          ),
+          builder: (context, workersSnapshot) {
+            if (workersSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!workersSnapshot.hasData || workersSnapshot.data!.isEmpty) {
+              return const Center(
+                child: Text('No hay trabajadores guardados'),
+              );
+            }
+
+            // Filtrar trabajadores por búsqueda
+            final workers = workersSnapshot.data!.where((doc) {
+              if (!doc.exists) return false;
+
+              final data = doc.data() as Map<String, dynamic>;
+              final name = (data['name'] ?? '').toString().toLowerCase();
+              final profileMap = data['profile'] as Map<String, dynamic>?;
+              
+              // Buscar en profesiones
+              String profession = (data['profession'] as String? ?? 
+                                  profileMap?['profession'] as String? ?? '')
+                                  .toString()
+                                  .toLowerCase();
+              
+              final professionsData = (data['professions'] as List<dynamic>?) ??
+                                     (profileMap?['professions'] as List<dynamic>?);
+              
+              if (professionsData != null && professionsData.isNotEmpty) {
+                for (var prof in professionsData) {
+                  final profMap = prof as Map<String, dynamic>?;
+                  final category = (profMap?['category'] as String? ?? '').toLowerCase();
+                  final subcategories = profMap?['subcategories'] as List<dynamic>?;
+                  
+                  if (category.contains(query.toLowerCase())) {
+                    return true;
+                  }
+                  
+                  if (subcategories != null) {
+                    for (var sub in subcategories) {
+                      if (sub.toString().toLowerCase().contains(query.toLowerCase())) {
+                        return true;
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Buscar en nombre o profesión
+              return name.contains(query.toLowerCase()) ||
+                     profession.contains(query.toLowerCase());
+            }).toList();
+
+            if (workers.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No se encontraron resultados para "$query"',
+                      style: const TextStyle(color: Colors.grey, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return StreamBuilder<Position>(
+              stream: Geolocator.getPositionStream(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.high,
+                  distanceFilter: 10,
+                ),
+              ),
+              builder: (context, positionSnapshot) {
+                final userLocation = positionSnapshot.data;
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: workers.length,
+                  itemBuilder: (context, index) {
+                    final workerDoc = workers[index];
+                    final data = workerDoc.data() as Map<String, dynamic>;
+                    final name = data['name'] ?? 'Sin nombre';
+
+                    // Calcular distancia
+                    String distance = '';
+                    final workerLocation =
+                        data['location'] as Map<String, dynamic>?;
+
+                    if (workerLocation != null && userLocation != null) {
+                      final workerLat =
+                          (workerLocation['latitude'] as num?)?.toDouble();
+                      final workerLng =
+                          (workerLocation['longitude'] as num?)?.toDouble();
+
+                      if (workerLat != null && workerLng != null) {
+                        final distanceInMeters = Geolocator.distanceBetween(
+                          userLocation.latitude,
+                          userLocation.longitude,
+                          workerLat,
+                          workerLng,
+                        );
+                        final distanceKm = distanceInMeters / 1000;
+
+                        if (distanceKm < 1) {
+                          distance = '${distanceInMeters.toInt()}m';
+                        } else {
+                          distance = '${distanceKm.toStringAsFixed(1)} km';
+                        }
+                      }
+                    }
+
+                    // Extraer profesión
+                    final profileMap =
+                        data['profile'] as Map<String, dynamic>?;
+                    String profession = (data['profession'] as String? ??
+                            profileMap?['profession'] as String? ??
+                            '')
+                        .toString();
+                    final professionsData =
+                        (data['professions'] as List<dynamic>?) ??
+                            (profileMap?['professions'] as List<dynamic>?);
+                    
+                    if (profession.isEmpty) {
+                      profession = 'Sin profesión especificada';
+                    }
+                    
+                    if (professionsData != null &&
+                        professionsData.isNotEmpty) {
+                      final List<String> allSubcategories = [];
+
+                      for (var prof in professionsData) {
+                        final profMap = prof as Map<String, dynamic>?;
+                        final subcategories =
+                            profMap?['subcategories'] as List<dynamic>?;
+
+                        if (subcategories != null &&
+                            subcategories.isNotEmpty) {
+                          allSubcategories.addAll(
+                            subcategories.map((s) => s.toString()),
+                          );
+                        }
+                      }
+
+                      if (profession == 'Sin profesión especificada') {
+                        if (allSubcategories.isNotEmpty) {
+                          profession =
+                              allSubcategories.take(2).join(' • ');
+                        } else {
+                          final firstProfession =
+                              professionsData[0] as Map<String, dynamic>?;
+                          final category =
+                              firstProfession?['category'] as String? ?? '';
+                          if (category.isNotEmpty) {
+                            profession = category;
+                          }
+                        }
+                      }
+                    }
+
+                    return StreamBuilder<Map<String, dynamic>>(
+                      stream: LocationService.calculateWorkerRatingStream(
+                        workerDoc.id,
+                      ),
+                      builder: (context, ratingSnapshot) {
+                        final ratingData = ratingSnapshot.data ??
+                            {'rating': 0.0, 'reviews': 0};
+
+                        final rating =
+                            (ratingData['rating'] as num).toDouble();
+                        final reviews = ratingData['reviews'] as int;
+
+                        return _SearchWorkerCard(
+                          workerId: workerDoc.id,
+                          name: name,
+                          profession: profession,
+                          rating: rating,
+                          reviews: reviews,
+                          price: (data['price']?.toString() ?? '').trim(),
+                          distance: distance,
+                          photoUrl: data['photoUrl'] as String?,
+                          phone: data['phoneNumber'] as String? ?? '',
+                          latitude:
+                              workerLocation?['latitude'] as double? ?? 0.0,
+                          longitude:
+                              workerLocation?['longitude'] as double? ?? 0.0,
+                          categories: professionsData
+                                  ?.map(
+                                    (p) =>
+                                        (p as Map<String, dynamic>?)?[
+                                            'category']
+                                            ?.toString() ??
+                                        '',
+                                  )
+                                  .where((c) => c.isNotEmpty)
+                                  .toList() ??
+                              ['Servicios'],
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// Widget simplificado para resultados de búsqueda
+class _SearchWorkerCard extends StatelessWidget {
+  final String workerId;
+  final String name;
+  final String profession;
+  final double rating;
+  final int reviews;
+  final String price;
+  final String distance;
+  final String? photoUrl;
+  final String phone;
+  final double latitude;
+  final double longitude;
+  final List<String> categories;
+
+  const _SearchWorkerCard({
+    required this.workerId,
+    required this.name,
+    required this.profession,
+    required this.rating,
+    required this.reviews,
+    required this.price,
+    required this.distance,
+    this.photoUrl,
+    required this.phone,
+    required this.latitude,
+    required this.longitude,
+    required this.categories,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          Modular.to.pushNamed(
+            '/worker/public-profile',
+            arguments: WorkerData(
+              id: workerId,
+              name: name,
+              profession: profession,
+              categories: categories,
+              latitude: latitude,
+              longitude: longitude,
+              photoUrl: photoUrl,
+              rating: rating,
+              phone: phone,
+              price: price,
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.grey[200],
+                backgroundImage:
+                    photoUrl != null && photoUrl!.isNotEmpty
+                        ? NetworkImage(photoUrl!)
+                        : null,
+                child: photoUrl == null || photoUrl!.isEmpty
+                    ? Icon(Icons.person, size: 30, color: Colors.grey[400])
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      profession,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, size: 14, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        if (distance.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Icon(Icons.location_on,
+                              size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 2),
+                          Text(
+                            distance,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (price.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Desde',
+                      style: TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                    Text(
+                      'Bs $price',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF001BB7),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
