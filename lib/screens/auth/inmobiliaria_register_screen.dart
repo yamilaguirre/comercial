@@ -30,6 +30,8 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
   String? _errorMessage;
   File? _logoImage;
   final ImagePicker _picker = ImagePicker();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -210,21 +212,38 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
                   controller: _companyNameController,
                   label: 'Nombre de la Empresa',
                   hint: 'Ej: Inmobiliaria ABC',
-                  validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Campo requerido';
+                    if (v!.length < 3) return 'Mínimo 3 caracteres';
+                    if (v.length > 100) return 'Máximo 100 caracteres';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingMedium),
                 _buildTextField(
                   controller: _rucController,
                   label: 'RUC/NIT',
                   hint: 'Número de identificación tributaria',
-                  validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Campo requerido';
+                    if (!RegExp(r'^[0-9]+$').hasMatch(v!)) return 'Solo números';
+                    if (v.length < 8) return 'Mínimo 8 dígitos';
+                    if (v.length > 15) return 'Máximo 15 dígitos';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingMedium),
                 _buildTextField(
                   controller: _addressController,
                   label: 'Dirección',
                   hint: 'Dirección de la oficina principal',
-                  validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Campo requerido';
+                    if (v!.length < 10) return 'Dirección muy corta';
+                    if (v.length > 200) return 'Máximo 200 caracteres';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingMedium),
                 _buildTextField(
@@ -232,14 +251,27 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
                   label: 'Teléfono',
                   hint: '+591 XXXXXXXX',
                   keyboardType: TextInputType.phone,
-                  validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Campo requerido';
+                    final cleaned = v!.replaceAll(RegExp(r'[^0-9+]'), '');
+                    if (cleaned.length < 8) return 'Teléfono inválido';
+                    if (cleaned.length > 15) return 'Teléfono muy largo';
+                    if (!RegExp(r'^[+]?[0-9]+$').hasMatch(cleaned)) return 'Formato inválido';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingMedium),
                 _buildTextField(
                   controller: _representativeNameController,
                   label: 'Nombre del Representante Legal',
                   hint: 'Nombre completo',
-                  validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Campo requerido';
+                    if (v!.length < 3) return 'Mínimo 3 caracteres';
+                    if (v.length > 100) return 'Máximo 100 caracteres';
+                    if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$').hasMatch(v)) return 'Solo letras y espacios';
+                    return null;
+                  },
                 ),
                 SizedBox(height: Styles.spacingLarge),
                 Text(
@@ -257,7 +289,9 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
                     if (v?.isEmpty ?? true) return 'Campo requerido';
-                    if (!v!.contains('@')) return 'Correo inválido';
+                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!emailRegex.hasMatch(v!)) return 'Formato de correo inválido';
+                    if (v.length > 100) return 'Correo muy largo';
                     return null;
                   },
                 ),
@@ -266,10 +300,20 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
                   controller: _passwordController,
                   label: 'Contraseña',
                   hint: '••••••••',
-                  obscureText: true,
+                  obscureText: _obscurePassword,
+                  isPassword: true,
+                  onToggleVisibility: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
                   validator: (v) {
                     if (v?.isEmpty ?? true) return 'Campo requerido';
                     if (v!.length < 6) return 'Mínimo 6 caracteres';
+                    if (v.length > 50) return 'Máximo 50 caracteres';
+                    if (!RegExp(r'^(?=.*[A-Za-z])(?=.*\d)').hasMatch(v)) {
+                      return 'Debe contener letras y números';
+                    }
                     return null;
                   },
                 ),
@@ -278,8 +322,18 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
                   controller: _confirmPasswordController,
                   label: 'Confirmar Contraseña',
                   hint: '••••••••',
-                  obscureText: true,
-                  validator: (v) => v?.isEmpty ?? true ? 'Campo requerido' : null,
+                  obscureText: _obscureConfirmPassword,
+                  isPassword: true,
+                  onToggleVisibility: () {
+                    setState(() {
+                      _obscureConfirmPassword = !_obscureConfirmPassword;
+                    });
+                  },
+                  validator: (v) {
+                    if (v?.isEmpty ?? true) return 'Campo requerido';
+                    if (v != _passwordController.text) return 'Las contraseñas no coinciden';
+                    return null;
+                  },
                 ),
                 if (_errorMessage != null)
                   Padding(
@@ -345,6 +399,8 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
     required String label,
     required String hint,
     bool obscureText = false,
+    bool isPassword = false,
+    VoidCallback? onToggleVisibility,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
@@ -385,6 +441,15 @@ class _InmobiliariaRegisterScreenState extends State<InmobiliariaRegisterScreen>
               horizontal: Styles.spacingMedium,
               vertical: Styles.spacingMedium,
             ),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey[600],
+                    ),
+                    onPressed: onToggleVisibility,
+                  )
+                : null,
           ),
         ),
       ],

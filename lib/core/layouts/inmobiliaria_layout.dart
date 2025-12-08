@@ -119,36 +119,70 @@ class _InmobiliariaLayoutState extends State<InmobiliariaLayout> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: widget.child,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_navItems.length, (index) {
-                final item = _navItems[index];
-                final isActive = _currentIndex == index;
-                return _NavButton(
-                  item: item,
-                  isActive: isActive,
-                  onTap: () => _onTabTapped(index),
-                );
-              }),
-            ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
           ),
-        ),
+        ],
       ),
+      child: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: _onTabTapped,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: Styles.primaryColor,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        elevation: 0,
+        items: [
+          BottomNavigationBarItem(
+            icon: _buildNavIcon(_navItems[0].icon, false),
+            activeIcon: _buildNavIcon(_navItems[0].activeIcon, true),
+            label: _navItems[0].label,
+          ),
+          BottomNavigationBarItem(
+            icon: _buildNavIcon(_navItems[1].icon, false),
+            activeIcon: _buildNavIcon(_navItems[1].activeIcon, true),
+            label: _navItems[1].label,
+          ),
+          BottomNavigationBarItem(
+            icon: _buildNavIcon(_navItems[2].icon, false),
+            activeIcon: _buildNavIcon(_navItems[2].activeIcon, true),
+            label: _navItems[2].label,
+          ),
+          BottomNavigationBarItem(
+            icon: _buildNavIcon(_navItems[3].icon, false),
+            activeIcon: _buildNavIcon(_navItems[3].activeIcon, true),
+            label: _navItems[3].label,
+          ),
+          BottomNavigationBarItem(
+            icon: _buildNavIcon(_navItems[4].icon, false),
+            activeIcon: _buildNavIcon(_navItems[4].activeIcon, true),
+            label: _navItems[4].label,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavIcon(IconData icon, bool isActive) {
+    return Icon(
+      icon,
+      color: isActive ? Styles.primaryColor : Colors.grey,
+      size: 24,
     );
   }
 }
@@ -165,55 +199,4 @@ class _NavItem {
     required this.activeIcon,
     required this.label,
   });
-}
-
-class _NavButton extends StatelessWidget {
-  final _NavItem item;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _NavButton({
-    required this.item,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive
-                ? Styles.primaryColor.withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isActive ? item.activeIcon : item.icon,
-                color: isActive ? Styles.primaryColor : Colors.grey[600],
-                size: 26,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                  color: isActive ? Styles.primaryColor : Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

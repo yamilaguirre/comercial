@@ -71,28 +71,28 @@ class _WorkerLayoutState extends State<WorkerLayout> {
         elevation: 0,
         items: [
           BottomNavigationBarItem(
-            icon: _buildNavIcon('explorar', false),
-            activeIcon: _buildNavIcon('explorar', true),
+            icon: _buildNavIcon(Icons.search, false),
+            activeIcon: _buildNavIcon(Icons.search, true),
             label: 'Explorar',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('guardados', false),
-            activeIcon: _buildNavIcon('guardados', true),
+            icon: _buildNavIcon(Icons.favorite_border, false),
+            activeIcon: _buildNavIcon(Icons.favorite, true),
             label: 'Guardados',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIconWithBadge(context, 'mensajes', false),
-            activeIcon: _buildNavIconWithBadge(context, 'mensajes', true),
+            icon: _buildNavIconWithBadge(context, Icons.chat_bubble_outline, Icons.chat_bubble, false),
+            activeIcon: _buildNavIconWithBadge(context, Icons.chat_bubble_outline, Icons.chat_bubble, true),
             label: 'Mensajes',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIconWithBadge(context, 'notificaciones', false),
-            activeIcon: _buildNavIconWithBadge(context, 'notificaciones', true),
+            icon: _buildNavIconWithBadge(context, Icons.notifications_none, Icons.notifications, false),
+            activeIcon: _buildNavIconWithBadge(context, Icons.notifications_none, Icons.notifications, true),
             label: 'Notificaciones',
           ),
           BottomNavigationBarItem(
-            icon: _buildNavIcon('cuenta', false),
-            activeIcon: _buildNavIcon('cuenta', true),
+            icon: _buildNavIcon(Icons.person_outline, false),
+            activeIcon: _buildNavIcon(Icons.person, true),
             label: 'Cuenta',
           ),
         ],
@@ -102,22 +102,19 @@ class _WorkerLayoutState extends State<WorkerLayout> {
 
   Widget _buildNavIconWithBadge(
     BuildContext context,
-    String iconName,
+    IconData inactiveIcon,
+    IconData activeIcon,
     bool isActive,
   ) {
-    if (iconName != 'mensajes' && iconName != 'notificaciones') {
-      return _buildNavIcon(iconName, isActive);
-    }
-
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUserId = authService.currentUser?.uid ?? '';
 
     if (currentUserId.isEmpty) {
-      return _buildNavIcon(iconName, isActive);
+      return _buildNavIcon(isActive ? activeIcon : inactiveIcon, isActive);
     }
 
     // Badge para mensajes
-    if (iconName == 'mensajes') {
+    if (inactiveIcon == Icons.chat_bubble_outline) {
       final chatService = ChatService();
 
       return StreamBuilder<int>(
@@ -128,7 +125,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
           return Stack(
             clipBehavior: Clip.none,
             children: [
-              _buildNavIcon(iconName, isActive),
+              _buildNavIcon(isActive ? activeIcon : inactiveIcon, isActive),
               if (unreadCount > 0)
                 Positioned(
                   right: -6,
@@ -161,7 +158,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
     }
 
     // Badge para notificaciones
-    if (iconName == 'notificaciones') {
+    if (inactiveIcon == Icons.notifications_none) {
       final notificationService = NotificationService();
 
       return StreamBuilder<int>(
@@ -172,7 +169,7 @@ class _WorkerLayoutState extends State<WorkerLayout> {
           return Stack(
             clipBehavior: Clip.none,
             children: [
-              _buildNavIcon(iconName, isActive),
+              _buildNavIcon(isActive ? activeIcon : inactiveIcon, isActive),
               if (unreadCount > 0)
                 Positioned(
                   right: -6,
@@ -204,60 +201,15 @@ class _WorkerLayoutState extends State<WorkerLayout> {
       );
     }
 
-    return _buildNavIcon(iconName, isActive);
+    return _buildNavIcon(isActive ? activeIcon : inactiveIcon, isActive);
   }
 
-  Widget _buildNavIcon(String iconName, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ColorFiltered(
-          colorFilter: isActive
-              ? ColorFilter.mode(Styles.primaryColor, BlendMode.srcIn)
-              : const ColorFilter.mode(Colors.grey, BlendMode.srcIn),
-          child: Image.asset(
-            'assets/images/icon/$iconName.png',
-            width: 24,
-            height: 24,
-            errorBuilder: (context, error, stackTrace) => Icon(
-              _getFallbackIcon(iconName),
-              color: isActive ? Styles.primaryColor : Colors.grey,
-              size: 24,
-            ),
-          ),
-        ),
-        if (isActive) ...[
-          const SizedBox(height: 4),
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: Styles.primaryColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
-      ],
+  Widget _buildNavIcon(IconData icon, bool isActive) {
+    return Icon(
+      icon,
+      color: isActive ? Styles.primaryColor : Colors.grey,
+      size: 24,
     );
-  }
-
-  IconData _getFallbackIcon(String iconName) {
-    switch (iconName) {
-      case 'mensajes':
-        return Icons.message;
-      case 'explorar':
-        return Icons.explore;
-      case 'guardados':
-        return Icons.favorite_border;
-      case 'inicio':
-        return Icons.person;
-      case 'notificaciones':
-        return Icons.notifications_none;
-      case 'cuenta':
-        return Icons.account_circle_outlined;
-      default:
-        return Icons.circle;
-    }
   }
 
   int _getSelectedIndex(String location) {

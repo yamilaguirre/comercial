@@ -93,26 +93,10 @@ class _PropertyLayoutState extends State<PropertyLayout> {
   }
 
   Widget _buildNavIcon(IconData icon, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isActive ? Styles.primaryColor : Colors.grey,
-          size: 24,
-        ),
-        if (isActive) ...[
-          const SizedBox(height: 4),
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: Styles.primaryColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
-      ],
+    return Icon(
+      icon,
+      color: isActive ? Styles.primaryColor : Colors.grey,
+      size: 24,
     );
   }
 

@@ -105,7 +105,7 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
                   _buildActionTile(
                     Icons.edit,
                     'Editar Perfil',
-                    () {},
+                    () => Modular.to.pushNamed('/inmobiliaria/edit-profile'),
                   ),
                   _buildActionTile(
                     Icons.settings,

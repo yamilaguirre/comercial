@@ -10,6 +10,7 @@ import '../../screens/inmobiliaria/inmobiliaria_subscription_payment_screen.dart
 import '../../screens/inmobiliaria/inmobiliaria_subscription_status_screen.dart';
 import '../../screens/inmobiliaria/inmobiliaria_alerts_screen.dart';
 import '../../screens/inmobiliaria/inmobiliaria_market_screen.dart';
+import '../../screens/inmobiliaria/inmobiliaria_edit_profile_screen.dart';
 import '../../providers/mobiliaria_provider.dart';
 
 class InmobiliariaModule extends Module {
@@ -78,6 +79,11 @@ class InmobiliariaModule extends Module {
     r.child(
       '/alerts',
       child: (context) => const InmobiliariaAlertsScreen(),
+      transition: TransitionType.rightToLeft,
+    );
+    r.child(
+      '/edit-profile',
+      child: (context) => const InmobiliariaEditProfileScreen(),
       transition: TransitionType.rightToLeft,
     );
   }
