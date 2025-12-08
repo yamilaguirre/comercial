@@ -195,6 +195,26 @@ class NotificationService {
     }
   }
 
+  // Crear notificación de re-publicación para trabajador
+  Future<String?> createRepublishNotification({
+    required String userId,
+  }) async {
+    try {
+      final docRef = await _firestore.collection('notifications').add({
+        'type': NotificationType.message.toFirestore(),
+        'title': '📢 ¡Destaca tu perfil!',
+        'message': 'Han pasado 4 horas. Re-publica tu perfil para aparecer al inicio de la lista y conseguir más clientes.',
+        'user_id': userId,
+        'created_at': FieldValue.serverTimestamp(),
+        'metadata': {'action': 'republish_worker'},
+      });
+      return docRef.id;
+    } catch (e) {
+      print('Error creating republish notification: $e');
+      return null;
+    }
+  }
+
   // Crear notificación de cambio de perfil (solo para el usuario específico)
   Future<String?> createProfileChangeNotification({
     required String userId,

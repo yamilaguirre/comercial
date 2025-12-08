@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_views_service.dart';
+import '../../widgets/republish_worker_button.dart';
 
 class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({super.key});
@@ -610,6 +611,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                   ),
 
                                   const SizedBox(height: 16),
+
+                                  // Botón de Re-publicación
+                                  RepublishWorkerButton(
+                                    userId: user.uid,
+                                    isPremium: isPremium,
+                                  ),
 
                                   // Botón Editar Perfil Trabajo
                                   Padding(

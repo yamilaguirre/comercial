@@ -509,30 +509,43 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               services.any((s) => s.contains(_searchQuery));
         }).toList();
 
-        // Ordenar por última actualización del perfil (más recientes primero)
-        // Esto prioriza a trabajadores que actualizaron su precio recientemente
+        // Ordenar por última re-publicación (más recientes primero)
+        // Esto prioriza a trabajadores que se re-publicaron recientemente
         filteredWorkers.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
           final bData = b.data() as Map<String, dynamic>;
 
-          final aProfile = aData['profile'] as Map<String, dynamic>?;
-          final bProfile = bData['profile'] as Map<String, dynamic>?;
+          // Priorizar lastRepublish sobre updatedAt
+          final aRepublish = aData['lastRepublish'] as Timestamp?;
+          final bRepublish = bData['lastRepublish'] as Timestamp?;
 
-          final aUpdatedAt = aProfile?['updatedAt'] as Timestamp?;
-          final bUpdatedAt = bProfile?['updatedAt'] as Timestamp?;
-
-          // Si ambos tienen updatedAt, ordenar por eso
-          if (aUpdatedAt != null && bUpdatedAt != null) {
-            return bUpdatedAt.compareTo(aUpdatedAt);
+          // Si ambos tienen lastRepublish, ordenar por eso
+          if (aRepublish != null && bRepublish != null) {
+            return bRepublish.compareTo(aRepublish);
           }
 
-          // Si ninguno tiene, ordenar por ID del documento
-          if (aUpdatedAt == null && bUpdatedAt == null) {
-            return b.id.compareTo(a.id);
+          // Si ninguno tiene lastRepublish, usar updatedAt del profile
+          if (aRepublish == null && bRepublish == null) {
+            final aProfile = aData['profile'] as Map<String, dynamic>?;
+            final bProfile = bData['profile'] as Map<String, dynamic>?;
+
+            final aUpdatedAt = aProfile?['updatedAt'] as Timestamp?;
+            final bUpdatedAt = bProfile?['updatedAt'] as Timestamp?;
+
+            if (aUpdatedAt != null && bUpdatedAt != null) {
+              return bUpdatedAt.compareTo(aUpdatedAt);
+            }
+
+            if (aUpdatedAt == null && bUpdatedAt == null) {
+              return b.id.compareTo(a.id);
+            }
+
+            if (aUpdatedAt == null) return 1;
+            return -1;
           }
 
-          // Dar prioridad a los que tienen updatedAt
-          if (aUpdatedAt == null) return 1;
+          // Dar prioridad a los que tienen lastRepublish
+          if (aRepublish == null) return 1;
           return -1;
         });
 

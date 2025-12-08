@@ -5,10 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'dart:io';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:video_player/video_player.dart';
 import '../../theme/theme.dart';
 import 'widgets/profession_selector.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/image_service.dart';
+import '../../services/video_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/notification_model.dart';
 
@@ -60,8 +62,14 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   final List<File> _portfolioImages = [];
   final List<String> _portfolioUrls = [];
 
+  // Videos del portafolio (solo premium)
+  final List<File> _portfolioVideos = [];
+  final List<String> _portfolioVideoUrls = [];
+  final Map<String, VideoPlayerController> _videoControllers = {};
+
   bool _isLoading = false;
   bool _isNewProfile = true; // Flag para detectar si es la primera vez
+  bool _isPremium = false; // Estado premium del usuario
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -76,6 +84,10 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     _descriptionController.dispose();
     _priceController.dispose();
     _faceDetector.close();
+    // Dispose video controllers
+    for (var controller in _videoControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -85,6 +97,18 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
 
     if (user != null) {
       _nameController.text = user.displayName ?? '';
+
+      // Verificar si es premium
+      final premiumDoc = await FirebaseFirestore.instance
+          .collection('premium_users')
+          .doc(user.uid)
+          .get();
+      
+      if (premiumDoc.exists && premiumDoc.data()?['status'] == 'active') {
+        setState(() {
+          _isPremium = true;
+        });
+      }
 
       // Cargar datos existentes si los hay
       try {
@@ -148,6 +172,18 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
               final portfolio = profile['portfolioImages'] as List<dynamic>?;
               if (portfolio != null) {
                 _portfolioUrls.addAll(portfolio.map((e) => e.toString()));
+              }
+
+              // Cargar URLs de videos (solo si es premium)
+              if (_isPremium) {
+                final videos = profile['portfolioVideos'] as List<dynamic>?;
+                if (videos != null) {
+                  _portfolioVideoUrls.addAll(videos.map((e) => e.toString()));
+                  // Inicializar controladores para videos existentes
+                  for (var url in _portfolioVideoUrls) {
+                    _initializeVideoController(url);
+                  }
+                }
               }
             });
           }
@@ -253,6 +289,86 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     }
   }
 
+  // === FUNCIONES PARA VIDEOS (SOLO PREMIUM) ===
+
+  void _initializeVideoController(String url) {
+    if (!_videoControllers.containsKey(url)) {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      _videoControllers[url] = controller;
+      controller.initialize().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    if (!_isPremium) {
+      _showError('La carga de videos es exclusiva para usuarios Premium');
+      return;
+    }
+
+    try {
+      final XFile? video = await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(seconds: 30),
+      );
+
+      if (video != null) {
+        // Verificar duración del video
+        final file = File(video.path);
+        final controller = VideoPlayerController.file(file);
+        await controller.initialize();
+
+        if (controller.value.duration.inSeconds > 30) {
+          controller.dispose();
+          _showError('El video no puede durar más de 30 segundos');
+          return;
+        }
+
+        setState(() {
+          _portfolioVideos.add(file);
+          _videoControllers[video.path] = controller;
+        });
+      }
+    } catch (e) {
+      _showError('Error al seleccionar video: $e');
+    }
+  }
+
+  Future<void> _recordVideo() async {
+    if (!_isPremium) {
+      _showError('La grabación de videos es exclusiva para usuarios Premium');
+      return;
+    }
+
+    try {
+      final XFile? video = await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(seconds: 30),
+      );
+
+      if (video != null) {
+        // Verificar duración del video
+        final file = File(video.path);
+        final controller = VideoPlayerController.file(file);
+        await controller.initialize();
+
+        if (controller.value.duration.inSeconds > 30) {
+          controller.dispose();
+          _showError('El video no puede durar más de 30 segundos');
+          return;
+        }
+
+        setState(() {
+          _portfolioVideos.add(file);
+          _videoControllers[video.path] = controller;
+        });
+      }
+    } catch (e) {
+      _showError('Error al grabar video: $e');
+    }
+  }
+
   Future<String> _uploadImage(XFile image, String folderPath) async {
     try {
       final url = await ImageService.uploadImageToApi(
@@ -318,6 +434,17 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         portfolioUrls.add(url);
       }
 
+      // Subir videos del portafolio (solo si es premium)
+      final List<String> portfolioVideoUrls = List.from(_portfolioVideoUrls);
+      if (_isPremium && _portfolioVideos.isNotEmpty) {
+        for (int i = 0; i < _portfolioVideos.length; i++) {
+          final xFile = XFile(_portfolioVideos[i].path);
+          // Usar VideoService para videos (comprime automáticamente)
+          final url = await VideoService.uploadVideo(xFile, 'worker_videos/${user.uid}');
+          portfolioVideoUrls.add(url);
+        }
+      }
+
       // Preparar estructura de profesiones
       final List<Map<String, dynamic>> professions = [];
       _selectedProfessions.forEach((category, subcategories) {
@@ -348,29 +475,33 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
 
       final String priceValue = _priceController.text.trim();
       // Guardar en Firestore (asegurar que es string)
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {
+      final Map<String, dynamic> updateData = {
+        'professions': professions,
+        'price': priceValue, // String
+        'profile': {
+          'fullName': _nameController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'availability': _selectedAvailability,
+          'currency': _selectedCurrency,
+          'experienceLevel': _selectedLevel,
           'professions': professions,
+          'portfolioImages': portfolioUrls,
           'price': priceValue, // String
-          'profile': {
-            'fullName': _nameController.text.trim(),
-            'description': _descriptionController.text.trim(),
-            'availability': _selectedAvailability,
-            'currency': _selectedCurrency,
-            'experienceLevel': _selectedLevel,
-            'professions': professions,
-            'portfolioImages': portfolioUrls,
-            'price': priceValue, // String
-            'photoUrl': profilePhotoUrl,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          'name': _nameController.text.trim(),
           'photoUrl': profilePhotoUrl,
-          'photoURL':
-              profilePhotoUrl, // También guardar en photoURL (mayúscula)
-          'profession': professionTopLevel,
+          'updatedAt': FieldValue.serverTimestamp(),
         },
-      );
+        'name': _nameController.text.trim(),
+        'photoUrl': profilePhotoUrl,
+        'photoURL': profilePhotoUrl, // También guardar en photoURL (mayúscula)
+        'profession': professionTopLevel,
+      };
+
+      // Agregar videos solo si es premium
+      if (_isPremium && portfolioVideoUrls.isNotEmpty) {
+        (updateData['profile'] as Map<String, dynamic>)['portfolioVideos'] = portfolioVideoUrls;
+      }
+
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(updateData);
 
       // Actualizar también el perfil de Firebase Auth
       if (profilePhotoUrl != null) {
@@ -1152,6 +1283,300 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                   ],
 
                   const SizedBox(height: 20),
+
+                  // === SECCIÓN DE VIDEOS (SOLO PREMIUM) ===
+                  if (_isPremium) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.workspace_premium,
+                          color: Color(0xFFFF6F00),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Videos de Portafolio',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFFF6F00), Color(0xFFFFC107)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Premium',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Videos ilimitados de hasta 30 segundos cada uno',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Botones para agregar videos
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _pickVideo,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: Color(0xFFFF6F00),
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.video_library_outlined,
+                                    size: 48,
+                                    color: Color(0xFFFF6F00),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Subir video',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFFFF6F00),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _recordVideo,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: Color(0xFFFF6F00),
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.videocam_outlined,
+                                    size: 48,
+                                    color: Color(0xFFFF6F00),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Grabar video',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFFFF6F00),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Mostrar videos del portafolio
+                    if (_portfolioVideos.isNotEmpty ||
+                        _portfolioVideoUrls.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          // Videos existentes (URLs)
+                          ..._portfolioVideoUrls.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final url = entry.value;
+                            final controller = _videoControllers[url];
+                            
+                            return Stack(
+                              children: [
+                                Container(
+                                  width: 150,
+                                  height: 150,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.black,
+                                  ),
+                                  child: controller != null && controller.value.isInitialized
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: AspectRatio(
+                                            aspectRatio: controller.value.aspectRatio,
+                                            child: VideoPlayer(controller),
+                                          ),
+                                        )
+                                      : Center(
+                                          child: CircularProgressIndicator(
+                                            color: Color(0xFFFF6F00),
+                                          ),
+                                        ),
+                                ),
+                                // Icono de play
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.6),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.play_arrow,
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Botón eliminar
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _videoControllers[url]?.dispose();
+                                        _videoControllers.remove(url);
+                                        _portfolioVideoUrls.removeAt(index);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                          // Videos nuevos (archivos locales)
+                          ..._portfolioVideos.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final file = entry.value;
+                            final controller = _videoControllers[file.path];
+                            
+                            return Stack(
+                              children: [
+                                Container(
+                                  width: 150,
+                                  height: 150,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.black,
+                                  ),
+                                  child: controller != null && controller.value.isInitialized
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: AspectRatio(
+                                            aspectRatio: controller.value.aspectRatio,
+                                            child: VideoPlayer(controller),
+                                          ),
+                                        )
+                                      : Center(
+                                          child: CircularProgressIndicator(
+                                            color: Color(0xFFFF6F00),
+                                          ),
+                                        ),
+                                ),
+                                // Icono de play
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.6),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.play_arrow,
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Botón eliminar
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _videoControllers[file.path]?.dispose();
+                                        _videoControllers.remove(file.path);
+                                        _portfolioVideos.removeAt(index);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 20),
+                  ],
                 ],
               ),
             ),

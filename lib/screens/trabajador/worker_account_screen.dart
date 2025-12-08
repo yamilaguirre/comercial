@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 import '../property/components/account_menu_section.dart';
@@ -16,6 +17,74 @@ class WorkerAccountScreen extends StatefulWidget {
 
 class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
   bool showPremiumModal = false;
+
+  // --- FUNCIÓN: ABRIR WHATSAPP DE SOPORTE ---
+  Future<void> _openSupportWhatsApp() async {
+    try {
+      // Obtener datos de soporte desde Firestore
+      final supportDoc = await FirebaseFirestore.instance
+          .collection('app_settings')
+          .doc('support')
+          .get();
+
+      if (!supportDoc.exists) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo obtener información de soporte'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final supportData = supportDoc.data() as Map<String, dynamic>;
+      final whatsappNumber = supportData['whatsappNumber'] as String?;
+      final supportName = supportData['supportName'] as String?;
+
+      if (whatsappNumber == null || whatsappNumber.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Número de WhatsApp no disponible'),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Limpiar el número de espacios y caracteres especiales
+      final cleanNumber = whatsappNumber.replaceAll(RegExp(r'[^\d]'), '');
+
+      // Crear mensaje predeterminado
+      final message = Uri.encodeComponent(
+        'Hola, necesito ayuda con la aplicación Comercial. ¿Podrían asistirme?',
+      );
+
+      // URL de WhatsApp
+      final whatsappUrl = 'https://wa.me/$cleanNumber?text=$message';
+
+      final uri = Uri.parse(whatsappUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo abrir WhatsApp'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error al abrir WhatsApp de soporte: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
 
   // --- FUNCIÓN: CAMBIAR DE MÓDULO (REDIRECCIÓN A INMOBILIARIA) ---
   void _changeModule() async {
@@ -203,6 +272,15 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
           title: 'Configuración',
           subtitle: 'Preferencias y opciones de cuenta',
           onTap: () => _showConfigurationOptions(userData),
+        ),
+        AccountMenuSection.buildDivider(),
+        AccountMenuItem(
+          icon: Icons.help_outline,
+          iconColor: const Color(0xFF10B981),
+          iconBgColor: const Color(0xFFD1FAE5),
+          title: 'Ayuda y Soporte',
+          subtitle: 'Contacta con nuestro equipo de soporte',
+          onTap: _openSupportWhatsApp,
         ),
       ],
     );
