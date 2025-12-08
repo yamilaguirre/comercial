@@ -124,38 +124,68 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     }
   }
 
+  // --- FUNCIÓN: CAMBIAR DE MÓDULO (REDIRECCIÓN A INMOBILIARIA) ---
+  void _changeModule() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) {
+      Modular.to.navigate('/login');
+      return;
+    }
+
+    try {
+      // Cambiar el rol del usuario a 'inmobiliaria' antes de navegar
+      await authService.updateUserRole('inmobiliaria');
+      // Navegar al módulo de property (pantalla principal)
+      Modular.to.navigate('/property/home');
+    } catch (e) {
+      debugPrint('Error al cambiar de módulo: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-                      _buildLocationButton(),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Destacados cerca de ti',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF212121),
-                        ),
+            Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          _buildLocationButton(),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Destacados cerca de ti',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF212121),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildWorkersList(),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      _buildWorkersList(),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+              ],
+            ),
+            // Botón flotante para cambiar de módulo
+            Positioned(
+              bottom: 24,
+              right: 16,
+              child: _buildModuleSwitchButton(),
             ),
           ],
         ),
@@ -207,6 +237,104 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Botón flotante elegante para cambiar de módulo
+  Widget _buildModuleSwitchButton() {
+    return GestureDetector(
+      onTap: () {
+        // Mostrar tooltip o diálogo antes de cambiar
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: const [
+                Icon(Icons.home_work, color: Styles.primaryColor, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Cambiar a Inmobiliaria',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              '¿Deseas cambiar al módulo de Inmobiliaria para buscar propiedades?',
+              style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _changeModule();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Styles.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text('Cambiar'),
+              ),
+            ],
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Styles.primaryColor,
+              Color(0xFF1565C0),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Styles.primaryColor.withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(
+              Icons.home_work,
+              color: Colors.white,
+              size: 20,
+            ),
+            SizedBox(width: 6),
+            Text(
+              'Inmobiliaria',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
