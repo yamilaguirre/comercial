@@ -778,6 +778,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                                       .toList() ??
                                   ['Servicios'],
                               workerLocation: workerLocation,
+                              experienceLevel: profileMap?['experienceLevel'] as String? ?? '',
                             );
                           },
                         );
@@ -799,7 +800,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     String? currentUserId,
   ) {
     return SizedBox(
-      height: 210, // Increased height slightly for better spacing
+      height: 240, // Increased height for experience level badge
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -908,6 +909,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                         .toList() ??
                     ['Servicios'],
                 workerLocation: workerLocation,
+                experienceLevel: profileMap?['experienceLevel'] as String? ?? '',
               );
             },
           );
@@ -930,6 +932,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required double longitude,
     required List<String> categories,
     Map<String, dynamic>? workerLocation,
+    required String experienceLevel,
   }) {
     final authService = Provider.of<AuthService>(context, listen: false);
 
@@ -1130,9 +1133,45 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 6),
+                        // Experience Level Badge
+                        if (experienceLevel.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getLevelColor(experienceLevel).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _getLevelColor(experienceLevel),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getLevelIcon(experienceLevel),
+                                  size: 12,
+                                  color: _getLevelColor(experienceLevel),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  experienceLevel,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _getLevelColor(experienceLevel),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     // Profession
                     if (profession != 'Sin profesión especificada')
                       Text(
@@ -1141,10 +1180,10 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           fontSize: 11,
                           color: Color(0xFF616161),
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Price
                     if (price.isNotEmpty)
                       Row(
@@ -1166,7 +1205,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           ),
                         ],
                       ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Distance
                     if (distance.isNotEmpty)
                       Row(
@@ -1186,7 +1225,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           ),
                         ],
                       ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     // Action buttons
                     Row(
                       children: [
@@ -1198,25 +1237,26 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                               foregroundColor: Styles.primaryColor,
                               side: const BorderSide(
                                 color: Styles.primaryColor,
+                                width: 1,
                               ),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 4, // Reduced padding
-                                vertical: 10, // Increased height
+                                horizontal: 2,
+                                vertical: 8,
                               ),
-                              minimumSize: Size.zero, // Compact
+                              minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Icon(Icons.phone, size: 14),
-                                SizedBox(width: 4),
-                                Text('Llamar', style: TextStyle(fontSize: 11)),
+                                Icon(Icons.phone, size: 13),
+                                SizedBox(width: 3),
+                                Text('Llamar', style: TextStyle(fontSize: 10)),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         // Mensaje button
                         Expanded(
                           child: ElevatedButton(
@@ -1231,18 +1271,18 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                               backgroundColor: Colors.black,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 4, // Reduced padding
-                                vertical: 10, // Increased height
+                                horizontal: 2,
+                                vertical: 8,
                               ),
-                              minimumSize: Size.zero, // Compact
+                              minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [
-                                Icon(Icons.message, size: 14),
-                                SizedBox(width: 4),
-                                Text('Mensaje', style: TextStyle(fontSize: 11)),
+                                Icon(Icons.message, size: 13),
+                                SizedBox(width: 3),
+                                Text('Mensaje', style: TextStyle(fontSize: 10)),
                               ],
                             ),
                           ),
@@ -1273,6 +1313,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     required double longitude,
     required List<String> categories,
     Map<String, dynamic>? workerLocation,
+    required String experienceLevel,
   }) {
     final authService = context.read<AuthService>();
     final currentUserId = authService.currentUser?.uid ?? '';
@@ -1385,7 +1426,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             // Card content
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(6.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1411,6 +1452,42 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 6),
+                    // Experience Level Badge
+                    if (experienceLevel.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getLevelColor(experienceLevel).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _getLevelColor(experienceLevel),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getLevelIcon(experienceLevel),
+                              size: 11,
+                              color: _getLevelColor(experienceLevel),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              experienceLevel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _getLevelColor(experienceLevel),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                     const SizedBox(height: 6),
@@ -1668,5 +1745,31 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
         ),
       ),
     );
+  }
+
+  Color _getLevelColor(String level) {
+    switch (level.toLowerCase()) {
+      case 'básico':
+        return Colors.blue;
+      case 'intermedio':
+        return Colors.orange;
+      case 'avanzado':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getLevelIcon(String level) {
+    switch (level.toLowerCase()) {
+      case 'básico':
+        return Icons.star_outline;
+      case 'intermedio':
+        return Icons.star_half;
+      case 'avanzado':
+        return Icons.star;
+      default:
+        return Icons.info_outline;
+    }
   }
 }
