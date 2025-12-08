@@ -148,7 +148,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
       final currentUserId = authService.currentUser?.uid ?? '';
       final isPremium = authService.isPremium;
 
-      final searchRadiusMeters = isPremium ? 10000.0 : 2000.0;
+      final searchRadiusMeters = isPremium ? 10000.0 : 10000.0;
 
       final query = FirebaseFirestore.instance
           .collection('properties')
@@ -392,7 +392,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                           child: Consumer<AuthService>(
                             builder: (context, authService, _) {
                               final isPremium = authService.isPremium;
-                              final radiusText = isPremium ? '10 km' : '2 km';
+                              final radiusText = isPremium ? '10 km' : '10 km';
                               return Text(
                                 'Recomendados cerca de ti ($radiusText aprox)',
                                 style: TextStyles.title.copyWith(
