@@ -143,15 +143,6 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
     }
   }
 
-  void _showFilePickerNotAvailable() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Función de archivos próximamente disponible'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -167,62 +158,52 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Modular.to.pop(),
         ),
-        title: Row(
-          children: [
-            // Avatar
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: Styles.primaryColor.withOpacity(0.1),
-              backgroundImage: widget.otherUserPhoto != null
-                  ? NetworkImage(widget.otherUserPhoto!)
-                  : null,
-              child: widget.otherUserPhoto == null
-                  ? Text(
-                      widget.otherUserName[0].toUpperCase(),
-                      style: TextStyle(
-                        color: Styles.primaryColor,
+        title: GestureDetector(
+          onTap: () {
+            Modular.to.pushNamed(
+              '/property/public-profile',
+              arguments: widget.otherUserId,
+            );
+          },
+          child: Row(
+            children: [
+              // Avatar
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Styles.primaryColor.withOpacity(0.1),
+                backgroundImage: widget.otherUserPhoto != null
+                    ? NetworkImage(widget.otherUserPhoto!)
+                    : null,
+                child: widget.otherUserPhoto == null
+                    ? Text(
+                        widget.otherUserName[0].toUpperCase(),
+                        style: TextStyle(
+                          color: Styles.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              // Nombre y estado
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.otherUserName,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            // Nombre y estado
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.otherUserName,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                  const Text(
-                    'En línea',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.phone, color: Colors.black),
-            onPressed: () {
-              // TODO: Implementar llamada
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.black),
-            onPressed: () {
-              // TODO: Implementar menú de opciones
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -306,11 +287,6 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
                   IconButton(
                     icon: Icon(Icons.image, color: Styles.primaryColor),
                     onPressed: _isUploading ? null : _pickAndSendImage,
-                  ),
-                  // Botón de adjuntar archivo
-                  IconButton(
-                    icon: const Icon(Icons.attach_file, color: Colors.grey),
-                    onPressed: _showFilePickerNotAvailable,
                   ),
 
                   // Campo de texto
@@ -537,21 +513,26 @@ class _PropertyCard extends StatelessWidget {
               ),
 
               // Botón Ver
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0000FF),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Ver',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+              GestureDetector(
+                onTap: () {
+                  Modular.to.pushNamed('/property/detail/$propertyId');
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0000FF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Ver',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

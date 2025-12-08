@@ -146,7 +146,15 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           iconBgColor: Colors.teal.shade600.withOpacity(0.1),
           title: 'Ver Perfil Público',
           subtitle: 'Simula cómo ven tu perfil los clientes',
-          onTap: () => Modular.to.pushNamed('/property/public-profile'),
+          onTap: () {
+            final user = Modular.get<AuthService>().currentUser;
+            if (user != null) {
+              Modular.to.pushNamed(
+                '/property/public-profile',
+                arguments: user.uid,
+              );
+            }
+          },
         ),
 
         AccountMenuSection.buildDivider(),

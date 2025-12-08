@@ -4,14 +4,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
 
 import '../../models/property.dart';
 import '../../widgets/map_drawing_detector.dart';
 import '../../utils/map_geometry_utils.dart';
 import '../../theme/theme.dart';
-import '../../providers/auth_provider.dart';
-import 'premium_feature_lock_dialog.dart';
 
 // Token de Mapbox
 const String _mapboxAccessToken =
@@ -40,8 +37,6 @@ class _PropertyLocationSearchScreenState
   bool _isDrawingMode = false;
   List<LatLng>? _searchPolygon;
   Set<String> _selectedPropertyTypes = {};
-  bool _isPremium = false;
-  bool _isPremiumLoading = true;
 
   final Map<String, Map<String, dynamic>> _categoryStyles = {
     'casa': {
@@ -93,7 +88,6 @@ class _PropertyLocationSearchScreenState
   void initState() {
     super.initState();
     _mapController = MapController();
-    _loadPremiumStatus();
     _getCurrentLocation();
     _loadProperties();
   }
@@ -102,24 +96,6 @@ class _PropertyLocationSearchScreenState
   void dispose() {
     _mapController.dispose();
     super.dispose();
-  }
-
-  // Cargar el estado premium del usuario desde AuthService (caché)
-  Future<void> _loadPremiumStatus() async {
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-
-      setState(() {
-        _isPremium = authService.isPremium;
-        _isPremiumLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading premium status: $e');
-      setState(() {
-        _isPremium = false;
-        _isPremiumLoading = false;
-      });
-    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -599,22 +575,13 @@ class _PropertyLocationSearchScreenState
                       ),
                     ],
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${_searchRadius.toStringAsFixed(1)} km',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      if (!_isPremium && !_isPremiumLoading) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.lock, color: Colors.white, size: 14),
-                      ],
-                    ],
+                  child: Text(
+                    '${_searchRadius.toStringAsFixed(1)} km',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ],
@@ -638,16 +605,6 @@ class _PropertyLocationSearchScreenState
                 max: 10.0,
                 divisions: 19,
                 onChanged: (value) {
-                  // Si el usuario NO es premium, mostrar diálogo y no permitir cambios
-                  if (!_isPremium) {
-                    PremiumFeatureLockDialog.show(
-                      context,
-                      'modificar el radio de búsqueda',
-                    );
-                    return; // No cambiar el valor
-                  }
-
-                  // Si es premium, permitir el cambio normalmente
                   setState(() {
                     _searchRadius = value;
                     _applyFilters();

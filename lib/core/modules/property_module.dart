@@ -108,12 +108,18 @@ class PropertyModule extends Module {
 
     // Perfil de Gestión (Agente/Dueño - Ruta directa, fuera del bottom bar)
     r.child(
-      '/agent-management-profile', // Nueva ruta para el perfil de gestión
+      '/agent-management-profile',
       child: (context) => const AgentManagementProfileScreen(),
     );
 
     // Perfil Público (Cliente/Usuario - Ruta externa/detallada)
-    r.child('/public-profile', child: (context) => PublicAgentProfileScreen());
+    r.child(
+      '/public-profile',
+      child: (context) {
+        final userId = Modular.args.data;
+        return PublicAgentProfileScreen(userId: userId is String ? userId : '');
+      },
+    );
 
     // Para rutas con argumentos, usa Modular.args
     r.child(

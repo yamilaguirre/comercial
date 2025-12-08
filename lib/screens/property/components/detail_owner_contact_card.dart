@@ -12,12 +12,14 @@ abstract class DetailOwnerContactCardCallbacks {
 class DetailOwnerContactCard extends StatelessWidget {
   final Map<String, dynamic>? ownerData;
   final String? propertyName;
+  final String? ownerId;
   final DetailOwnerContactCardCallbacks callbacks;
 
   const DetailOwnerContactCard({
     super.key,
     required this.ownerData,
     required this.propertyName,
+    this.ownerId,
     required this.callbacks,
   });
 
@@ -27,8 +29,9 @@ class DetailOwnerContactCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // TODO: Navegación al perfil del propietario (opcional)
-        // Modular.to.pushNamed('/property/public-profile', arguments: ownerData);
+        if (ownerId != null && ownerId!.isNotEmpty) {
+          Modular.to.pushNamed('/property/public-profile', arguments: ownerId);
+        }
       },
       child: Container(
         padding: const EdgeInsets.all(16),

@@ -82,9 +82,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       userId,
       widget.propertyId,
     );
-    
-    final savedProperties = await _savedListService.getAllSavedProperties(userId);
-    
+
+    final savedProperties = await _savedListService.getAllSavedProperties(
+      userId,
+    );
+
     if (mounted) {
       setState(() {
         _isFavorite = isSaved;
@@ -108,7 +110,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
       final snapshot = await query.get();
       final properties = snapshot.docs
-          .where((doc) => doc.id != widget.propertyId && (doc.data()['available'] ?? true))
+          .where(
+            (doc) =>
+                doc.id != widget.propertyId &&
+                (doc.data()['available'] ?? true),
+          )
           .map((doc) => Property.fromFirestore(doc))
           .toList();
 
@@ -593,8 +599,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               itemBuilder: (context, index) {
                 return CompactPropertyCard(
                   property: _similarProperties[index],
-                  isFavorite: _savedPropertyIds.contains(_similarProperties[index].id),
-                  onFavoriteToggle: () => _openCollectionDialog(_similarProperties[index]),
+                  isFavorite: _savedPropertyIds.contains(
+                    _similarProperties[index].id,
+                  ),
+                  onFavoriteToggle: () =>
+                      _openCollectionDialog(_similarProperties[index]),
                   onTap: () => Modular.to.pushNamed(
                     '/property/detail/${_similarProperties[index].id}',
                     arguments: _similarProperties[index],
@@ -772,7 +781,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 }).toList(),
               ),
             ),
-
         ],
       ),
     );
@@ -884,6 +892,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             DetailOwnerContactCard(
               ownerData: _ownerData,
               propertyName: _property!.name,
+              ownerId: _property!.ownerId,
               callbacks: this,
             ),
 
@@ -999,14 +1008,18 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
     if (!_isInitialized) {
       return Container(
         color: Colors.black,
-        child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
       );
     }
 
     return GestureDetector(
       onTap: () {
         setState(() {
-          _controller.value.isPlaying ? _controller.pause() : _controller.play();
+          _controller.value.isPlaying
+              ? _controller.pause()
+              : _controller.play();
         });
       },
       child: Stack(

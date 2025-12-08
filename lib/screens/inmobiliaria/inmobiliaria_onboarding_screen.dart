@@ -9,10 +9,12 @@ class InmobiliariaOnboardingScreen extends StatefulWidget {
   const InmobiliariaOnboardingScreen({super.key});
 
   @override
-  State<InmobiliariaOnboardingScreen> createState() => _InmobiliariaOnboardingScreenState();
+  State<InmobiliariaOnboardingScreen> createState() =>
+      _InmobiliariaOnboardingScreenState();
 }
 
-class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScreen> {
+class _InmobiliariaOnboardingScreenState
+    extends State<InmobiliariaOnboardingScreen> {
   @override
   void initState() {
     super.initState();
@@ -24,7 +26,7 @@ class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScr
   Future<void> _checkExistingRequest() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
-    
+
     if (user != null) {
       try {
         print('Checking subscription request for user: ${user.uid}');
@@ -32,9 +34,9 @@ class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScr
             .collection('subscription_requests')
             .where('userId', isEqualTo: user.uid)
             .get();
-        
+
         print('Found ${requestsQuery.docs.length} requests');
-        
+
         if (requestsQuery.docs.isNotEmpty && mounted) {
           print('Redirecting to subscription status');
           await Future.delayed(const Duration(milliseconds: 100));
@@ -51,17 +53,19 @@ class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScr
   void _handleSubscribe() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
-    
+
     if (user != null) {
       try {
-        print('Button clicked - Checking subscription request for user: ${user.uid}');
+        print(
+          'Button clicked - Checking subscription request for user: ${user.uid}',
+        );
         final requestsQuery = await FirebaseFirestore.instance
             .collection('subscription_requests')
             .where('userId', isEqualTo: user.uid)
             .get();
-        
+
         print('Button - Found ${requestsQuery.docs.length} requests');
-        
+
         if (requestsQuery.docs.isNotEmpty) {
           print('Button - Redirecting to status');
           Modular.to.pushNamed('/inmobiliaria/subscription-status');
@@ -84,10 +88,7 @@ class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScr
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Styles.primaryColor,
-              Styles.primaryColor.withOpacity(0.8),
-            ],
+            colors: [Styles.primaryColor, Styles.primaryColor.withOpacity(0.8)],
           ),
         ),
         child: SafeArea(
@@ -96,14 +97,10 @@ class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScr
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.business,
-                  size: 100,
-                  color: Colors.white,
-                ),
+                const Icon(Icons.business, size: 100, color: Colors.white),
                 const SizedBox(height: 32),
                 const Text(
-                  '¡Bienvenido a tu plataforma inmobiliaria!',
+                  '¡Bienvenido a tu plataforma de agente inmobiliario!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -115,19 +112,25 @@ class _InmobiliariaOnboardingScreenState extends State<InmobiliariaOnboardingScr
                 const Text(
                   'Obtén todos los beneficios como inmobiliaria',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
                 ),
                 const SizedBox(height: 40),
                 _buildBenefit(Icons.add_business, 'Crea tus propios anuncios'),
                 const SizedBox(height: 16),
-                _buildBenefit(Icons.visibility, 'Los usuarios verán tus anuncios con tu logo'),
+                _buildBenefit(
+                  Icons.visibility,
+                  'Los usuarios verán tus anuncios con tu logo',
+                ),
                 const SizedBox(height: 16),
-                _buildBenefit(Icons.chat_bubble_outline, 'Habla directamente con tus clientes'),
+                _buildBenefit(
+                  Icons.chat_bubble_outline,
+                  'Habla directamente con tus clientes',
+                ),
                 const SizedBox(height: 16),
-                _buildBenefit(Icons.analytics, 'Accede a estadísticas de tus propiedades'),
+                _buildBenefit(
+                  Icons.analytics,
+                  'Accede a estadísticas de tus propiedades',
+                ),
                 const SizedBox(height: 16),
                 _buildBenefit(Icons.star, 'Destaca tus mejores propiedades'),
                 const SizedBox(height: 48),
