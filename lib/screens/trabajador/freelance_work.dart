@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'dart:io';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import '../../theme/theme.dart';
 import 'widgets/profession_selector.dart';
 import '../../providers/auth_provider.dart';
@@ -31,12 +32,29 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     'No disponible',
   ];
 
+  String _selectedCurrency = 'Bs';
+  final List<String> _currencyOptions = ['Bs', '\$'];
+
+  String _selectedLevel = 'Intermedio';
+  final List<String> _levelOptions = [
+    'Básico',
+    'Intermedio',
+    'Avanzado',
+  ];
+
   // Almacena las selecciones: Map<categoria, List<subcategorias>>
   final Map<String, List<String>> _selectedProfessions = {};
 
   // Foto de perfil
   File? _profileImage;
   String? _profileImageUrl;
+  bool _isFaceDetected = false;
+  final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      enableContours: true,
+      enableClassification: true,
+    ),
+  );
 
   // Imágenes del portafolio
   final List<File> _portfolioImages = [];
@@ -57,6 +75,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _faceDetector.close();
     super.dispose();
   }
 
@@ -99,6 +118,18 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                 _selectedAvailability = 'Inmediato'; // valor por defecto
               }
 
+              // Cargar moneda
+              final currency = profile['currency'] as String?;
+              if (currency != null && _currencyOptions.contains(currency)) {
+                _selectedCurrency = currency;
+              }
+
+              // Cargar nivel de experiencia
+              final level = profile['experienceLevel'] as String?;
+              if (level != null && _levelOptions.contains(level)) {
+                _selectedLevel = level;
+              }
+
               _profileImageUrl = profile['photoUrl'];
 
               // Cargar profesiones seleccionadas
@@ -130,19 +161,47 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   Future<void> _pickProfileImage() async {
     try {
       final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
+        source: ImageSource.camera, // OBLIGATORIO CÁMARA
+        maxWidth: 1000,
+        maxHeight: 1000,
         imageQuality: 85,
+        preferredCameraDevice: CameraDevice.front,
       );
 
       if (image != null) {
         setState(() {
-          _profileImage = File(image.path);
+          _isLoading = true;
         });
+        await _processProfileImage(InputImage.fromFilePath(image.path), File(image.path));
       }
     } catch (e) {
-      _showError('Error al seleccionar imagen: $e');
+      _showError('Error al tomar foto: $e');
+    }
+  }
+
+  Future<void> _processProfileImage(InputImage inputImage, File imageFile) async {
+    try {
+      final List<Face> faces = await _faceDetector.processImage(inputImage);
+
+      setState(() {
+        _isLoading = false;
+        if (faces.isNotEmpty) {
+          _isFaceDetected = true;
+          _profileImage = imageFile;
+          _showError('Rostro detectado correctamente', isError: false);
+        } else {
+          _isFaceDetected = false;
+          _profileImage = null;
+          _showError('No se detectó un rostro claro. Intenta de nuevo');
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isFaceDetected = false;
+        _profileImage = null;
+      });
+      _showError('Error al procesar imagen: $e');
     }
   }
 
@@ -216,8 +275,14 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
       return;
     }
 
-    if (_portfolioImages.isEmpty && _portfolioUrls.isEmpty) {
-      _showError('Debes subir al menos una imagen de portafolio');
+    // Validar que tenga foto de perfil con rostro detectado
+    if (_profileImage == null && _profileImageUrl == null) {
+      _showError('Debes tomar una foto de perfil');
+      return;
+    }
+
+    if (_profileImage != null && !_isFaceDetected) {
+      _showError('La foto de perfil debe mostrar tu rostro claramente');
       return;
     }
 
@@ -291,6 +356,8 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
             'fullName': _nameController.text.trim(),
             'description': _descriptionController.text.trim(),
             'availability': _selectedAvailability,
+            'currency': _selectedCurrency,
+            'experienceLevel': _selectedLevel,
             'professions': professions,
             'portfolioImages': portfolioUrls,
             'price': priceValue, // String
@@ -360,9 +427,12 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     }
   }
 
-  void _showError(String message) {
+  void _showError(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
     );
   }
 
@@ -474,61 +544,145 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                   ),
                   const SizedBox(height: 8),
                   Center(
-                    child: GestureDetector(
-                      onTap: _pickProfileImage,
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.grey[200],
-                              image: _profileImage != null
-                                  ? DecorationImage(
-                                      image: FileImage(_profileImage!),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : _profileImageUrl != null
-                                  ? DecorationImage(
-                                      image: NetworkImage(_profileImageUrl!),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : null,
-                            ),
-                            child:
-                                _profileImage == null &&
-                                    _profileImageUrl == null
-                                ? Icon(
-                                    Icons.person,
-                                    size: 50,
-                                    color: Colors.grey[400],
-                                  )
-                                : null,
-                          ),
-                          // Botón de editar foto
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Styles.primaryColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickProfileImage,
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.grey[200],
+                                  border: Border.all(
+                                    color: _isFaceDetected
+                                        ? Colors.green
+                                        : Colors.grey[300]!,
+                                    width: 3,
+                                  ),
+                                  image: _profileImage != null
+                                      ? DecorationImage(
+                                          image: FileImage(_profileImage!),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : _profileImageUrl != null
+                                          ? DecorationImage(
+                                              image: NetworkImage(_profileImageUrl!),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : null,
+                                ),
+                                child: _profileImage == null &&
+                                        _profileImageUrl == null
+                                    ? Icon(
+                                        Icons.person,
+                                        size: 50,
+                                        color: Colors.grey[400],
+                                      )
+                                    : null,
+                              ),
+                              // Botón de cámara
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Styles.primaryColor,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                size: 16,
-                                color: Colors.white,
+                              // Badge de verificación si el rostro fue detectado
+                              if (_isFaceDetected)
+                                Positioned(
+                                  top: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_profileImage != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isFaceDetected
+                                  ? Colors.green.shade50
+                                  : Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _isFaceDetected
+                                    ? Colors.green
+                                    : Colors.orange,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isFaceDetected
+                                      ? Icons.verified_user
+                                      : Icons.warning_amber,
+                                  size: 16,
+                                  color: _isFaceDetected
+                                      ? Colors.green
+                                      : Colors.orange,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _isFaceDetected
+                                      ? 'Rostro verificado'
+                                      : 'Rostro no detectado',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _isFaceDetected
+                                        ? Colors.green.shade700
+                                        : Colors.orange.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_profileImage == null && _profileImageUrl == null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Toca para tomar una foto',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
 
@@ -640,7 +794,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Precio (Desde)
+                  // Precio (Desde) con selector de moneda
                   const Text(
                     'Precio (Desde)',
                     style: TextStyle(
@@ -650,49 +804,174 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _priceController,
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Ej: 150',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      filled: true,
-                      fillColor: const Color(0xFFF5F5F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Selector de moneda
+                      Container(
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Styles.primaryColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCurrency,
+                            isExpanded: true,
+                            dropdownColor: Styles.primaryColor,
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            items: _currencyOptions.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  _selectedCurrency = newValue;
+                                });
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
+                      const SizedBox(width: 12),
+                      // Campo de precio
+                      Expanded(
+                        child: TextFormField(
+                          controller: _priceController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          maxLength: 7,
+                          decoration: InputDecoration(
+                            hintText: 'Ej: 150',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F5F5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            counterText: '',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'El precio es requerido';
+                            }
+                            final num? parsed = num.tryParse(
+                              value.replaceAll(',', '.'),
+                            );
+                            if (parsed == null || parsed <= 0) {
+                              return 'Ingresa un precio válido mayor que 0';
+                            }
+                            if (parsed > 9999999) {
+                              return 'El precio máximo es 9,999,999';
+                            }
+                            return null;
+                          },
+                        ),
                       ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'El precio es requerido';
-                      }
-                      final num? parsed = num.tryParse(
-                        value.replaceAll(',', '.'),
-                      );
-                      if (parsed == null || parsed <= 0) {
-                        return 'Ingresa un precio válido mayor que 0';
-                      }
-                      return null;
-                    },
+                    ],
                   ),
 
                   const SizedBox(height: 24),
 
-                  // Subir fotos portafolio
+                  // Nivel de Experiencia
                   const Text(
-                    'Subir Fotos Portafolio',
+                    'Nivel de Experiencia',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: Colors.black87,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Styles.primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedLevel,
+                        isExpanded: true,
+                        dropdownColor: Styles.primaryColor,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.white,
+                        ),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        items: _levelOptions.map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedLevel = newValue;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Subir fotos portafolio (Opcional)
+                  Row(
+                    children: [
+                      const Text(
+                        'Subir Fotos Portafolio',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Opcional',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
 
