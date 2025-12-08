@@ -247,6 +247,10 @@ Descarga la app para contactarlo.
         final String price =
             (profile?['price']?.toString() ?? data['price']?.toString() ?? '')
                 .trim();
+        final String currency =
+            profile?['currency']?.toString() ?? 'Bs';
+        final String experienceLevel =
+            profile?['experienceLevel']?.toString() ?? '';
         final List<dynamic> portfolioImagesList =
             profile?['portfolioImages'] as List<dynamic>? ?? [];
 
@@ -350,97 +354,137 @@ Descarga la app para contactarlo.
                             ),
                             const SizedBox(height: 8),
 
-                            // Estado de Verificación
-                            if (data['verificationStatus'] == 'verified')
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(
-                                      Icons.verified,
-                                      color: Colors.white,
-                                      size: 14,
+                            // Estado de Verificación y Nivel de Experiencia
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (data['verificationStatus'] == 'verified')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
                                     ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Verificado',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4CAF50),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.verified,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Verificado',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else if (data['verificationStatus'] == 'pending')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.schedule,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'En revisión',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else if (data['verificationStatus'] == 'rejected')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade400,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Rechazado',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (experienceLevel.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _getLevelColor(experienceLevel).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: _getLevelColor(experienceLevel),
+                                        width: 1.5,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              )
-                            else if (data['verificationStatus'] == 'pending')
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(
-                                      Icons.schedule,
-                                      color: Colors.white,
-                                      size: 14,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _getLevelIcon(experienceLevel),
+                                          size: 14,
+                                          color: _getLevelColor(experienceLevel),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          experienceLevel,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: _getLevelColor(experienceLevel),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'En revisión',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            else if (data['verificationStatus'] == 'rejected')
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade400,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(
-                                      Icons.error_outline,
-                                      color: Colors.white,
-                                      size: 14,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Rechazado',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                              ],
+                            ),
 
                             const SizedBox(height: 8),
                             const SizedBox(height: 8),
@@ -598,7 +642,7 @@ Descarga la app para contactarlo.
                                 ),
                               ),
                               Text(
-                                'Bs $price',
+                                '$currency $price',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -1364,5 +1408,32 @@ Descarga la app para contactarlo.
         ),
       ),
     );
+  }
+
+  // Helper methods para nivel de experiencia
+  Color _getLevelColor(String level) {
+    switch (level.toLowerCase()) {
+      case 'básico':
+        return Colors.blue;
+      case 'intermedio':
+        return Colors.orange;
+      case 'avanzado':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getLevelIcon(String level) {
+    switch (level.toLowerCase()) {
+      case 'básico':
+        return Icons.star_outline;
+      case 'intermedio':
+        return Icons.star_half;
+      case 'avanzado':
+        return Icons.star;
+      default:
+        return Icons.info_outline;
+    }
   }
 }
