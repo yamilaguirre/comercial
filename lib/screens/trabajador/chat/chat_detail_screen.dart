@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 import '../../../theme/theme.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/image_service.dart';
+import '../../../services/video_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/chat_model.dart';
 
@@ -193,10 +195,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  Future<void> _pickAndSendImage() async {
+  Future<void> _pickAndSendImage(ImageSource source) async {
     try {
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 70,
       );
 
@@ -248,13 +250,167 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  void _showFilePickerNotAvailable() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Función de archivos próximamente disponible'),
-        duration: Duration(seconds: 2),
+  Future<void> _showMediaPicker() async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Título
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Text(
+                    'Seleccionar medio',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            const SizedBox(height: 8),
+            // Opción: Grabar video
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.videocam, color: Colors.red),
+              ),
+              title: const Text('Grabar video'),
+              subtitle: const Text('Máximo 30 segundos'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendVideo(ImageSource.camera);
+              },
+            ),
+            // Opción: Video desde galería
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.video_library, color: Colors.purple),
+              ),
+              title: const Text('Video de galería'),
+              subtitle: const Text('Máximo 30 segundos'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendVideo(ImageSource.gallery);
+              },
+            ),
+            // Opción: Tomar foto
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.camera_alt, color: Colors.blue),
+              ),
+              title: const Text('Tomar foto'),
+              subtitle: const Text('Usar la cámara'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendImage(ImageSource.camera);
+              },
+            ),
+            // Opción: Foto desde galería
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.photo_library, color: Colors.green),
+              ),
+              title: const Text('Foto de galería'),
+              subtitle: const Text('Seleccionar de tus fotos'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendImage(ImageSource.gallery);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _pickAndSendVideo(ImageSource source) async {
+    try {
+      final XFile? video = await _imagePicker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: 30), // Límite de 30 segundos
+      );
+
+      if (video == null) return;
+
+      setState(() {
+        _isUploading = true;
+      });
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid ?? '';
+
+      // Subir video al servidor
+      final videoUrl = await VideoService.uploadVideo(
+        video,
+        'chat_videos/${widget.chatId}',
+      );
+
+      // Enviar mensaje con video
+      final success = await _chatService.sendMessage(
+        widget.chatId,
+        currentUserId,
+        'Video',
+        messageType: 'video',
+        attachmentUrl: videoUrl,
+      );
+
+      if (success) {
+        _scrollToBottom();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error al enviar video')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -475,7 +631,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Subiendo imagen...'),
+                  const Text('Subiendo archivo...'),
                 ],
               ),
             ),
@@ -500,12 +656,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   // Botón de adjuntar imagen
                   IconButton(
                     icon: Icon(Icons.image, color: Styles.primaryColor),
-                    onPressed: _isUploading ? null : _pickAndSendImage,
+                    onPressed: _isUploading ? null : () => _pickAndSendImage(ImageSource.gallery),
                   ),
-                  // Botón de adjuntar archivo (Próximamente)
+                  // Botón de adjuntar archivo (video/foto)
                   IconButton(
-                    icon: const Icon(Icons.attach_file, color: Colors.grey),
-                    onPressed: _showFilePickerNotAvailable,
+                    icon: Icon(Icons.attach_file, color: Styles.primaryColor),
+                    onPressed: _isUploading ? null : _showMediaPicker,
                   ),
 
                   // Campo de texto
@@ -666,6 +822,12 @@ class _MessageBubble extends StatelessWidget {
                           },
                         ),
                       ),
+                  ] else if (message.type == MessageType.video) ...[
+                    if (message.attachmentUrl != null)
+                      _VideoMessagePlayer(
+                        videoUrl: message.attachmentUrl!,
+                        isMe: isMe,
+                      ),
                   ] else if (message.type == MessageType.file) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -731,6 +893,189 @@ class _MessageBubble extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Widget para reproducir videos inline en mensajes
+class _VideoMessagePlayer extends StatefulWidget {
+  final String videoUrl;
+  final bool isMe;
+
+  const _VideoMessagePlayer({
+    required this.videoUrl,
+    required this.isMe,
+  });
+
+  @override
+  State<_VideoMessagePlayer> createState() => _VideoMessagePlayerState();
+}
+
+class _VideoMessagePlayerState extends State<_VideoMessagePlayer> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+
+      await _controller.initialize();
+      _controller.setLooping(false);
+
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+      debugPrint('Video URL: ${widget.videoUrl}');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: widget.isMe ? Colors.white70 : Colors.grey,
+              size: 40,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Error al cargar video',
+              style: TextStyle(
+                color: widget.isMe ? Colors.white70 : Colors.grey[700],
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _isInitialized = false;
+                });
+                _initializeVideo();
+              },
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Reintentar'),
+              style: TextButton.styleFrom(
+                foregroundColor: widget.isMe ? Colors.white70 : Styles.primaryColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              widget.isMe ? Colors.white : Styles.primaryColor,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_controller),
+            // Overlay de controles
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (_controller.value.isPlaying) {
+                    _controller.pause();
+                  } else {
+                    _controller.play();
+                  }
+                });
+              },
+              child: Container(
+                color: Colors.transparent,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _controller.value.isPlaying ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Barra de progreso
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: VideoProgressIndicator(
+                _controller,
+                allowScrubbing: true,
+                colors: VideoProgressColors(
+                  playedColor: widget.isMe ? Colors.white : Styles.primaryColor,
+                  bufferedColor: Colors.white30,
+                  backgroundColor: Colors.white12,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 2),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

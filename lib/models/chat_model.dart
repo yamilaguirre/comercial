@@ -1,7 +1,7 @@
 // models/chat_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum MessageType { text, image, file }
+enum MessageType { text, image, file, video }
 
 class ChatMessage {
   final String senderId;
@@ -30,6 +30,9 @@ class ChatMessage {
           break;
         case 'file':
           messageType = MessageType.file;
+          break;
+        case 'video':
+          messageType = MessageType.video;
           break;
         default:
           messageType = MessageType.text;
