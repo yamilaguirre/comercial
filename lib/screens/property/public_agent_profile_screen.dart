@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:my_first_app/services/ad_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
 import '../../models/property.dart';
@@ -91,7 +92,7 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
     }
   }
 
-  void _contactAgent(String type) {
+  Future<void> _contactAgent(String type) async {
     if (_userData == null) return;
     final phone = _userData?['phoneNumber'] as String? ?? '';
     final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
@@ -101,19 +102,21 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
 
     if (type == 'call') {
       if (finalPhone.isNotEmpty) {
-        _launchUrl(Uri.parse('tel:$finalPhone'));
+        await _launchUrl(Uri.parse('tel:$finalPhone'));
       }
     } else if (type == 'whatsapp') {
       if (finalPhone.isNotEmpty) {
         final message = Uri.encodeComponent(
           'Hola ${_userData?['displayName'] ?? ''}, vi tu perfil en Comercial y me gustaría consultarte.',
         );
-        _launchUrl(Uri.parse('https://wa.me/$finalPhone?text=$message'));
+        await AdService.instance.showInterstitialThen(() async {
+          await _launchUrl(Uri.parse('https://wa.me/$finalPhone?text=$message'));
+        });
       }
     } else if (type == 'email') {
       final email = _userData?['email'] as String? ?? '';
       if (email.isNotEmpty) {
-        _launchUrl(Uri.parse('mailto:$email'));
+        await _launchUrl(Uri.parse('mailto:$email'));
       }
     }
   }

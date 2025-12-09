@@ -16,6 +16,7 @@ import 'worker_location_search_screen.dart';
 import 'components/add_to_worker_collection_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/chat_service.dart';
+import 'package:my_first_app/services/ad_service.dart';
 
 class HomeWorkScreen extends StatefulWidget {
   const HomeWorkScreen({super.key});
@@ -349,12 +350,14 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const WorkerLocationSearchScreen(),
-              ),
-            );
+          onTap: () async {
+            await AdService.instance.showInterstitialThen(() async {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const WorkerLocationSearchScreen(),
+                ),
+              );
+            });
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(

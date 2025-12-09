@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For Clipboard
 import 'package:url_launcher/url_launcher.dart';
+import 'package:my_first_app/services/ad_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
 
@@ -1010,20 +1011,22 @@ Descarga la app para contactarlo.
                       'https://wa.me/$phone?text=Hola, vi tu perfil en Job Chasky y me interesa tu servicio.',
                     );
 
-                    if (await canLaunchUrl(whatsappUrl)) {
-                      await launchUrl(
-                        whatsappUrl,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } else {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('No se pudo abrir WhatsApp'),
-                          ),
+                    await AdService.instance.showInterstitialThen(() async {
+                      if (await canLaunchUrl(whatsappUrl)) {
+                        await launchUrl(
+                          whatsappUrl,
+                          mode: LaunchMode.externalApplication,
                         );
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('No se pudo abrir WhatsApp'),
+                            ),
+                          );
+                        }
                       }
-                    }
+                    });
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

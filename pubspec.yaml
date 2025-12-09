@@ -84,6 +84,7 @@ dependencies:
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
   otpless_flutter: ^2.2.5
+  google_mobile_ads: ^5.1.0
 
 dev_dependencies:
   flutter_test:

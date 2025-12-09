@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/worker_republish_service.dart';
+import 'package:my_first_app/services/ad_service.dart';
 
 class RepublishWorkerButton extends StatefulWidget {
   final String userId;
@@ -63,8 +64,15 @@ class _RepublishWorkerButtonState extends State<RepublishWorkerButton> {
 
   Future<void> _handleRepublish() async {
     setState(() => _isLoading = true);
-
-    final success = await _republishService.republishWorker(widget.userId);
+    bool success = false;
+    // Si no es premium, mostrar interstitial antes de re-publicar
+    if (widget.isPremium) {
+      success = await _republishService.republishWorker(widget.userId);
+    } else {
+      await AdService.instance.showInterstitialThen(() async {
+        success = await _republishService.republishWorker(widget.userId);
+      });
+    }
 
     if (mounted) {
       setState(() => _isLoading = false);

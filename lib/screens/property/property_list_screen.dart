@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:my_first_app/services/ad_service.dart';
 import '../../theme/theme.dart';
 // Importamos los nuevos componentes visuales
 import 'components/category_selector.dart';
@@ -316,13 +317,16 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const PropertyLocationSearchScreen(),
-                                    ),
-                                  );
+                                onTap: () async {
+                                  await AdService.instance
+                                      .showInterstitialThen(() async {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const PropertyLocationSearchScreen(),
+                                      ),
+                                    );
+                                  });
                                 },
                                 borderRadius: BorderRadius.circular(12),
                                 child: Padding(

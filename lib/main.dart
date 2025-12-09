@@ -1,5 +1,6 @@
 // filepath: lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_modular/flutter_modular.dart'; // Reemplaza go_router y provider
 import 'package:provider/provider.dart';
 import 'package:my_first_app/providers/auth_provider.dart';
@@ -9,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/modules/app_module.dart';
 import 'theme/theme.dart';
 import 'firebase_options.dart'; // Para una correcta inicialización de Firebase
+import 'services/ad_service.dart';
 
 void main() async {
   // Asegura que el motor de Flutter esté listo antes de llamar a código nativo (Firebase)
@@ -16,6 +18,11 @@ void main() async {
 
   // Inicializa Firebase usando las opciones por defecto para la plataforma actual
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Inicializa Google Mobile Ads (AdMob)
+  await MobileAds.instance.initialize();
+  // Pre-cargar un interstitial para el primer uso
+  await AdService.instance.preloadInterstitial();
 
   // === CAMBIO CLAVE: Usa ModularApp como widget raíz ===
   // ModularApp inyecta el módulo principal (AppModule) y gestiona el ruteo y las dependencias.

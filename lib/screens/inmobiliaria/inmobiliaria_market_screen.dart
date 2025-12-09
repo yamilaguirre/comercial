@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:my_first_app/services/ad_service.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -297,13 +298,16 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const PropertyLocationSearchScreen(),
-                                    ),
-                                  );
+                                onTap: () async {
+                                  await AdService.instance
+                                      .showInterstitialThen(() async {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const PropertyLocationSearchScreen(),
+                                      ),
+                                    );
+                                  });
                                 },
                                 borderRadius: BorderRadius.circular(12),
                                 child: Padding(
