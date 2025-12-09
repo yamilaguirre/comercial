@@ -1,15 +1,14 @@
 // filepath: lib/screens/auth/register_form_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../theme/theme.dart';
-import '../../providers/auth_provider.dart'
-    as app_auth; // Alias para evitar conflictos
+import '../../providers/auth_provider.dart' as app_auth;
 import '../../services/image_service.dart';
+import '../../services/twilio_service.dart';
 
 class RegisterFormScreen extends StatefulWidget {
   final String userType;
@@ -38,11 +37,9 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
-  // Estado Verificación SMS
-  String? _verificationId;
+  // Estado Verificación WhatsApp
   bool _codeSent = false;
   bool _isPhoneVerified = false;
-  int? _resendToken;
 
   // Estado Foto y ML Kit
   File? _profileImage;
@@ -100,45 +97,60 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
     }
   }
 
-  // --- Lógica SMS (Firebase Auth) ---
+  // --- Lógica WhatsApp (Twilio) ---
 
   Future<void> _verifyPhone() async {
     if (!_formKeyStep2.currentState!.validate()) return;
 
+    final phoneText = _phoneController.text.trim();
+    
+    // Validar que el número tenga 8 dígitos y empiece con 6 o 7
+    if (phoneText.length != 8 || (!phoneText.startsWith('6') && !phoneText.startsWith('7'))) {
+      _showSnackBar('Ingresa un número válido (8 dígitos, debe empezar con 6 o 7)', isError: true);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    final phone =
-        '+591${_phoneController.text.trim()}'; // Ajustar código país según necesidad
+    final phone = '+591$phoneText';
+    print('📱 [REGISTRO] Iniciando verificación para: $phone');
 
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phone,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          // Verificación automática (Android)
-          await _finalizePhoneVerification();
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          setState(() => _isLoading = false);
-          _showSnackBar('Error de verificación: ${e.message}', isError: true);
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          setState(() {
-            _verificationId = verificationId;
-            _resendToken = resendToken;
-            _codeSent = true;
-            _isLoading = false;
-          });
-          _showSnackBar('Código SMS enviado', isError: false);
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _verificationId = verificationId;
-        },
-        timeout: const Duration(seconds: 60),
-      );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showSnackBar('Error al enviar SMS: $e', isError: true);
+    final success = await TwilioService.sendWhatsAppVerification(phone);
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      print('✅ [REGISTRO] Código enviado exitosamente');
+      setState(() => _codeSent = true);
+      _showSnackBar('Código enviado por SMS', isError: false);
+    } else {
+      print('❌ [REGISTRO] Falló el envío del código');
+      _showSnackBar('Error al enviar código. Verifica tu número', isError: true);
     }
+  }
+
+  void _showDialog(String title, String message, {VoidCallback? onConfirm}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          if (onConfirm != null)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onConfirm();
+              },
+              child: const Text('Continuar'),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submitSmsCode() async {
@@ -149,33 +161,19 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
 
     setState(() => _isLoading = true);
 
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: _smsCodeController.text.trim(),
-      );
+    final phone = '+591${_phoneController.text.trim()}';
+    final code = _smsCodeController.text.trim();
+    print('🔐 [REGISTRO] Verificando código: $code para $phone');
 
-      // Aquí solo simulamos el sign-in para verificar la posesión
-      // No hacemos signInWithCredential completo para no sobreescribir sesión actual si la hubiera
-      // Ojo: Para vincular realmente, se necesitaría un usuario ya creado.
-      // Estrategia: Validamos el código creando una credencial válida.
-      // Si no lanza error, el código es correcto.
+    final isValid = await TwilioService.verifyCode(phone, code);
 
-      // Nota: Firebase Auth no permite "validar" código sin intentar loguearse/linkear.
-      // Como estamos en registro, asumimos que no hay usuario.
-      // Haremos un signIn temporal anónimo o simplemente signIn con el teléfono
-      // y luego lo borraremos o usaremos esos datos.
-      // SIMPLIFICACIÓN: Usamos signInWithCredential. Si funciona, es válido.
-      // Luego cerramos sesión para proceder al registro final con correo.
+    setState(() => _isLoading = false);
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
-
-      // Si llegamos aquí, es válido
-      await FirebaseAuth.instance.signOut(); // Limpiamos sesión
-
+    if (isValid) {
+      print('✅ [REGISTRO] Código verificado correctamente');
       await _finalizePhoneVerification();
-    } catch (e) {
-      setState(() => _isLoading = false);
+    } else {
+      print('❌ [REGISTRO] Código inválido o expirado');
       _showSnackBar('Código inválido o expirado', isError: true);
     }
   }
@@ -507,20 +505,20 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(
-            Icons.phonelink_lock,
+          FaIcon(
+            FontAwesomeIcons.whatsapp,
             size: 60,
-            color: Styles.primaryColor,
+            color: Color(0xFF25D366),
           ),
           const SizedBox(height: 16),
           Text(
-            'Verificación de Teléfono',
+            'Verificación por WhatsApp',
             style: TextStyles.title.copyWith(fontSize: 22),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'Te enviaremos un código SMS para verificar que eres tú.',
+            'Te enviaremos un código por WhatsApp para verificar que eres tú.',
             style: TextStyles.body.copyWith(color: Styles.textSecondary),
             textAlign: TextAlign.center,
           ),
@@ -566,7 +564,7 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
               style: _primaryButtonStyle(),
               child: _isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Enviar Código SMS'),
+                  : const Text('Enviar Código WhatsApp'),
             ),
           ],
 
