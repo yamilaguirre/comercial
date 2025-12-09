@@ -1,4 +1,4 @@
-package com.example.my_first_app
+package com.chaski.comercial
 
 import io.flutter.embedding.android.FlutterActivity
 

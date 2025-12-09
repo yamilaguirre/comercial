@@ -21,7 +21,7 @@ dependencies {
   // https://firebase.google.com/docs/android/setup#available-libraries
 }
 android {
-    namespace = "com.example.my_first_app"
+    namespace = "com.chaski.comercial"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
