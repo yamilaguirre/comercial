@@ -36,7 +36,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Encuentra tu próximo hogar',
       description:
           'Explora inmuebles en venta, anticrético y alquiler con información clara y actualizada, todo en un solo lugar.',
-      imagePath: 'assets/images/EncuentraTuProximoHogar.png',
+      imagePath: 'assets/images/onboardin1.png',
       backgroundColor: Colors.white,
       showSkip: true,
       isSplash: false,
@@ -45,7 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Trabajo honesto, cerca de ti',
       description:
           'Encuentra a personas que ofrecen sus oficios de forma independiente y apóyalas contratando sus servicios cuando los necesites.',
-      imagePath: 'assets/images/TrabajoHonesto.png',
+      imagePath: 'assets/images/onboardin2.png',
       backgroundColor: Colors.white,
       showSkip: true,
       isSplash: false,
@@ -54,7 +54,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Todo en una sola app',
       description:
           'Una plataforma que une oportunidades de vivienda y servicios laborales para hacer tu vida más simple.',
-      imagePath: 'assets/images/TodoEnUnaSolaApp.png',
+      imagePath: 'assets/images/onboardin3.png',
       backgroundColor: Colors.white,
       showSkip: true,
       isSplash: false,
@@ -123,51 +123,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
 
-            // Indicadores y botón (solo si no es splash)
-            if (!_pages[_currentPage].isSplash)
-              Padding(
-                padding: EdgeInsets.all(Styles.spacingLarge),
-                child: Column(
-                  children: [
-                    // Indicadores de página
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _pages.length - 1, // -1 porque no contamos el splash
-                        (index) => _buildPageIndicator(
-                          index + 1,
-                        ), // +1 para saltar el splash
-                      ),
-                    ),
-                    SizedBox(height: Styles.spacingLarge),
-
-                    // Botón Siguiente
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _nextPage,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Styles.primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              Styles.radiusMedium,
-                            ),
-                          ),
-                        ),
-                        child: Text(
-                          _currentPage == _pages.length - 1
-                              ? 'Comenzar'
-                              : 'Siguiente',
-                          style: TextStyles.button.copyWith(fontSize: 16),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Indicadores y botón moved into each page overlay to avoid duplication
           ],
         ),
       ),
@@ -206,53 +162,63 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
     }
 
-    // Páginas normales de onboarding
-    return Container(
-      color: page.backgroundColor,
-      child: Column(
-        children: [
-          // Logo pequeño en la parte superior
-          SafeArea(
-            child: Padding(
-              padding: EdgeInsets.only(
-                top: Styles.spacingLarge,
-                left: Styles.spacingLarge,
-                right: Styles.spacingLarge,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/images/logoColor.png', // Logo a color
-                    height: 50,
-                    fit: BoxFit.contain,
-                  ),
-                ],
-              ),
+    // Páginas normales de onboarding con imagen full-screen y degradé azul
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Fondo: imagen a pantalla completa
+        Image.asset(
+          page.imagePath,
+          fit: BoxFit.cover,
+        ),
+        // Overlay: degradé azul desde transparente/gris a azul sólido
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0x3FBFBFBF), // ~23% gris sobre la parte superior
+                Color(0x9F1B54C8), // ~62% azul medio
+                Color(0xFF001BB7), // 100% azul en el fondo
+              ],
+              stops: [0.0, 0.5, 1.0],
             ),
           ),
+        ),
 
-          // Contenido principal
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: Styles.spacingLarge),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Imagen de ilustración
-                  Flexible(
-                    flex: 3,
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 380),
-                      child: Image.asset(page.imagePath, fit: BoxFit.contain),
+        // Contenido distribuido: logo arriba, texto centrado, botón abajo - RESPONSIVE
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              children: [
+                // Logo arriba
+                SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: Styles.spacingLarge,
+                      vertical: Styles.spacingMedium,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/images/logo.png',
+                          height: 44,
+                          fit: BoxFit.contain,
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
-                  SizedBox(height: Styles.spacingXLarge),
+                // Espaciador flexible para empujar todo el contenido al fondo
+                const Spacer(),
 
-                  // Contenido de texto
-                  Flexible(
-                    flex: 2,
+                // Todo el contenido pegado al fondo (título, descripción, indicadores y botón)
+                SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.all(Styles.spacingLarge),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -260,41 +226,79 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Text(
                           page.title,
                           style: TextStyles.title.copyWith(
-                            fontSize: 26,
-                            color: Styles.textPrimary,
+                            fontSize: 24,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
                         ),
-
                         SizedBox(height: Styles.spacingMedium),
-
+                        
                         // Descripción
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: Styles.spacingMedium,
+                        Text(
+                          page.description,
+                          style: TextStyles.body.copyWith(
+                            fontSize: 15,
+                            color: Colors.white.withOpacity(0.9),
+                            height: 1.6,
                           ),
-                          child: Text(
-                            page.description,
-                            style: TextStyles.body.copyWith(
-                              fontSize: 15,
-                              color: Styles.textSecondary,
-                              height: 1.6,
+                          textAlign: TextAlign.center,
+                        ),
+
+                        SizedBox(height: Styles.spacingLarge),
+
+                        // Indicadores
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            _pages.length - 1,
+                            (index) => _buildPageIndicator(index + 1),
+                          ),
+                        ),
+
+                        SizedBox(height: Styles.spacingLarge),
+
+                        // Botón Siguiente/Comenzar
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _nextPage,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Styles.primaryColor,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  Styles.radiusMedium,
+                                ),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
+                            child: Center(
+                              child: Text(
+                                _currentPage == _pages.length - 1
+                                    ? 'Comenzar'
+                                    : 'Siguiente',
+                                style: TextStyles.button.copyWith(
+                                  fontSize: 16,
+                                  color: Styles.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-
-                  SizedBox(height: Styles.spacingSmall),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 

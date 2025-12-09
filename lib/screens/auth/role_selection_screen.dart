@@ -112,167 +112,135 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          backgroundColor: Colors.grey[50],
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Styles.textPrimary),
-            onPressed: _handleLogout,
-          ),
-        ),
+        backgroundColor: Colors.black,
         body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final screenHeight = constraints.maxHeight;
-            // Calculamos alturas dinámicas para que todo quepa mejor
-            final imageHeight =
-                screenHeight * 0.35; // 35% de la altura disponible
+            // Fondo full-screen; no necesitamos tamaños intermedios
 
-            return FadeTransition(
-              opacity: _fadeAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: Styles.spacingLarge,
-                    vertical: Styles.spacingMedium,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: screenHeight - (Styles.spacingMedium * 2),
-                    ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Logo
-                          Center(
-                            child: Image.asset(
-                              'assets/images/logoColor.png',
-                              height:
-                                  40, // Un poco más pequeño para dar espacio
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-
-                          SizedBox(height: Styles.spacingLarge),
-
-                          // Título principal
-                          Text(
-                            '¿Con qué quieres empezar?',
-                            style: TextStyles.title.copyWith(
-                              fontSize: 26, // Ligeramente ajustado
-                              fontWeight: FontWeight.bold,
-                              color: Styles.textPrimary,
-                              letterSpacing: -0.5,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-
-                          SizedBox(height: Styles.spacingSmall),
-
-                          // Descripción
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: Styles.spacingSmall,
-                            ),
-                            child: Text(
-                              'Puedes explorar inmuebles o freelancers cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
-                              style: TextStyles.body.copyWith(
-                                color: Styles.textSecondary,
-                                fontSize:
-                                    14, // Ajustado para mejor lectura en bloque
-                                height: 1.4,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-
-                          // Espacio flexible superior
-                          const Spacer(),
-
-                          // Imagen ilustrativa (Responsive)
-                          Center(
-                            child: Image.asset(
-                              'assets/images/conQueQuieresEmpesar.png',
-                              height: imageHeight.clamp(
-                                200.0,
-                                350.0,
-                              ), // Mínimo 200, Máximo 350
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-
-                          // Espacio flexible inferior
-                          const Spacer(),
-
-                          // Botones horizontales mejorados
-                          Row(
-                            children: [
-                              // Botón Inmobiliaria
-                              Expanded(
-                                child: _buildRoleButton(
-                                  title: 'Inmobiliaria',
-                                  icon: Icons.home_work_rounded,
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Styles.primaryColor,
-                                      Color(0xFFFF8C42),
-                                    ],
-                                  ),
-                                  onTap: () =>
-                                      _updateRoleAndNavigate('inmobiliaria'),
-                                  isLoading:
-                                      _isLoading && _userRole == 'inmobiliaria',
-                                ),
-                              ),
-
-                              SizedBox(width: Styles.spacingMedium),
-
-                              // Botón Trabajo
-                              Expanded(
-                                child: _buildRoleButton(
-                                  title: 'Trabajo',
-                                  icon: Icons.work_rounded,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Styles.textPrimary,
-                                      Colors.grey[800]!,
-                                    ],
-                                  ),
-                                  onTap: () =>
-                                      _updateRoleAndNavigate('trabajo'),
-                                  isLoading:
-                                      _isLoading && _userRole == 'trabajo',
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          SizedBox(height: Styles.spacingLarge),
-
-                          // Footer info
-                          Center(
-                            child: Text(
-                              'Podrás cambiar de módulo en cualquier momento',
-                              style: TextStyles.caption.copyWith(
-                                color: Styles.textSecondary,
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // Fondo: imagen a pantalla completa
+                Image.asset(
+                  'assets/images/onboardin4.png',
+                  fit: BoxFit.cover,
+                ),
+                // Overlay: degradé azul similar al onboarding
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x3FBFBFBF),
+                        Color(0x9F1B54C8),
+                        Color(0xFF001BB7),
+                      ],
+                      stops: [0.0, 0.5, 1.0],
                     ),
                   ),
                 ),
-              ),
+                // Contenido: logo arriba, titulo/descripcion al medio, botones abajo - RESPONSIVE
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Column(
+                      children: [
+                        // Logo arriba
+                        SafeArea(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: Styles.spacingLarge,
+                              vertical: Styles.spacingMedium,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/images/logo.png',
+                                  height: 44,
+                                  fit: BoxFit.contain,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Espaciador flexible para empujar todo el contenido al fondo
+                        const Spacer(),
+
+                        // Todo el contenido pegado al fondo (título, descripción, botones de rol y botón siguiente)
+                        SafeArea(
+                          child: Padding(
+                            padding: EdgeInsets.all(Styles.spacingLarge),
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Título
+                                  Text(
+                                    '¿Con qué quieres empezar?',
+                                    style: TextStyles.title.copyWith(
+                                      fontSize: 24,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  SizedBox(height: Styles.spacingMedium),
+                                  
+                                  // Descripción
+                                  Text(
+                                    'Puedes explorar inmuebles o freelancers cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
+                                    style: TextStyles.body.copyWith(
+                                      fontSize: 14,
+                                      color: Colors.white.withOpacity(0.9),
+                                      height: 1.5,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+
+                                  SizedBox(height: Styles.spacingLarge),
+
+                                  // Botones de rol - responsive
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildSolidButton(
+                                          title: 'Inmobiliaria',
+                                          icon: Icons.home_rounded,
+                                          onTap: () =>
+                                              _updateRoleAndNavigate('inmobiliaria'),
+                                          backgroundColor: Colors.white,
+                                          foregroundColor: Styles.primaryColor,
+                                        ),
+                                      ),
+                                      SizedBox(width: Styles.spacingMedium),
+                                      Expanded(
+                                        child: _buildSolidButton(
+                                          title: 'Trabajo',
+                                          icon: Icons.work_rounded,
+                                          onTap: () =>
+                                              _updateRoleAndNavigate('trabajo'),
+                                          backgroundColor: const Color(0xFF0B0B0E),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -281,64 +249,54 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
     );
   }
 
-  Widget _buildRoleButton({
+  // Eliminamos el antiguo botón con gradiente porque el nuevo diseño usa
+  // botones sólidos. Si se necesita, se puede recuperar desde historial.
+
+  Widget _buildSolidButton({
     required String title,
     required IconData icon,
-    required Gradient gradient,
     required VoidCallback onTap,
-    required bool isLoading,
+    required Color backgroundColor,
+    required Color foregroundColor,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _isLoading ? null : onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 110,
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: gradient.colors.first.withOpacity(0.4),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 32),
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(Styles.radiusMedium),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isLoading ? null : onTap,
+          borderRadius: BorderRadius.circular(Styles.radiusMedium),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: foregroundColor,
+                  size: 22,
                 ),
-              SizedBox(height: Styles.spacingMedium),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.3,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: TextStyles.button.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: foregroundColor,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
