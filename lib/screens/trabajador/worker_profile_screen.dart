@@ -7,6 +7,7 @@ import '../../theme/theme.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_views_service.dart';
 import '../../widgets/republish_worker_button.dart';
+import 'package:my_first_app/services/ad_service.dart';
 
 class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({super.key});
@@ -99,6 +100,9 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
               (premiumSnapshot.data!.data()
                       as Map<String, dynamic>)['status'] ==
                   'active';
+
+          // Informar al servicio de anuncios para que omita/active interstitials
+          AdService.instance.setPremiumOverride(isPremium);
 
           return StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:my_first_app/services/ad_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 // Importaciones de Mapa (Asumo que _buildMapSection todavía está en esta pantalla)
 import 'package:flutter_map/flutter_map.dart';
@@ -294,9 +295,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     }
 
     try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        throw 'No se pudo lanzar $uri';
-      }
+      await AdService.instance.showInterstitialThen(() async {
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          throw 'No se pudo lanzar $uri';
+        }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
