@@ -44,5 +44,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Keystore files - DO NOT COMMIT
+keystore/
+*.jks
+*.keystore
+android/key.properties
+android/gradle.properties
+
 # Twilio credentials (IMPORTANT: Never commit this file)
 lib/config/twilio_config.dart

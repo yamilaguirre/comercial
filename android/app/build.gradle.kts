@@ -21,7 +21,7 @@ dependencies {
   // https://firebase.google.com/docs/android/setup#available-libraries
 }
 android {
-    namespace = "com.example.my_first_app"
+    namespace = "com.chaski.comercial"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -45,11 +45,18 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(project.property("storeFile") as String)
+            storePassword = project.property("storePassword") as String
+            keyAlias = project.property("keyAlias") as String
+            keyPassword = project.property("keyPassword") as String
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
