@@ -3,6 +3,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 // Importaciones de Mapa (Asumo que _buildMapSection todavía está en esta pantalla)
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -305,6 +306,28 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               'No se pudo abrir ${type == 'whatsapp' ? 'WhatsApp' : 'el teléfono'}',
             ),
           ),
+        );
+      }
+    }
+  }
+
+  // Compartir propiedad
+  Future<void> _shareProperty() async {
+    if (_property == null) return;
+
+    final propertyUrl = 'comercial://property/${widget.propertyId}';
+    final message = '¡Mira esta propiedad!\n\n'
+        '${_property!.name}\n'
+        '${_property!.price}\n'
+        '${_property!.location}\n\n'
+        'Abre en la app: $propertyUrl';
+
+    try {
+      await Share.share(message, subject: _property!.name);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al compartir: $e')),
         );
       }
     }
@@ -738,21 +761,39 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                       onPressed: () => Modular.to.pop(),
                     ),
                   ),
-                  Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black12, blurRadius: 4),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        _isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: _isFavorite ? Colors.red : Colors.black,
+                  Row(
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 4),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.share, color: Colors.black),
+                          onPressed: _shareProperty,
+                        ),
                       ),
-                      onPressed: _toggleFavorite,
-                    ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 4),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            _isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: _isFavorite ? Colors.red : Colors.black,
+                          ),
+                          onPressed: _toggleFavorite,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
