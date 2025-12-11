@@ -106,44 +106,31 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
       final user = userCredential.user;
 
       if (user != null && mounted) {
-        // Buscar usuario en Firestore por número de teléfono
-        // Intentar con +591 primero, luego sin él
         final phoneWithCode = '+591${_phoneController.text.trim()}';
-        final phoneWithoutCode = _phoneController.text.trim();
         
-        print('🔍 Buscando en Firestore: "$phoneWithCode" o "$phoneWithoutCode"');
-        
-        var querySnapshot = await FirebaseFirestore.instance
+        // Verificar si el documento del usuario existe en Firestore
+        final userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .where('phoneNumber', isEqualTo: phoneWithCode)
-            .limit(1)
+            .doc(user.uid)
             .get();
 
-        // Si no encuentra con +591, buscar sin él
-        if (querySnapshot.docs.isEmpty) {
-          print('🔍 No encontrado con código, buscando sin él...');
-          querySnapshot = await FirebaseFirestore.instance
+        if (!userDoc.exists) {
+          // Crear documento en Firestore para este nuevo usuario
+          await FirebaseFirestore.instance
               .collection('users')
-              .where('phoneNumber', isEqualTo: phoneWithoutCode)
-              .limit(1)
-              .get();
-        }
-
-        print('📊 Resultados encontrados: ${querySnapshot.docs.length}');
-
-        if (querySnapshot.docs.isEmpty) {
-          // Usuario no registrado con este número
-          await _auth.signOut();
-          setState(() {
-            _isLoading = false;
-            _errorMessage = 'Número no registrado. Por favor regístrate primero.';
+              .doc(user.uid)
+              .set({
+            'phoneNumber': phoneWithCode,
+            'role': 'indefinido',
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'isActive': true,
           });
-          return;
+          
+          print('✅ Documento creado en Firestore para UID=${user.uid}');
         }
 
-        final userDoc = querySnapshot.docs.first;
-        final originalUid = userDoc.id;
-        final role = userDoc.data()['role'];
+        final role = userDoc.exists ? (userDoc.data()?['role'] ?? 'indefinido') : 'indefinido';
 
         // Bloquear si es empresa inmobiliaria
         if (role == 'inmobiliaria_empresa') {
@@ -155,7 +142,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
           return;
         }
 
-        print('✅ Usuario encontrado: UID=$originalUid, navegando a /select-role');
+        print('✅ Login exitoso: UID=${user.uid}, navegando a /select-role');
         
         // Login exitoso
         if (mounted) {

@@ -194,7 +194,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                                   
                                   // Descripción
                                   Text(
-                                    'Puedes explorar inmuebles o freelancers cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
+                                    'Puedes explorar inmuebles o trabajadores cerca de ti, o publicar tu propio inmueble o servicio para que otros te encuentren fácilmente.',
                                     style: TextStyles.body.copyWith(
                                       fontSize: 14,
                                       color: Colors.white.withOpacity(0.9),
