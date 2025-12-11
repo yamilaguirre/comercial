@@ -186,6 +186,7 @@ class AuthService extends ChangeNotifier {
     required String phone,
     required String userRole,
     String? photoUrl,
+    DateTime? birthdate,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -215,6 +216,7 @@ class AuthService extends ChangeNotifier {
               'role': ROLE_PENDING, // Siempre 'indefinido' al registrar
               'status': ROLE_PENDING,
               if (photoUrl != null) 'photoURL': photoUrl,
+              if (birthdate != null) 'birthdate': birthdate.toIso8601String(),
             },
           );
           _userRole = ROLE_PENDING;

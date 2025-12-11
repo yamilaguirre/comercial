@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For Clipboard
 import 'package:url_launcher/url_launcher.dart';
-import 'package:my_first_app/services/ad_service.dart';
+import 'package:chaski_comercial/services/ad_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:video_player/video_player.dart';
 

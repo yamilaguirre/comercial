@@ -1,0 +1,487 @@
+// filepath: lib/screens/auth/login_screen_phone.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_modular/flutter_modular.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../providers/auth_provider.dart';
+import '../../theme/theme.dart';
+
+class LoginScreenPhone extends StatefulWidget {
+  const LoginScreenPhone({super.key});
+
+  @override
+  State<LoginScreenPhone> createState() => _LoginScreenPhoneState();
+}
+
+class _LoginScreenPhoneState extends State<LoginScreenPhone> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
+  
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  bool _isLoading = false;
+  bool _codeSent = false;
+  String _verificationId = '';
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendOTP() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final phone = '+591${_phoneController.text.trim()}';
+
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phone,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Error al enviar código: ${e.message}';
+          });
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _codeSent = true;
+            _isLoading = false;
+          });
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+        timeout: const Duration(seconds: 60),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error: $e';
+      });
+    }
+  }
+
+  Future<void> _verifyOTP() async {
+    if (_otpController.text.length < 6) {
+      setState(() => _errorMessage = 'Ingresa el código de 6 dígitos');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId,
+        smsCode: _otpController.text.trim(),
+      );
+
+      await _signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Código inválido o expirado';
+      });
+    }
+  }
+
+  Future<void> _signInWithCredential(PhoneAuthCredential credential) async {
+    try {
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null && mounted) {
+        // Buscar usuario en Firestore por número de teléfono
+        // Intentar con +591 primero, luego sin él
+        final phoneWithCode = '+591${_phoneController.text.trim()}';
+        final phoneWithoutCode = _phoneController.text.trim();
+        
+        print('🔍 Buscando en Firestore: "$phoneWithCode" o "$phoneWithoutCode"');
+        
+        var querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('phoneNumber', isEqualTo: phoneWithCode)
+            .limit(1)
+            .get();
+
+        // Si no encuentra con +591, buscar sin él
+        if (querySnapshot.docs.isEmpty) {
+          print('🔍 No encontrado con código, buscando sin él...');
+          querySnapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .where('phoneNumber', isEqualTo: phoneWithoutCode)
+              .limit(1)
+              .get();
+        }
+
+        print('📊 Resultados encontrados: ${querySnapshot.docs.length}');
+
+        if (querySnapshot.docs.isEmpty) {
+          // Usuario no registrado con este número
+          await _auth.signOut();
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Número no registrado. Por favor regístrate primero.';
+          });
+          return;
+        }
+
+        final userDoc = querySnapshot.docs.first;
+        final originalUid = userDoc.id;
+        final role = userDoc.data()['role'];
+
+        // Bloquear si es empresa inmobiliaria
+        if (role == 'inmobiliaria_empresa') {
+          await _auth.signOut();
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Esta es una cuenta de empresa. Usa el portal inmobiliario';
+          });
+          return;
+        }
+
+        print('✅ Usuario encontrado: UID=$originalUid, navegando a /select-role');
+        
+        // Login exitoso
+        if (mounted) {
+          Modular.to.navigate('/select-role');
+        }
+      }
+    } catch (e) {
+      print('❌ Error en _signInWithCredential: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error al iniciar sesión';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                Center(
+                  child: Image.asset(
+                    'assets/images/logoColor.png',
+                    height: 70,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 48),
+                Text(
+                  'Log in',
+                  style: TextStyles.title.copyWith(
+                    fontSize: 28,
+                    color: Styles.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                
+                // Tabs
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          // Navegar a login con email
+                          Modular.to.navigate('/login');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'With Email',
+                            textAlign: TextAlign.center,
+                            style: TextStyles.body.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Styles.primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'With Phone',
+                          textAlign: TextAlign.center,
+                          style: TextStyles.body.copyWith(
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                if (!_codeSent) ...[
+                  Text(
+                    'Phone Number',
+                    style: TextStyles.body.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Styles.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE0E0E0)),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey[50],
+                        ),
+                        child: Row(
+                          children: [
+                            Image.asset(
+                              'assets/images/icon/bolivia_flag.png',
+                              width: 24,
+                              height: 24,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red[100],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Center(
+                                    child: Text('🇧🇴', style: TextStyle(fontSize: 16)),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('+591', style: TextStyle(fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            hintText: 'Phone Number',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Styles.primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Ingresa tu número';
+                            }
+                            if (value.length < 8) {
+                              return 'Número inválido';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _sendOTP,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[400],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Verificar Número',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ] else ...[
+                  Text(
+                    'Enter OTP Code',
+                    style: TextStyles.body.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Styles.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      hintText: '000000',
+                      hintStyle: TextStyle(color: Colors.grey[400]),
+                      filled: true,
+                      fillColor: Colors.white,
+                      counterText: '',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Styles.primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _verifyOTP,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Styles.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Login',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ],
+
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyles.caption.copyWith(
+                        color: Styles.errorColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      Modular.to.navigate('/register-form', arguments: 'cliente');
+                    },
+                    child: RichText(
+                      text: TextSpan(
+                        text: "No tienes una cuenta? ",
+                        style: TextStyles.body.copyWith(color: Styles.textSecondary),
+                        children: [
+                          TextSpan(
+                            text: 'Regístrate',
+                            style: TextStyles.body.copyWith(
+                              color: Styles.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

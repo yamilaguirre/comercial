@@ -8,7 +8,9 @@ class TwilioService {
     print('🔵 [TWILIO DEBUG] === INICIANDO VERIFICACIÓN ===');
     print('🔵 [TWILIO DEBUG] Número: $phoneNumber');
     print('🔵 [TWILIO DEBUG] Account SID: ${TwilioConfig.accountSid}');
+    print('🔵 [TWILIO DEBUG] Account SID Length: ${TwilioConfig.accountSid.length}');
     print('🔵 [TWILIO DEBUG] Auth Token: ${TwilioConfig.authToken.substring(0, 8)}...');
+    print('🔵 [TWILIO DEBUG] Auth Token Length: ${TwilioConfig.authToken.length}');
     print('🔵 [TWILIO DEBUG] Service SID: ${TwilioConfig.verifyServiceSid}');
     
     // Validar formato del número
@@ -33,6 +35,7 @@ class TwilioService {
 
     print('🔵 [TWILIO DEBUG] URL: $url');
     print('🔵 [TWILIO DEBUG] Credentials (base64): ${credentials.substring(0, 20)}...');
+    print('🔵 [TWILIO DEBUG] Full Auth String: ${TwilioConfig.accountSid}:${TwilioConfig.authToken.substring(0, 10)}...');
 
     try {
       final response = await http.post(

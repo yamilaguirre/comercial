@@ -208,12 +208,65 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 SizedBox(height: Styles.spacingXLarge * 1.5),
                 Text(
-                  'Inicie sesión en su cuenta',
+                  'Log in',
                   style: TextStyles.title.copyWith(
                     fontSize: 24,
                     color: Styles.textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
+                ),
+                SizedBox(height: Styles.spacingXLarge),
+                
+                // Tabs
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Styles.primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'With Email',
+                          textAlign: TextAlign.center,
+                          style: TextStyles.body.copyWith(
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Modular.to.navigate('/login-phone');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey[300]!,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'With Phone',
+                            textAlign: TextAlign.center,
+                            style: TextStyles.body.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: Styles.spacingXLarge),
                 Text(
@@ -389,37 +442,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                 ),
-                SizedBox(height: Styles.spacingLarge),
-                Row(
-                  children: [
-                    const Expanded(child: Divider(color: Color(0xFFE0E0E0))),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: Styles.spacingMedium,
-                      ),
-                      child: Text(
-                        'o inicia sesión con',
-                        style: TextStyles.caption.copyWith(
-                          color: Styles.textSecondary,
-                        ),
-                      ),
-                    ),
-                    const Expanded(child: Divider(color: Color(0xFFE0E0E0))),
-                  ],
-                ),
-                SizedBox(height: Styles.spacingLarge),
-                Center(
-                  child: _buildSocialButtonWithImage(
-                    'assets/images/google.png',
-                    _handleGoogleLogin, // Llama al método de Google
-                  ),
-                ),
                 SizedBox(height: Styles.spacingXLarge),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '¿No tienes una cuenta? ',
+                      "Don't have an account? ",
                       style: TextStyles.body.copyWith(
                         color: Styles.textSecondary,
                       ),
@@ -427,7 +455,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     GestureDetector(
                       onTap: _goToRegister,
                       child: Text(
-                        'Regístrate',
+                        'Sign Up',
                         style: TextStyles.body.copyWith(
                           color: Styles.primaryColor,
                           fontWeight: FontWeight.w600,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_first_app/theme/theme.dart';
+import 'package:chaski_comercial/theme/theme.dart';
 import '../../../core/data/professions_data.dart';
 
 class ProfessionSelector extends StatefulWidget {

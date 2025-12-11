@@ -1,11 +1,11 @@
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:my_first_app/providers/auth_provider.dart';
-import 'package:my_first_app/core/modules/auth_module.dart';
-import 'package:my_first_app/core/modules/property_module.dart';
-import 'package:my_first_app/core/modules/worker_module.dart';
-import 'package:my_first_app/core/modules/freelance_module.dart';
-import 'package:my_first_app/core/modules/inmobiliaria_module.dart';
-import 'package:my_first_app/core/guards/auth_guard.dart';
+import 'package:chaski_comercial/providers/auth_provider.dart';
+import 'package:chaski_comercial/core/modules/auth_module.dart';
+import 'package:chaski_comercial/core/modules/property_module.dart';
+import 'package:chaski_comercial/core/modules/worker_module.dart';
+import 'package:chaski_comercial/core/modules/freelance_module.dart';
+import 'package:chaski_comercial/core/modules/inmobiliaria_module.dart';
+import 'package:chaski_comercial/core/guards/auth_guard.dart';
 
 class AppModule extends Module {
   @override

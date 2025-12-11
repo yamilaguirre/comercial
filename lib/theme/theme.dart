@@ -3,7 +3,7 @@
 /// Este archivo "barrel" exporta todos los módulos de tema,
 /// permitiendo importar todo el sistema de diseño con una sola línea:
 /// ```dart
-/// import 'package:my_first_app/theme/theme.dart';
+/// import 'package:chaski_comercial/theme/theme.dart';
 /// ```
 library;
 

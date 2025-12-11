@@ -16,7 +16,7 @@ import 'worker_location_search_screen.dart';
 import 'components/add_to_worker_collection_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/chat_service.dart';
-import 'package:my_first_app/services/ad_service.dart';
+import 'package:chaski_comercial/services/ad_service.dart';
 
 class HomeWorkScreen extends StatefulWidget {
   const HomeWorkScreen({super.key});

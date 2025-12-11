@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/worker_republish_service.dart';
-import 'package:my_first_app/services/ad_service.dart';
+import 'package:chaski_comercial/services/ad_service.dart';
 
 class RepublishWorkerButton extends StatefulWidget {
   final String userId;

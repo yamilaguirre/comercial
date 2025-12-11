@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:my_first_app/screens/onboarding/onboarding_screen.dart';
-import 'package:my_first_app/screens/auth/login_screen.dart';
-import 'package:my_first_app/screens/auth/register_screen.dart';
-import 'package:my_first_app/screens/auth/register_form_screen.dart';
-import 'package:my_first_app/screens/auth/role_selection_screen.dart';
-import 'package:my_first_app/screens/auth/inmobiliaria_register_screen.dart';
-import 'package:my_first_app/screens/auth/inmobiliaria_login_screen.dart';
-import 'package:my_first_app/screens/inmobiliaria/inmobiliaria_dashboard_screen.dart';
-import 'package:my_first_app/core/guards/auth_guard.dart';
-import 'package:my_first_app/core/guards/onboarding_guard.dart';
+import 'package:chaski_comercial/screens/onboarding/onboarding_screen.dart';
+import 'package:chaski_comercial/screens/auth/login_screen.dart';
+import 'package:chaski_comercial/screens/auth/login_screen_phone.dart';
+import 'package:chaski_comercial/screens/auth/register_screen.dart';
+import 'package:chaski_comercial/screens/auth/register_form_screen.dart';
+import 'package:chaski_comercial/screens/auth/role_selection_screen.dart';
+import 'package:chaski_comercial/screens/auth/inmobiliaria_register_screen.dart';
+import 'package:chaski_comercial/screens/auth/inmobiliaria_login_screen.dart';
+import 'package:chaski_comercial/screens/inmobiliaria/inmobiliaria_dashboard_screen.dart';
+import 'package:chaski_comercial/core/guards/auth_guard.dart';
+import 'package:chaski_comercial/core/guards/onboarding_guard.dart';
 
 class AuthModule extends Module {
   @override
@@ -26,6 +27,7 @@ class AuthModule extends Module {
 
     // 2. Otras Rutas
     r.child('/login', child: (context) => const LoginScreen());
+    r.child('/login-phone', child: (context) => const LoginScreenPhone());
     r.child('/register', child: (context) => const RegisterScreen());
     r.child(
       '/register-form',

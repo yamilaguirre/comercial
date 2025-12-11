@@ -53,3 +53,16 @@ android/gradle.properties
 
 # Twilio credentials (IMPORTANT: Never commit this file)
 lib/config/twilio_config.dart
+
+# Firebase Functions with environment variables
+functions/index.js
+functions/.env
+functions/.env.*
+
+# Google Services JSON (contains API keys)
+# NOTA: Normalmente este archivo SE DEBE COMMITTEAR para que el build funcione
+# pero GitHub lo detecta como secreto. Para proyectos públicos, considerar:
+# 1. Mantener el repo privado
+# 2. O usar Firebase App Check con restricciones de API
+# android/app/google-services.json
+# ios/Runner/GoogleService-Info.plist

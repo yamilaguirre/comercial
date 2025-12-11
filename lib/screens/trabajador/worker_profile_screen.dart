@@ -7,7 +7,7 @@ import '../../theme/theme.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_views_service.dart';
 import '../../widgets/republish_worker_button.dart';
-import 'package:my_first_app/services/ad_service.dart';
+import 'package:chaski_comercial/services/ad_service.dart';
 
 class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({super.key});

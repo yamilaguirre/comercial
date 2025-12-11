@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:my_first_app/theme/theme.dart';
+import 'package:chaski_comercial/theme/theme.dart';
 import '../../models/task_model.dart';
 
 class TaskCard extends StatelessWidget {

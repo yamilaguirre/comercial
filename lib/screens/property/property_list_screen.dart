@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:my_first_app/services/ad_service.dart';
+import 'package:chaski_comercial/services/ad_service.dart';
 import '../../theme/theme.dart';
 // Importamos los nuevos componentes visuales
 import 'components/category_selector.dart';

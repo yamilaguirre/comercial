@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 
-import 'package:my_first_app/theme/theme.dart';
+import 'package:chaski_comercial/theme/theme.dart';
 import '../../services/chat_service.dart';
 import '../../services/notification_service.dart';
 import '../../providers/auth_provider.dart';

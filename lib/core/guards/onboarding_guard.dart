@@ -1,5 +1,5 @@
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:my_first_app/providers/auth_provider.dart';
+import 'package:chaski_comercial/providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Un Guard que se usa en la ruta principal ('/') del AuthModule.

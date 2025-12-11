@@ -1,20 +1,20 @@
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:my_first_app/core/layouts/worker_layout.dart';
-import 'package:my_first_app/screens/trabajador/home_work_screen.dart';
-import 'package:my_first_app/screens/trabajador/chat/chat_list_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_profile_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_alerts_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_location_search_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_public_profile_screen.dart';
-import 'package:my_first_app/screens/trabajador/freelance_work.dart';
-import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_account_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_favorites_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_collection_detail_screen.dart';
-import 'package:my_first_app/screens/trabajador/edit_account_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_verification_screen.dart';
-import 'package:my_first_app/screens/trabajador/subscription_qr_payment_screen.dart';
-import 'package:my_first_app/screens/trabajador/subscription_status_screen.dart';
+import 'package:chaski_comercial/core/layouts/worker_layout.dart';
+import 'package:chaski_comercial/screens/trabajador/home_work_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/chat/chat_list_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_profile_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_alerts_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_location_search_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_public_profile_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/freelance_work.dart';
+import 'package:chaski_comercial/screens/trabajador/chat/chat_detail_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_account_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_favorites_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_collection_detail_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/edit_account_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_verification_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/subscription_qr_payment_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/subscription_status_screen.dart';
 
 class WorkerModule extends Module {
   @override

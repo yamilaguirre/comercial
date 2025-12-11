@@ -1,10 +1,10 @@
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:my_first_app/core/layouts/freelance_layout.dart';
-import 'package:my_first_app/screens/trabajador/worker_profile_screen.dart';
-import 'package:my_first_app/screens/trabajador/chat/chat_list_screen.dart';
-import 'package:my_first_app/screens/trabajador/chat/chat_detail_screen.dart';
-import 'package:my_first_app/screens/trabajador/worker_location_config_screen.dart';
-import 'package:my_first_app/screens/common/map_picker_screen.dart';
+import 'package:chaski_comercial/core/layouts/freelance_layout.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_profile_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/chat/chat_list_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/chat/chat_detail_screen.dart';
+import 'package:chaski_comercial/screens/trabajador/worker_location_config_screen.dart';
+import 'package:chaski_comercial/screens/common/map_picker_screen.dart';
 
 class FreelanceModule extends Module {
   @override

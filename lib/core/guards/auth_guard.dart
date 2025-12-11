@@ -1,5 +1,5 @@
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:my_first_app/providers/auth_provider.dart';
+import 'package:chaski_comercial/providers/auth_provider.dart';
 
 class AuthGuard extends RouteGuard {
   final String requiredRole;

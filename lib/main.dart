@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_modular/flutter_modular.dart'; // Reemplaza go_router y provider
 import 'package:provider/provider.dart';
-import 'package:my_first_app/providers/auth_provider.dart';
+import 'package:chaski_comercial/providers/auth_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 // Importaciones específicas del proyecto
