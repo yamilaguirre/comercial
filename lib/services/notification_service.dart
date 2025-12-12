@@ -1,54 +1,124 @@
 // services/notification_service.dart
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/notification_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Stream<List<AppNotification>> getNotificationsForUser(String userId) async* {
-    // 2. Stream optimizado: Solo notificaciones DEL USUARIO y ordenadas
-    // Esto requiere un índice compuesto en Firestore: user_id + created_at
-    await for (final snapshot
-        in _firestore
+  Stream<List<AppNotification>> getNotificationsForUser(String userId) {
+    // Combine real-time snapshots from personal notifications and global notifications
+    final personalQuery = _firestore
+        .collection('notifications')
+        .where('user_id', isEqualTo: userId)
+        .orderBy('created_at', descending: true)
+        .limit(50);
+
+    final globalQuery = _firestore
+        .collection('notifications')
+        .where('is_global', isEqualTo: true)
+        .orderBy('created_at', descending: true)
+        .limit(50);
+
+    final controller = StreamController<List<AppNotification>>();
+    QuerySnapshot? lastPersonalSnapshot;
+    QuerySnapshot? lastGlobalSnapshot;
+
+    late final StreamSubscription personalSub;
+    late final StreamSubscription globalSub;
+
+    void emitMerged() {
+      try {
+        final personalDocs = lastPersonalSnapshot?.docs ?? [];
+        final globalDocs = lastGlobalSnapshot?.docs ?? [];
+        final allDocs = [...personalDocs, ...globalDocs];
+
+        final notifications = allDocs
+            .map((doc) => AppNotification.fromFirestore(doc))
+            .toList();
+
+        notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        final limited = notifications.take(100).map((n) {
+          return n.copyWith(isRead: n.readUsers.contains(userId));
+        }).toList();
+
+        controller.add(limited);
+      } catch (e, st) {
+        print('Error merging notifications: $e');
+        print(st);
+        controller.addError(e);
+      }
+    }
+
+    // Fallback to run queries without ordering when Firestore index is missing
+    Future<void> fetchFallbackAndEmit() async {
+      try {
+        final personalDocs = await _firestore
             .collection('notifications')
             .where('user_id', isEqualTo: userId)
-            .orderBy('created_at', descending: true)
             .limit(100)
-            .snapshots()) {
-      final validNotifications = <AppNotification>[];
+            .get();
 
-      for (final doc in snapshot.docs) {
-        final notification = AppNotification.fromFirestore(doc);
+        final globalDocs = await _firestore
+            .collection('notifications')
+            .where('is_global', isEqualTo: true)
+            .limit(100)
+            .get();
 
-        // --- LÓGICA DE AUTO-LIMPIEZA DE SPAM ---
-        if (notification.title.contains('¡Bienvenido a Premium!')) {
-          // Detectamos spam antiguo -> Eliminamos el documento de la BD
-          // No usamos await para no bloquear el stream
-          doc.reference
-              .delete()
-              .then((_) {
-                print('🗑️ Spam eliminado automáticamente: ${doc.id}');
-              })
-              .catchError((e) {
-                print('Error eliminando spam: $e');
-              });
-          // No lo agregamos a la lista válida
-          continue;
-        }
-        // ---------------------------------------
+        final allDocs = [...personalDocs.docs, ...globalDocs.docs];
+        final notifications = allDocs
+            .map((doc) => AppNotification.fromFirestore(doc))
+            .toList();
 
-        validNotifications.add(notification);
+        notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        final limited = notifications.take(100).map((n) {
+          return n.copyWith(isRead: n.readUsers.contains(userId));
+        }).toList();
+
+        controller.add(limited);
+      } catch (e, st) {
+        print('Fallback fetch error: $e');
+        print(st);
+        controller.addError(e);
       }
-
-      // 3. Filtrar notificaciones adicionales (si fuera necesario, aunque el query ya filtra por ID)
-      final userNotifications = validNotifications.map((notification) {
-        return notification.copyWith(
-          isRead: notification.readUsers.contains(userId),
-        );
-      }).toList();
-
-      yield userNotifications;
     }
+
+    personalSub = personalQuery.snapshots().listen((snap) {
+      lastPersonalSnapshot = snap;
+      emitMerged();
+    }, onError: (e, st) {
+      print('Error personal notifications stream: $e');
+      // If index missing, do fallback one-time fetch without orderBy
+      final errStr = e?.toString() ?? '';
+      if (errStr.contains('requires an index') || errStr.contains('failed-precondition')) {
+        fetchFallbackAndEmit();
+      } else {
+        controller.addError(e);
+      }
+    });
+
+    globalSub = globalQuery.snapshots().listen((snap) {
+      lastGlobalSnapshot = snap;
+      emitMerged();
+    }, onError: (e, st) {
+      print('Error global notifications stream: $e');
+      final errStr = e?.toString() ?? '';
+      if (errStr.contains('requires an index') || errStr.contains('failed-precondition')) {
+        fetchFallbackAndEmit();
+      } else {
+        controller.addError(e);
+      }
+    });
+
+    controller.onCancel = () async {
+      await personalSub.cancel();
+      await globalSub.cancel();
+      await controller.close();
+    };
+
+    return controller.stream;
   }
 
   // Obtener contador de notificaciones no leídas
@@ -136,8 +206,10 @@ class NotificationService {
         'title': title,
         'message': message,
         'created_at': FieldValue.serverTimestamp(),
+        'is_global': true, // Flag para mensajes que todos deben ver
         'metadata': metadata,
       });
+      print('✅ Notificación global creada: $title');
       return docRef.id;
     } catch (e) {
       print('Error creating system message: $e');
