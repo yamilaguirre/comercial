@@ -129,6 +129,20 @@ class PremiumNotificationService {
             'Crea tu perfil desde la sección de Trabajador.';
       }
 
+      // 0. VERIFICACIÓN DE SEGURIDAD (IDEMPOTENCIA)
+      // Comprobar si ya existe una notificación con este título para evitar bucles
+      final existingNotifications = await _firestore
+          .collection('notifications')
+          .where('user_id', isEqualTo: userId)
+          .where('title', isEqualTo: title)
+          .limit(1)
+          .get();
+
+      if (existingNotifications.docs.isNotEmpty) {
+        print('⚠️ Notificación premium ya enviada previamente. Omitiendo.');
+        return;
+      }
+
       // Usar tipo 'message' para notificaciones premium personales
       await _notificationService.createProfileChangeNotification(
         userId: userId,

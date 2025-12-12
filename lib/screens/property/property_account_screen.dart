@@ -386,67 +386,87 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
           Modular.to.navigate('/property/home');
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Mi Cuenta'),
-          backgroundColor: Styles.primaryColor,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        backgroundColor: Colors.white,
-        body: Stack(
-          children: [
-            // Escuchamos cambios en tiempo real del usuario
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.active) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Styles.primaryColor,
-                    ),
-                  );
-                }
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.active) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: Styles.primaryColor),
+              ),
+            );
+          }
 
-                final userData = snapshot.data!.data() as Map<String, dynamic>?;
+          // --- STREAM ANIDADO PARA ESTATUS PREMIUM ---
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('premium_users')
+                .doc(user.uid)
+                .snapshots(),
+            builder: (context, premiumSnapshot) {
+              // Datos del usuario (Stream externo)
+              final userData = snapshot.data!.data() as Map<String, dynamic>?;
 
-                final displayName =
-                    userData?['displayName'] ?? user.displayName ?? 'Usuario';
-                final email = userData?['email'] ?? user.email ?? 'Sin correo';
-                final photoUrl =
-                    userData?['photoURL'] ??
-                    userData?['photoUrl'] ??
-                    user.photoURL;
-                final userRole = userData?['role'] ?? 'cliente';
+              // Datos premium (Stream interno)
+              final premiumData =
+                  premiumSnapshot.hasData &&
+                      premiumSnapshot.data!.exists &&
+                      premiumSnapshot.data!.data() != null
+                  ? premiumSnapshot.data!.data() as Map<String, dynamic>
+                  : null;
 
-                // ----------------------------------------------------
-                // 1. Opciones de Gestión (Propiedades + Botón de Módulo)
-                // ----------------------------------------------------
-                final List<Widget> managementItems = [];
+              final isPremium = premiumData?['status'] == 'active';
 
-                // Añadir el botón de CAMBIAR MÓDULO (si el rol actual no es solo 'cliente' o si queremos que siempre esté disponible)
-                // Lo mantendremos visible si el rol es 'inmobiliaria' o 'cliente' para darle la opción de ir a trabajador.
+              final displayName =
+                  userData?['displayName'] ?? user.displayName ?? 'Usuario';
+              final email = userData?['email'] ?? user.email ?? 'Sin correo';
+              final photoUrl =
+                  userData?['photoURL'] ??
+                  userData?['photoUrl'] ??
+                  user.photoURL;
+              final userRole = userData?['role'] ?? 'cliente';
 
-                managementItems.insertAll(0, [
-                  AccountMenuItem(
-                    icon: Icons.swap_horiz, // Ícono genérico de cambio
-                    iconColor: Styles.infoColor,
-                    iconBgColor: Styles.infoColor.withOpacity(0.1),
-                    title: 'Cambiar de Módulo', // Título actualizado
-                    subtitle:
-                        'Ir a la selección de rol (Inmobiliaria/Trabajador)',
-                    onTap: _changeModule, // Llama a la nueva función
-                  ),
-                  AccountMenuSection.buildDivider(),
-                ]);
+              // ----------------------------------------------------
+              // 1. Opciones de Gestión (Propiedades + Botón de Módulo)
+              // ----------------------------------------------------
+              final List<Widget> managementItems = [];
 
-                // Añadir opciones de gestión de propiedades (son estáticas ahora)
-                managementItems.addAll(_buildPropertyManagementItems());
+              managementItems.insertAll(0, [
+                AccountMenuItem(
+                  icon: Icons.swap_horiz,
+                  iconColor: Styles.infoColor,
+                  iconBgColor: Styles.infoColor.withOpacity(0.1),
+                  title: 'Cambiar de Módulo',
+                  subtitle:
+                      'Ir a la selección de rol (Inmobiliaria/Trabajador)',
+                  onTap: _changeModule,
+                ),
+                AccountMenuSection.buildDivider(),
+              ]);
 
-                return SingleChildScrollView(
+              managementItems.addAll(_buildPropertyManagementItems());
+
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('Mi Cuenta'),
+                  backgroundColor: isPremium
+                      ? Colors.transparent
+                      : Styles.primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  flexibleSpace: isPremium
+                      ? Container(
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFF6F00), // Vibrant Orange
+                          ),
+                        )
+                      : null,
+                ),
+                backgroundColor: Colors.white,
+                body: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -457,7 +477,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                         photoUrl: photoUrl,
                         userRole: userRole,
                         verificationStatus: userData?['verificationStatus'],
-                        isPremium: authService.isPremium,
+                        isPremium: isPremium,
                       ),
 
                       // B. Opciones de Gestión (Módulo Propiedades + Botón de Cambio)
@@ -469,7 +489,7 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                       // C. Menú General (Componente externo)
                       _buildGeneralMenu(userData),
 
-                      // D. Botón Cerrar sesión (Mantenido aquí por el widget TextButton)
+                      // D. Botón Cerrar sesión
                       Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: Styles.spacingMedium,
@@ -503,11 +523,11 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                       SizedBox(height: Styles.spacingLarge),
                     ],
                   ),
-                );
-              },
-            ),
-          ],
-        ),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

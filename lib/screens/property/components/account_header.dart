@@ -28,11 +28,23 @@ class AccountHeader extends StatelessWidget {
         bottom: Styles.spacingLarge,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Styles.primaryColor, Styles.primaryColor.withOpacity(0.8)],
-        ),
+        gradient: isPremium
+            ? const LinearGradient(
+                colors: [
+                  Color(0xFFFF6F00), // Vibrant Orange
+                  Color(0xFFFFC107), // Vibrant Yellow
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              )
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Styles.primaryColor,
+                  Styles.primaryColor.withOpacity(0.8),
+                ],
+              ),
       ),
       child: Column(
         children: [

@@ -5,7 +5,7 @@ import '../../../core/utils/time_ago_helper.dart';
 import '../../../services/notification_service.dart';
 import '../../../providers/auth_provider.dart';
 
-class WorkerNotificationCard extends StatelessWidget {
+class WorkerNotificationCard extends StatefulWidget {
   final AppNotification notification;
   final VoidCallback? onTap;
 
@@ -15,8 +15,15 @@ class WorkerNotificationCard extends StatelessWidget {
     this.onTap,
   });
 
+  @override
+  State<WorkerNotificationCard> createState() => _WorkerNotificationCardState();
+}
+
+class _WorkerNotificationCardState extends State<WorkerNotificationCard> {
+  bool _isExpanded = false;
+
   IconData _getIcon() {
-    switch (notification.type) {
+    switch (widget.notification.type) {
       case NotificationType.priceDropHome:
         return Icons.work;
       case NotificationType.priceDropTrend:
@@ -45,7 +52,7 @@ class WorkerNotificationCard extends StatelessWidget {
   }
 
   Color _getIconColor() {
-    switch (notification.type) {
+    switch (widget.notification.type) {
       case NotificationType.priceDropHome:
         return const Color(0xFF0000FF); // Azul
       case NotificationType.priceDropTrend:
@@ -77,33 +84,37 @@ class WorkerNotificationCard extends StatelessWidget {
     return _getIconColor().withOpacity(0.1);
   }
 
-  Future<void> _handleTap(BuildContext context) async {
+  Future<void> _handleTap() async {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+
     // Marcar como leída si no lo está
-    if (!notification.isRead) {
+    if (!widget.notification.isRead) {
       final authService = Provider.of<AuthService>(context, listen: false);
       final userId = authService.currentUser?.uid ?? '';
 
       if (userId.isNotEmpty) {
         final notificationService = NotificationService();
-        await notificationService.markAsRead(userId, notification.id);
+        await notificationService.markAsRead(userId, widget.notification.id);
       }
     }
 
     // Navegar a perfil de trabajador si existe propertyId (lo usamos como workerId)
-    if (notification.propertyId != null &&
-        notification.propertyId!.isNotEmpty) {
+    if (widget.notification.propertyId != null &&
+        widget.notification.propertyId!.isNotEmpty) {
       // Aquí podrías navegar al detalle del trabajador si es necesario
       // Modular.to.pushNamed('/worker/public-profile', arguments: workerId);
     }
 
     // Llamar callback si existe
-    onTap?.call();
+    widget.onTap?.call();
   }
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => _handleTap(context),
+      onTap: _handleTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -136,10 +147,10 @@ class WorkerNotificationCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          notification.title,
+                          widget.notification.title,
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: notification.isRead
+                            fontWeight: widget.notification.isRead
                                 ? FontWeight.normal
                                 : FontWeight.bold,
                             color: Colors.black87,
@@ -147,7 +158,7 @@ class WorkerNotificationCard extends StatelessWidget {
                         ),
                       ),
                       // Indicador de no leída
-                      if (!notification.isRead)
+                      if (!widget.notification.isRead)
                         Container(
                           width: 8,
                           height: 8,
@@ -157,18 +168,36 @@ class WorkerNotificationCard extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                         ),
+                      // Indicador de expansión
+                      Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    notification.message,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  AnimatedCrossFade(
+                    firstChild: Text(
+                      widget.notification.message,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    secondChild: Text(
+                      widget.notification.message,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                    crossFadeState: _isExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 200),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    TimeAgoHelper.format(notification.createdAt),
+                    TimeAgoHelper.format(widget.notification.createdAt),
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
