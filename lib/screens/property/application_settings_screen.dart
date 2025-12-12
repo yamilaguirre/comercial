@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/theme.dart';
 
@@ -62,15 +63,21 @@ class _ApplicationSettingsScreenState extends State<ApplicationSettingsScreen> {
           _buildListTile(
             title: 'Términos y Condiciones',
             icon: Icons.description_outlined,
-            onTap: () {
-              // TODO: Navigate to Terms
+            onTap: () async {
+              final url = Uri.parse('https://sites.google.com/view/comercialapp');
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
             },
           ),
           _buildListTile(
             title: 'Política de Privacidad',
             icon: Icons.privacy_tip_outlined,
-            onTap: () {
-              // TODO: Navigate to Privacy
+            onTap: () async {
+              final url = Uri.parse('https://sites.google.com/view/comercialapp');
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              }
             },
           ),
           _buildListTile(

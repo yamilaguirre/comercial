@@ -318,17 +318,6 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.notifications_outlined),
-              title: const Text('Preferencias'),
-              subtitle: const Text('Notificaciones y privacidad'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Próximamente: Preferencias')),
-                );
-              },
-            ),
             if (hasWorkerProfile) ...[
               const Divider(),
               ListTile(

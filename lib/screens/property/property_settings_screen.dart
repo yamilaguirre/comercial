@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/theme.dart';
 
 class PropertySettingsScreen extends StatefulWidget {
@@ -93,13 +94,23 @@ class _PropertySettingsScreenState extends State<PropertySettingsScreen> {
                   'Política de privacidad',
                   'Ver términos y condiciones',
                   Icons.privacy_tip_outlined,
-                  () => _showSnackBar('Próximamente'),
+                  () async {
+                    final url = Uri.parse('https://sites.google.com/view/comercialapp');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
                 ),
                 _buildTile(
                   'Términos de uso',
                   'Condiciones del servicio',
                   Icons.description_outlined,
-                  () => _showSnackBar('Próximamente'),
+                  () async {
+                    final url = Uri.parse('https://sites.google.com/view/comercialapp');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
                 ),
               ],
             ),

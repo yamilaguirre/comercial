@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../services/image_service.dart';
@@ -604,9 +605,28 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
                 onChanged: (v) => setState(() => _acceptedTerms = v ?? false),
               ),
               Expanded(
-                child: Text(
-                  'Acepto los términos y condiciones',
-                  style: TextStyles.caption,
+                child: GestureDetector(
+                  onTap: () async {
+                    final url = Uri.parse('https://sites.google.com/view/comercialapp');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Acepto los ',
+                      style: TextStyles.caption,
+                      children: [
+                        TextSpan(
+                          text: 'términos y condiciones',
+                          style: TextStyles.caption.copyWith(
+                            color: Styles.primaryColor,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

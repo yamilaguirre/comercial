@@ -400,6 +400,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
   Widget _buildWorkersList() {
     final authService = context.watch<AuthService>();
     final currentUserId = authService.currentUser?.uid;
+    final isPremiumUser = authService.isPremium;
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -444,8 +445,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
         // Filtrar por búsqueda, excluir al usuario actual Y verificar perfil completo
         final filteredWorkers = workers.where((doc) {
-          // Excluir al usuario actual
-          if (doc.id == currentUserId) return false;
+          // Excluir al usuario actual SOLO si NO es premium
+          // Si es premium, permitirle verse para ver cómo se ve su perfil
+          if (doc.id == currentUserId && !isPremiumUser) return false;
 
           final data = doc.data() as Map<String, dynamic>;
           final profile = data['profile'] as Map<String, dynamic>?;
