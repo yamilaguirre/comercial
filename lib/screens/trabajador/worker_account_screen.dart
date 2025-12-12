@@ -8,6 +8,8 @@ import '../../theme/theme.dart';
 import '../property/components/account_menu_section.dart';
 import 'premium_subscription_modal.dart';
 
+import '../../services/premium_notification_service.dart';
+
 class WorkerAccountScreen extends StatefulWidget {
   const WorkerAccountScreen({super.key});
 
@@ -17,6 +19,7 @@ class WorkerAccountScreen extends StatefulWidget {
 
 class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
   bool showPremiumModal = false;
+  bool _hasTriggeredPremiumAction = false;
 
   // --- FUNCIÓN: ABRIR WHATSAPP DE SOPORTE ---
   Future<void> _openSupportWhatsApp() async {
@@ -45,9 +48,7 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
       if (whatsappNumber == null || whatsappNumber.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Número de WhatsApp no disponible'),
-            ),
+            const SnackBar(content: Text('Número de WhatsApp no disponible')),
           );
         }
         return;
@@ -70,18 +71,16 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo abrir WhatsApp'),
-            ),
+            const SnackBar(content: Text('No se pudo abrir WhatsApp')),
           );
         }
       }
     } catch (e) {
       print('Error al abrir WhatsApp de soporte: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -590,12 +589,23 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
           .snapshots(),
       builder: (context, premiumSnapshot) {
         // Check if user is premium
-        final isPremium =
+        final premiumData =
             premiumSnapshot.hasData &&
-            premiumSnapshot.data!.exists &&
-            premiumSnapshot.data!.data() != null &&
-            (premiumSnapshot.data!.data() as Map<String, dynamic>)['status'] ==
-                'active';
+                premiumSnapshot.data!.exists &&
+                premiumSnapshot.data!.data() != null
+            ? premiumSnapshot.data!.data() as Map<String, dynamic>
+            : null;
+        final currentStatus = premiumData?['status'] as String?;
+        final isPremium = currentStatus == 'active';
+
+        // --- RESTORED LOGIC WITH ONE-SHOT PROTECTION ---
+        if (isPremium && !_hasTriggeredPremiumAction) {
+          _hasTriggeredPremiumAction = true; // LOCK IMMEDIATELY
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            PremiumNotificationService().handleNewPremiumUser(user.uid);
+          });
+        }
+        // -----------------------------------------------
 
         return Scaffold(
           appBar: AppBar(
@@ -649,13 +659,24 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
                       final userData =
                           snapshot.data!.data() as Map<String, dynamic>?;
 
+                      // Leer nombre con fallbacks múltiples
                       final displayName =
                           userData?['displayName'] ??
                           user.displayName ??
+                          (userData?['phoneNumber'] as String?)?.substring(
+                            0,
+                            12,
+                          ) ??
                           'Usuario';
+
                       final email =
                           userData?['email'] ?? user.email ?? 'Sin correo';
-                      final photoUrl = userData?['photoURL'] ?? user.photoURL;
+
+                      // Leer foto con múltiples fallbacks (photoURL y photoUrl)
+                      final photoUrl =
+                          userData?['photoURL'] ??
+                          userData?['photoUrl'] ??
+                          user.photoURL;
 
                       return SingleChildScrollView(
                         child: Column(
@@ -770,26 +791,61 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          // Plan Gratuito
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 12,
                                               vertical: 6,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(
-                                                0.2,
-                                              ),
+                                              color: isPremium
+                                                  ? const Color(
+                                                      0xFFFFD700,
+                                                    ).withOpacity(0.3)
+                                                  : Colors.white.withOpacity(
+                                                      0.2,
+                                                    ),
                                               borderRadius:
                                                   BorderRadius.circular(20),
+                                              border: isPremium
+                                                  ? Border.all(
+                                                      color: const Color(
+                                                        0xFFFFD700,
+                                                      ),
+                                                      width: 1.5,
+                                                    )
+                                                  : null,
                                             ),
-                                            child: const Text(
-                                              'Plan Gratuito',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                              ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (isPremium)
+                                                  const Padding(
+                                                    padding: EdgeInsets.only(
+                                                      right: 4.0,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.workspace_premium,
+                                                      color: Color(0xFFFFD700),
+                                                      size: 16,
+                                                    ),
+                                                  ),
+                                                Text(
+                                                  isPremium
+                                                      ? 'Plan Premium'
+                                                      : 'Plan Gratuito',
+                                                  style: TextStyle(
+                                                    color: isPremium
+                                                        ? const Color(
+                                                            0xFFFFD700,
+                                                          )
+                                                        : Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: isPremium
+                                                        ? FontWeight.bold
+                                                        : FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
 

@@ -156,6 +156,21 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // --- VERIFICAR SI UN NÚMERO DE TELÉFONO YA ESTÁ REGISTRADO ---
+  Future<bool> isPhoneNumberRegistered(String phoneNumber) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phoneNumber)
+          .limit(1)
+          .get();
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      if (kDebugMode) print('Error verificando teléfono: $e');
+      return false;
+    }
+  }
+
   // --- OTRAS FUNCIONES HELPER ---
 
   Future<void> _fetchUserRole(String uid) async {
@@ -163,14 +178,14 @@ class AuthService extends ChangeNotifier {
       final doc = await _firestore.collection('users').doc(uid).get();
       // Si el rol ya está en la DB, lo usamos. Si no, o si está 'indefinido', usamos ROLE_PENDING.
       _userRole = doc.data()?['role'] ?? ROLE_PENDING;
-      
-      // Verificar estado premium desde premium_users collection
-      if (_userRole == 'inmobiliaria_empresa') {
-        final premiumDoc = await _firestore.collection('premium_users').doc(uid).get();
-        _isPremium = premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
-      } else {
-        _isPremium = doc.data()?['isPremium'] ?? false;
-      }
+
+      // Verificar estado premium desde premium_users collection para TODOS los roles
+      final premiumDoc = await _firestore
+          .collection('premium_users')
+          .doc(uid)
+          .get();
+      _isPremium =
+          premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
     } catch (e) {
       if (kDebugMode) print("Error fetching user role: $e");
       _userRole = ROLE_PENDING;

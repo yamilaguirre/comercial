@@ -96,8 +96,6 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
     final user = authService.currentUser;
 
     if (user != null) {
-      _nameController.text = user.displayName ?? '';
-
       // Verificar si es premium
       final premiumDoc = await FirebaseFirestore.instance
           .collection('premium_users')
@@ -120,6 +118,18 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         if (doc.exists) {
           final data = doc.data();
           final profile = data?['profile'] as Map<String, dynamic>?;
+          
+          // Cargar datos básicos del usuario
+          _nameController.text = data?['displayName'] ?? user.displayName ?? '';
+          
+          // Cargar foto de perfil desde múltiples fuentes posibles
+          final photoUrl = data?['photoURL'] ?? data?['photoUrl'] ?? user.photoURL;
+          if (photoUrl != null && photoUrl.isNotEmpty) {
+            setState(() {
+              _profileImageUrl = photoUrl;
+              _isFaceDetected = true; // Si ya tiene foto, asumimos que es válida
+            });
+          }
 
           if (profile != null) {
             // Si ya existe perfil, no es nuevo
@@ -510,27 +520,16 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
       await user.updateDisplayName(_nameController.text.trim());
       await user.reload();
 
-      // Crear notificación de actualización de perfil
+      // Notificación personal de actualización de perfil (sin notificación global)
       final notificationService = NotificationService();
-
-      if (_isNewProfile) {
-        // Notificación GLOBAL para todos los usuarios (solo la primera vez)
-        await notificationService.createSystemMessage(
-          title: '¡Nuevo Profesional!',
-          message:
-              'Un nuevo trabajador llamado ${_nameController.text.trim()} está ofreciendo sus servicios de $professionTopLevel',
-          metadata: {'userId': user.uid, 'profession': professionTopLevel},
-        );
-      } else {
-        // Notificación personal de actualización
-        await notificationService.createProfileChangeNotification(
-          userId: user.uid,
-          type:
-              NotificationType.profileNameChanged, // Usamos este como genérico
-          title: 'Perfil Actualizado',
-          message: 'Tu perfil de trabajador ha sido actualizado exitosamente.',
-        );
-      }
+      await notificationService.createProfileChangeNotification(
+        userId: user.uid,
+        type: NotificationType.profileNameChanged,
+        title: _isNewProfile ? 'Perfil Creado' : 'Perfil Actualizado',
+        message: _isNewProfile 
+            ? 'Tu perfil de trabajador ha sido creado exitosamente.'
+            : 'Tu perfil de trabajador ha sido actualizado exitosamente.',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

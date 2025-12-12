@@ -1,103 +1,53 @@
 // services/notification_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/notification_model.dart';
-import 'saved_list_service.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final SavedListService _savedListService = SavedListService();
 
-  // Obtener notificaciones para un usuario (filtrado dinámico y estado de lectura real)
   Stream<List<AppNotification>> getNotificationsForUser(String userId) async* {
-    // 1. Obtener IDs de propiedades guardadas (una sola vez al inicio)
-    final savedPropertyIds = await _getSavedPropertyIds(userId);
-
-    // 2. Stream de todas las notificaciones (UNIFICADO: lee de 'notifications')
+    // 2. Stream optimizado: Solo notificaciones DEL USUARIO y ordenadas
+    // Esto requiere un índice compuesto en Firestore: user_id + created_at
     await for (final snapshot
         in _firestore
             .collection('notifications')
+            .where('user_id', isEqualTo: userId)
             .orderBy('created_at', descending: true)
             .limit(100)
             .snapshots()) {
-      final allNotifications = snapshot.docs
-          .map((doc) => AppNotification.fromFirestore(doc))
-          .toList();
+      final validNotifications = <AppNotification>[];
 
-      // 3. Filtrar notificaciones relevantes para el usuario
-      final userNotifications = allNotifications
-          .where((notification) {
-            // 1. PRIORIDAD: Si tiene un userId asignado, es PRIVADA.
-            if (notification.userId != null &&
-                notification.userId!.isNotEmpty) {
-              return notification.userId == userId;
-            }
+      for (final doc in snapshot.docs) {
+        final notification = AppNotification.fromFirestore(doc);
 
-            // 2. Si tiene property_id, solo mostrar si es del usuario (guardada)
-            if (notification.propertyId != null &&
-                notification.propertyId!.isNotEmpty) {
-              return savedPropertyIds.contains(notification.propertyId);
-            }
+        // --- LÓGICA DE AUTO-LIMPIEZA DE SPAM ---
+        if (notification.title.contains('¡Bienvenido a Premium!')) {
+          // Detectamos spam antiguo -> Eliminamos el documento de la BD
+          // No usamos await para no bloquear el stream
+          doc.reference
+              .delete()
+              .then((_) {
+                print('🗑️ Spam eliminado automáticamente: ${doc.id}');
+              })
+              .catchError((e) {
+                print('Error eliminando spam: $e');
+              });
+          // No lo agregamos a la lista válida
+          continue;
+        }
+        // ---------------------------------------
 
-            // 3. Si NO tiene userId (es Global), aplicamos filtros de seguridad
+        validNotifications.add(notification);
+      }
 
-            // BLOQUEAR TIPOS SENSIBLES QUE NUNCA DEBERÍAN SER GLOBALES
-            if (notification.type == NotificationType.verification ||
-                notification.type == NotificationType.profilePasswordChanged ||
-                notification.type == NotificationType.profilePhotoChanged ||
-                notification.type == NotificationType.profileNameChanged ||
-                notification.type == NotificationType.profilePhoneChanged ||
-                notification.type == NotificationType.profileEmailChanged ||
-                notification.type == NotificationType.propertyAvailable) {
-              return false;
-            }
-
-            // FILTRAR MENSAJES GLOBALES POR CONTENIDO
-            if (notification.type == NotificationType.message) {
-              // FILTRO DE SEGURIDAD:
-              // Bloquear notificaciones que parecen privadas pero no tienen ID (leaks)
-              final titleLower = notification.title.toLowerCase();
-              if (titleLower.contains('verificación') ||
-                  titleLower.contains('verification') ||
-                  titleLower.contains('suscripción') ||
-                  titleLower.contains('subscription') ||
-                  titleLower.contains('aprobada')) {
-                return false;
-              }
-              return true;
-            }
-
-            // PERMITIR TIPOS PÚBLICOS EXPLÍCITOS
-            if (notification.type ==
-                    NotificationType.premiumPropertyPublished ||
-                notification.type == NotificationType.newProperty ||
-                notification.type == NotificationType.priceDropHome ||
-                notification.type == NotificationType.priceDropTrend) {
-              return true;
-            }
-
-            // Por defecto, bloquear cualquier otro tipo desconocido para evitar leaks
-            return false;
-          })
-          .map((notification) {
-            // Mapear estado de lectura usando el array 'read_users' del documento
-            return notification.copyWith(
-              isRead: notification.readUsers.contains(userId),
-            );
-          })
-          .toList();
+      // 3. Filtrar notificaciones adicionales (si fuera necesario, aunque el query ya filtra por ID)
+      final userNotifications = validNotifications.map((notification) {
+        return notification.copyWith(
+          isRead: notification.readUsers.contains(userId),
+        );
+      }).toList();
 
       yield userNotifications;
-    }
-  }
-
-  // Obtener IDs de propiedades guardadas del usuario
-  Future<Set<String>> _getSavedPropertyIds(String userId) async {
-    try {
-      final properties = await _savedListService.getAllSavedProperties(userId);
-      return properties.map((p) => p.id).toSet();
-    } catch (e) {
-      print('Error getting saved property IDs: $e');
-      return {};
     }
   }
 
@@ -196,14 +146,13 @@ class NotificationService {
   }
 
   // Crear notificación de re-publicación para trabajador
-  Future<String?> createRepublishNotification({
-    required String userId,
-  }) async {
+  Future<String?> createRepublishNotification({required String userId}) async {
     try {
       final docRef = await _firestore.collection('notifications').add({
         'type': NotificationType.message.toFirestore(),
         'title': '📢 ¡Destaca tu perfil!',
-        'message': 'Han pasado 7 días. Re-publica tu perfil para aparecer al inicio de la lista y conseguir más clientes.',
+        'message':
+            'Han pasado 7 días. Re-publica tu perfil para aparecer al inicio de la lista y conseguir más clientes.',
         'user_id': userId,
         'created_at': FieldValue.serverTimestamp(),
         'metadata': {'action': 'republish_worker'},
@@ -323,11 +272,22 @@ class NotificationService {
             .limit(50)
             .get();
 
-        final allNotifications = notificationsSnapshot.docs
-            .map((doc) => AppNotification.fromFirestore(doc))
-            .toList();
+        final validNotifications = <AppNotification>[];
 
-        final userNotifications = allNotifications
+        for (final doc in notificationsSnapshot.docs) {
+          final notification = AppNotification.fromFirestore(doc);
+
+          // --- LÓGICA DE AUTO-LIMPIEZA DE SPAM ---
+          if (notification.title.contains('¡Bienvenido a Premium!')) {
+            doc.reference.delete();
+            continue;
+          }
+          // ---------------------------------------
+
+          validNotifications.add(notification);
+        }
+
+        final userNotifications = validNotifications
             .where((notification) {
               // 1. Si tiene un usuario específico, solo mostrar a ese usuario
               if (notification.userId != null &&
@@ -374,11 +334,22 @@ class NotificationService {
             .limit(50)
             .get();
 
-        final allNotifications = notificationsSnapshot.docs
-            .map((doc) => AppNotification.fromFirestore(doc))
-            .toList();
+        final validNotifications = <AppNotification>[];
 
-        final userNotifications = allNotifications
+        for (final doc in notificationsSnapshot.docs) {
+          final notification = AppNotification.fromFirestore(doc);
+
+          // --- LÓGICA DE AUTO-LIMPIEZA DE SPAM ---
+          if (notification.title.contains('¡Bienvenido a Premium!')) {
+            doc.reference.delete();
+            continue;
+          }
+          // ---------------------------------------
+
+          validNotifications.add(notification);
+        }
+
+        final userNotifications = validNotifications
             .where((notification) {
               // 1. Si tiene un usuario específico, solo mostrar a ese usuario
               if (notification.userId != null &&

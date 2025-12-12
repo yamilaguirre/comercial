@@ -208,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 SizedBox(height: Styles.spacingXLarge * 1.5),
                 Text(
-                  'Log in',
+                  'Iniciar Sesión',
                   style: TextStyles.title.copyWith(
                     fontSize: 24,
                     color: Styles.textPrimary,
@@ -232,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         child: Text(
-                          'With Email',
+                          'Con Email',
                           textAlign: TextAlign.center,
                           style: TextStyles.body.copyWith(
                             color: Styles.primaryColor,
@@ -257,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: Text(
-                            'With Phone',
+                            'Con Teléfono',
                             textAlign: TextAlign.center,
                             style: TextStyles.body.copyWith(
                               color: Colors.grey[600],
@@ -447,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Don't have an account? ",
+                      "¿No tienes una cuenta? ",
                       style: TextStyles.body.copyWith(
                         color: Styles.textSecondary,
                       ),
@@ -455,7 +455,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     GestureDetector(
                       onTap: _goToRegister,
                       child: Text(
-                        'Sign Up',
+                        'Regístrate',
                         style: TextStyles.body.copyWith(
                           color: Styles.primaryColor,
                           fontWeight: FontWeight.w600,

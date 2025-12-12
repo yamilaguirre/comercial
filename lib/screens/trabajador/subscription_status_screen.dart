@@ -93,10 +93,6 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
         title: const Text('Estado de Suscripción'),
         backgroundColor: Styles.primaryColor,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -137,7 +133,11 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1E88E5), Color(0xFFFF6F00), Color(0xFFFFC107)],
+                colors: [
+                  Color(0xFF1E88E5),
+                  Color(0xFFFF6F00),
+                  Color(0xFFFFC107),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -213,7 +213,12 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     );
   }
 
-  Widget _buildBenefitCard(IconData icon, String title, String description, Color color) {
+  Widget _buildBenefitCard(
+    IconData icon,
+    String title,
+    String description,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -254,10 +259,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                 const SizedBox(height: 8),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),

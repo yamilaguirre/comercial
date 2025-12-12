@@ -416,7 +416,10 @@ class _PropertyAccountScreenState extends State<PropertyAccountScreen> {
                 final displayName =
                     userData?['displayName'] ?? user.displayName ?? 'Usuario';
                 final email = userData?['email'] ?? user.email ?? 'Sin correo';
-                final photoUrl = userData?['photoURL'] ?? user.photoURL;
+                final photoUrl =
+                    userData?['photoURL'] ??
+                    userData?['photoUrl'] ??
+                    user.photoURL;
                 final userRole = userData?['role'] ?? 'cliente';
 
                 // ----------------------------------------------------

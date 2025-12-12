@@ -82,7 +82,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           _nameController.text =
               userData['displayName'] ?? user.displayName ?? '';
           _emailController.text = userData['email'] ?? user.email ?? '';
-          _phoneController.text = userData['phone'] ?? '';
+          _phoneController.text = userData['phoneNumber'] ?? userData['phone'] ?? '';
           // Guardar valores originales para comparar cambios
           _originalName = _nameController.text;
           _originalPhone = _phoneController.text;
@@ -142,8 +142,17 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       await FirebaseFirestore.instance.collection('users').doc(_userId).update({
         'displayName': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
+        'phone': _phoneController.text.trim(), // Mantener compatibilidad
+        'updatedAt': FieldValue.serverTimestamp(),
+        'needsProfileCompletion': false, // Marcar que el perfil está completo
       });
+
+      // Actualizar displayName y email en Firebase Auth
+      await user.updateDisplayName(_nameController.text.trim());
+      
+      // Recargar usuario para que se actualicen los datos
+      await user.reload();
 
       // Notificar si cambió el teléfono
       if (_originalPhone != null &&
@@ -155,9 +164,6 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
           message: 'Tu teléfono se cambió a ${_phoneController.text.trim()}',
         );
       }
-
-      // Actualizar displayName en Firebase Auth
-      await user.updateDisplayName(_nameController.text.trim());
 
       // Notificar si cambió el nombre
       if (_originalName != null &&

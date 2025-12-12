@@ -141,7 +141,7 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
     }
 
     final displayName = _userData?['displayName'] ?? 'Usuario';
-    final photoUrl = _userData?['photoURL'];
+    final photoUrl = _userData?['photoURL'] ?? _userData?['photoUrl'];
     final role = _userData?['role'] == 'inmobiliaria'
         ? 'Agente Inmobiliario'
         : 'Propietario';

@@ -50,11 +50,12 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _firestore.collection('users').doc(user.uid).update({
+      // Usar set con merge para evitar errores si el documento no existe completamente
+      await _firestore.collection('users').doc(user.uid).set({
         'role': newRole,
         'status': newRole,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       // Actualizar estado local
       _userRole = newRole;
@@ -82,8 +83,8 @@ class AuthService extends ChangeNotifier {
 
   // --- ACTUALIZAR PERFIL ---
   Future<bool> updateUserProfile({
-    required String name,
-    required String phone,
+    String? name,
+    String? phone,
     String? photoUrl,
   }) async {
     _isLoading = true;
@@ -92,14 +93,14 @@ class AuthService extends ChangeNotifier {
     try {
       User? user = _auth.currentUser;
       if (user != null) {
-        await user.updateDisplayName(name);
+        if (name != null) await user.updateDisplayName(name);
         if (photoUrl != null) await user.updatePhotoURL(photoUrl);
 
         Map<String, dynamic> updateData = {
-          'displayName': name,
-          'phoneNumber': phone,
           'updatedAt': FieldValue.serverTimestamp(),
         };
+        if (name != null) updateData['displayName'] = name;
+        if (phone != null) updateData['phoneNumber'] = phone;
         if (photoUrl != null) updateData['photoURL'] = photoUrl;
 
         await _firestore.collection('users').doc(user.uid).update(updateData);
@@ -125,6 +126,7 @@ class AuthService extends ChangeNotifier {
     required String phone,
     required String userRole,
     String? photoUrl,
+    DateTime? birthdate,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -153,6 +155,9 @@ class AuthService extends ChangeNotifier {
             'role': userRole,
             'status': userRole,
             if (photoUrl != null) 'photoURL': photoUrl,
+            if (birthdate != null) 'birthdate': Timestamp.fromDate(birthdate),
+            'phoneVerified': true,
+            'photoVerified': photoUrl != null,
           },
         );
 
@@ -277,6 +282,21 @@ class AuthService extends ChangeNotifier {
           .set(data, SetOptions(merge: true));
     } catch (e) {
       if (kDebugMode) print("Error guardando usuario en Firestore: $e");
+    }
+  }
+
+  // --- VERIFICAR TELÉFONO DUPLICADO ---
+  Future<bool> isPhoneNumberRegistered(String phoneNumber) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('phoneNumber', isEqualTo: phoneNumber)
+          .limit(1)
+          .get();
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      if (kDebugMode) print('Error verificando teléfono: $e');
+      return false;
     }
   }
 

@@ -93,10 +93,6 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           title: const Text('Estado de Suscripción'),
           backgroundColor: Styles.primaryColor,
           foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -135,7 +131,11 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1E88E5), Color(0xFFFF6F00), Color(0xFFFFC107)],
+                colors: [
+                  Color(0xFF1E88E5),
+                  Color(0xFFFF6F00),
+                  Color(0xFFFFC107),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -211,7 +211,12 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     );
   }
 
-  Widget _buildBenefitCard(IconData icon, String title, String description, Color color) {
+  Widget _buildBenefitCard(
+    IconData icon,
+    String title,
+    String description,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -252,10 +257,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                 const SizedBox(height: 8),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -339,20 +341,20 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           ]),
           const SizedBox(height: 16),
           _buildDetailCard('Beneficios Premium', const [
-            _BenefitItem(
-              icon: Icons.star,
-              text: 'Propiedades destacadas',
-            ),
+            _BenefitItem(icon: Icons.star, text: 'Propiedades destacadas'),
             _BenefitItem(
               icon: Icons.visibility,
               text: 'Mayor visibilidad en búsquedas',
             ),
+            _BenefitItem(icon: Icons.analytics, text: 'Estadísticas avanzadas'),
             _BenefitItem(
-              icon: Icons.analytics,
-              text: 'Estadísticas avanzadas',
+              icon: Icons.flash_on,
+              text: 'Publicaciones prioritarias',
             ),
-            _BenefitItem(icon: Icons.flash_on, text: 'Publicaciones prioritarias'),
-            _BenefitItem(icon: Icons.notifications, text: 'Alertas de clientes'),
+            _BenefitItem(
+              icon: Icons.notifications,
+              text: 'Alertas de clientes',
+            ),
           ]),
         ],
       ),
@@ -370,10 +372,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF2196F3),
-                  Color(0xFFFF9800),
-                ],
+                colors: [Color(0xFF2196F3), Color(0xFFFF9800)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -464,10 +463,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFF6F00),
-                  Color(0xFFE53935),
-                ],
+                colors: [Color(0xFFFF6F00), Color(0xFFE53935)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

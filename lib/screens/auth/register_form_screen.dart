@@ -5,6 +5,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../services/image_service.dart';
@@ -119,6 +120,15 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
       return;
     }
 
+    final phone = '+591$phoneText';
+    
+    // Verificar si el número ya está registrado
+    final isRegistered = await _authService.isPhoneNumberRegistered(phone);
+    if (isRegistered) {
+      _showSnackBar('Este número ya está registrado. Usa otro número o inicia sesión.', isError: true);
+      return;
+    }
+
     // Confirmación antes de enviar para no desperdiciar intentos
     final shouldSend = await showDialog<bool>(
       context: context,
@@ -147,7 +157,6 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
 
     setState(() => _isLoading = true);
 
-    final phone = '+591$phoneText';
     print('📱 [REGISTRO] Iniciando verificación Firebase Auth para: $phone');
 
     try {
@@ -190,30 +199,6 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
       setState(() => _isLoading = false);
       _showSnackBar('Error inesperado: $e', isError: true);
     }
-  }
-
-  void _showDialog(String title, String message, {VoidCallback? onConfirm}) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          if (onConfirm != null)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onConfirm();
-              },
-              child: const Text('Continuar'),
-            ),
-        ],
-      ),
-    );
   }
 
   Future<void> _submitSmsCode() async {
@@ -356,39 +341,47 @@ class _RegisterFormScreenState extends State<RegisterFormScreen> {
     // Usaremos el método existente registerWithEmailPassword
     // Y luego actualizaremos la foto.
 
+    final phoneWithPrefix = '+591${_phoneController.text.trim()}';
+    
     final user = await _authService.registerWithEmailPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
       displayName: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
+      phone: phoneWithPrefix,
       userRole: 'cliente',
       birthdate: _selectedBirthdate,
     );
 
     if (user != null) {
       try {
-        // Subir foto
+        // Subir foto a AWS S3
         final photoUrl = await ImageService.uploadAvatarToApi(
           XFile(_profileImage!.path),
           userId: user.uid,
         );
 
-        // Actualizar usuario con foto y flag de verificado
-        // Actualizar usuario con foto y flag de verificado
+        // Actualizar usuario con foto
         await _authService.updateUserProfile(photoUrl: photoUrl);
-        // Aquí podríamos guardar en Firestore que el teléfono y foto fueron verificados
-        // Por ahora asumimos que si tiene foto, pasó el proceso.
+        
+        // Actualizar Firestore con datos adicionales
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'photoURL': photoUrl,
+          'photoUrl': photoUrl, // También con minúscula para compatibilidad
+          'phoneVerified': true,
+          'photoVerified': true,
+        });
 
         if (mounted) {
           _showSnackBar('¡Registro completado con éxito!', isError: false);
           Modular.to.navigate('/login');
         }
       } catch (e) {
+        print('Error al subir foto: $e');
         _showSnackBar(
           'Usuario creado, pero error al subir foto: $e',
           isError: true,
         );
-        // Aún así navegamos al login o home
+        // Aún así navegamos al login
         Modular.to.navigate('/login');
       }
     } else {

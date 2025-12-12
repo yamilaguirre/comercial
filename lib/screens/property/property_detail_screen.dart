@@ -398,7 +398,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             'chatId': chatId,
             'otherUserId': _property!.ownerId,
             'otherUserName': _ownerData?['displayName'] ?? 'Usuario',
-            'otherUserPhoto': _ownerData?['photoURL'],
+            'otherUserPhoto': _ownerData?['photoURL'] ?? _ownerData?['photoUrl'],
             'propertyId': _property!.id,
           },
         );

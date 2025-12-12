@@ -84,8 +84,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         setState(() {
           _nameController.text = userData['displayName'] ?? user.displayName ?? '';
           _emailController.text = userData['email'] ?? user.email ?? '';
-          _phoneController.text = userData['phone'] ?? '';
-          _photoUrl = userData['photoURL'] ?? user.photoURL;
+          _phoneController.text = userData['phoneNumber'] ?? userData['phone'] ?? '';
+          _photoUrl = userData['photoURL'] ?? userData['photoUrl'] ?? user.photoURL;
           _originalName = _nameController.text;
           _originalPhone = _phoneController.text;
           _isLoading = false;
@@ -122,6 +122,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       await FirebaseFirestore.instance.collection('users').doc(_userId).update({
         'photoURL': imageUrl,
+        'photoUrl': imageUrl, // Compatibilidad
       });
 
       final user = FirebaseAuth.instance.currentUser;
@@ -177,7 +178,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await FirebaseFirestore.instance.collection('users').doc(_userId).update({
         'displayName': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
+        'phone': _phoneController.text.trim(), // Mantener compatibilidad
+        'updatedAt': FieldValue.serverTimestamp(),
+        'needsProfileCompletion': false, // Marcar que el perfil está completo
       });
 
       if (_originalPhone != null && _phoneController.text.trim() != _originalPhone) {
@@ -190,6 +194,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
 
       await user.updateDisplayName(_nameController.text.trim());
+      await user.reload(); // Recargar datos del usuario
 
       if (_originalName != null && _nameController.text.trim() != _originalName) {
         await NotificationService().createProfileChangeNotification(

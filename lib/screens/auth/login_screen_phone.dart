@@ -108,29 +108,123 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
       if (user != null && mounted) {
         final phoneWithCode = '+591${_phoneController.text.trim()}';
         
-        // Verificar si el documento del usuario existe en Firestore
-        final userDoc = await FirebaseFirestore.instance
+        print('🔍 [LOGIN] Usuario autenticado - UID: ${user.uid}, Phone: ${user.phoneNumber}');
+        
+        // PASO 1: Buscar si ya existe un documento con este número de teléfono
+        final existingUserQuery = await FirebaseFirestore.instance
             .collection('users')
-            .doc(user.uid)
+            .where('phoneNumber', isEqualTo: phoneWithCode)
+            .limit(1)
             .get();
-
-        if (!userDoc.exists) {
-          // Crear documento en Firestore para este nuevo usuario
+        
+        bool isNewUser = true;
+        Map<String, dynamic>? existingData;
+        String? oldUid;
+        
+        if (existingUserQuery.docs.isNotEmpty) {
+          // Ya existe un usuario con este número de teléfono
+          final existingDoc = existingUserQuery.docs.first;
+          oldUid = existingDoc.id;
+          existingData = existingDoc.data();
+          isNewUser = false;
+          
+          print('⚠️ [LOGIN] Usuario existente encontrado con UID antiguo: $oldUid');
+          print('🔍 [LOGIN] UID nuevo de Auth: ${user.uid}');
+          
+          // Si el UID es diferente, actualizar el documento al nuevo UID
+          if (oldUid != user.uid) {
+            print('🔄 [LOGIN] Migrando documento de $oldUid a ${user.uid}...');
+            
+            // Copiar todos los datos al nuevo UID
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .set({
+              ...existingData,
+              'uid': user.uid, // Actualizar el UID
+              'lastLogin': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'phoneNumber': phoneWithCode,
+            });
+            
+            // Migrar documento de premium_users si existe
+            try {
+              final premiumDoc = await FirebaseFirestore.instance
+                  .collection('premium_users')
+                  .doc(oldUid)
+                  .get();
+              
+              if (premiumDoc.exists) {
+                print('🔄 [LOGIN] Migrando premium_users de $oldUid a ${user.uid}...');
+                
+                // Copiar documento premium al nuevo UID
+                await FirebaseFirestore.instance
+                    .collection('premium_users')
+                    .doc(user.uid)
+                    .set({
+                  ...premiumDoc.data()!,
+                  'userId': user.uid, // Actualizar el userId si existe
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+                
+                // Eliminar documento premium antiguo
+                await FirebaseFirestore.instance
+                    .collection('premium_users')
+                    .doc(oldUid)
+                    .delete();
+                
+                print('✅ [LOGIN] premium_users migrado exitosamente');
+              }
+            } catch (e) {
+              print('⚠️ [LOGIN] Error migrando premium_users: $e');
+            }
+            
+            // Eliminar el documento viejo de users
+            try {
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(oldUid)
+                  .delete();
+              print('✅ [LOGIN] Documento antiguo eliminado: $oldUid');
+            } catch (e) {
+              print('⚠️ [LOGIN] No se pudo eliminar documento antiguo: $e');
+            }
+            
+            print('✅ [LOGIN] Migración completada a UID=${user.uid}');
+          } else {
+            // Mismo UID, solo actualizar
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .set({
+              'lastLogin': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'phoneNumber': phoneWithCode,
+            }, SetOptions(merge: true));
+            
+            print('✅ [LOGIN] Documento ACTUALIZADO para UID=${user.uid}');
+          }
+        } else {
+          // Usuario completamente nuevo
           await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .set({
+            'uid': user.uid,
             'phoneNumber': phoneWithCode,
             'role': 'indefinido',
+            'status': 'indefinido',
             'createdAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
+            'lastLogin': FieldValue.serverTimestamp(),
             'isActive': true,
+            'needsProfileCompletion': true,
           });
           
-          print('✅ Documento creado en Firestore para UID=${user.uid}');
+          print('✅ [LOGIN] Documento CREADO en Firestore para UID=${user.uid}');
         }
 
-        final role = userDoc.exists ? (userDoc.data()?['role'] ?? 'indefinido') : 'indefinido';
+        final role = existingData?['role'] ?? 'indefinido';
 
         // Bloquear si es empresa inmobiliaria
         if (role == 'inmobiliaria_empresa') {
@@ -143,6 +237,17 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
         }
 
         print('✅ Login exitoso: UID=${user.uid}, navegando a /select-role');
+        
+        // Si es un nuevo usuario, informarle que debe completar su perfil
+        if (isNewUser && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('¡Bienvenido! Completa tu perfil después de seleccionar tu rol'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
         
         // Login exitoso
         if (mounted) {
@@ -180,7 +285,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                 ),
                 const SizedBox(height: 48),
                 Text(
-                  'Log in',
+                  'Iniciar Sesión',
                   style: TextStyles.title.copyWith(
                     fontSize: 28,
                     color: Styles.textPrimary,
@@ -209,7 +314,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                             ),
                           ),
                           child: Text(
-                            'With Email',
+                            'Con Email',
                             textAlign: TextAlign.center,
                             style: TextStyles.body.copyWith(
                               color: Colors.grey[600],
@@ -230,7 +335,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                           ),
                         ),
                         child: Text(
-                          'With Phone',
+                          'Con Teléfono',
                           textAlign: TextAlign.center,
                           style: TextStyles.body.copyWith(
                             color: Styles.primaryColor,
@@ -245,7 +350,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
 
                 if (!_codeSent) ...[
                   Text(
-                    'Phone Number',
+                    'Número de Teléfono',
                     style: TextStyles.body.copyWith(
                       fontWeight: FontWeight.w500,
                       color: Styles.textPrimary,
@@ -292,7 +397,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
-                            hintText: 'Phone Number',
+                            hintText: 'Número de Teléfono',
                             hintStyle: TextStyle(color: Colors.grey[400]),
                             filled: true,
                             fillColor: Colors.white,
@@ -360,7 +465,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                   ),
                 ] else ...[
                   Text(
-                    'Enter OTP Code',
+                    'Ingresa el Código OTP',
                     style: TextStyles.body.copyWith(
                       fontWeight: FontWeight.w500,
                       color: Styles.textPrimary,
@@ -420,7 +525,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                             ),
                           )
                         : const Text(
-                            'Login',
+                            'Iniciar Sesión',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

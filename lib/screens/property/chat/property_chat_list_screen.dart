@@ -181,7 +181,7 @@ class _ChatListItem extends StatelessWidget {
       builder: (context, snapshot) {
         final userData = snapshot.data?.data() as Map<String, dynamic>?;
         final userName = userData?['displayName'] ?? 'Usuario';
-        final userPhoto = userData?['photoURL'];
+        final userPhoto = userData?['photoURL'] ?? userData?['photoUrl'];
 
         // Calcular tiempo transcurrido
         final now = DateTime.now();

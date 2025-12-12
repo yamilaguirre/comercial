@@ -1,6 +1,7 @@
 // filepath: lib/screens/auth/role_selection_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
 import '../../providers/auth_provider.dart';
 
@@ -78,9 +79,63 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
       return;
     }
 
+    print('🔍 [ROLE] Actualizando rol para UID: ${user.uid} → $newRole');
+
     try {
       await _authService.updateUserRole(newRole);
-      if (mounted) {}
+      
+      print('✅ [ROLE] Rol actualizado correctamente');
+      
+      // Verificar si el usuario necesita completar su perfil
+      if (mounted) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        
+        print('🔍 [ROLE] Verificando documento después de actualizar rol - Existe: ${userDoc.exists}');
+        
+        final userData = userDoc.data();
+        final hasDisplayName = (userData?['displayName'] as String?)?.isNotEmpty ?? false;
+        final needsCompletion = userData?['needsProfileCompletion'] == true;
+        
+        print('🔍 [ROLE] hasDisplayName: $hasDisplayName, needsCompletion: $needsCompletion');
+        
+        // Si es un usuario nuevo sin perfil completo, redirigir a completar datos
+        if (!hasDisplayName || needsCompletion) {
+          if (mounted) {
+            // Mostrar diálogo informativo
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('Completa tu perfil'),
+                content: const Text(
+                  'Por favor completa tu información personal (nombre, correo y foto) para continuar.',
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Redirigir a la pantalla de editar perfil según el rol
+                      if (newRole == 'trabajo') {
+                        Modular.to.navigate('/worker/edit-account');
+                      } else {
+                        Modular.to.navigate('/property/edit-profile');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Styles.primaryColor,
+                    ),
+                    child: const Text('Completar ahora'),
+                  ),
+                ],
+              ),
+            );
+          }
+        }
+        // Si ya tiene perfil completo, la navegación automática sucederá por el listener
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
