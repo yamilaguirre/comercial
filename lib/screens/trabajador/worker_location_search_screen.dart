@@ -11,6 +11,7 @@ import '../../widgets/map_drawing_detector.dart';
 import '../../utils/map_geometry_utils.dart';
 import '../../core/data/professions_data.dart';
 import '../../services/location_service.dart';
+import '../../services/profile_views_service.dart';
 
 // Token de Mapbox
 const String _mapboxAccessToken =
@@ -451,12 +452,32 @@ class _WorkerLocationSearchScreenState
   }
 
   Future<void> _incrementWorkerViews(String workerId) async {
+    // Obtener el usuario actual que está viendo el perfil
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final viewerId = authService.currentUser?.uid;
+
+    print('🔍 [VIEWS-MAP] Intentando registrar vista - Viewer: $viewerId, Worker: $workerId');
+
+    if (viewerId == null) {
+      print('⚠️ [VIEWS-MAP] No hay usuario logueado, no se registra vista');
+      return;
+    }
+
+    if (viewerId == workerId) {
+      print('⚠️ [VIEWS-MAP] Usuario viendo su propio perfil, no se registra vista');
+      return;
+    }
+
     try {
-      await FirebaseFirestore.instance.collection('users').doc(workerId).set({
-        'views': FieldValue.increment(1),
-      }, SetOptions(merge: true));
+      print('📝 [VIEWS-MAP] Registrando vista en ProfileViewsService...');
+      await ProfileViewsService.registerProfileView(
+        workerId: workerId,
+        viewerId: viewerId,
+      );
+      print('✅ [VIEWS-MAP] Vista registrada exitosamente');
     } catch (e) {
-      debugPrint('Error incrementing views: $e');
+      print('❌ [VIEWS-MAP] Error registrando vista de perfil: $e');
+      debugPrint('Error registrando vista de perfil: $e');
     }
   }
 

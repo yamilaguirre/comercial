@@ -73,17 +73,27 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
     final viewerId = authService.currentUser?.uid;
 
-    if (viewerId == null || viewerId == workerId) {
-      // No registrar si no hay usuario logueado o si el trabajador se ve a sí mismo
+    print('🔍 [VIEWS] Intentando registrar vista - Viewer: $viewerId, Worker: $workerId');
+
+    if (viewerId == null) {
+      print('⚠️ [VIEWS] No hay usuario logueado, no se registra vista');
+      return;
+    }
+
+    if (viewerId == workerId) {
+      print('⚠️ [VIEWS] Usuario viendo su propio perfil, no se registra vista');
       return;
     }
 
     try {
+      print('📝 [VIEWS] Registrando vista en ProfileViewsService...');
       await ProfileViewsService.registerProfileView(
         workerId: workerId,
         viewerId: viewerId,
       );
+      print('✅ [VIEWS] Vista registrada exitosamente');
     } catch (e) {
+      print('❌ [VIEWS] Error registrando vista de perfil: $e');
       debugPrint('Error registrando vista de perfil: $e');
     }
   }

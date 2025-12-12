@@ -171,6 +171,15 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         ),
                         builder: (context, totalViewsSnapshot) {
                           final totalViews = totalViewsSnapshot.data ?? 0;
+                          
+                          print('📊 [WORKER_PROFILE] Stream de vistas actualizado');
+                          print('   User ID: ${user.uid}');
+                          print('   Total Views: $totalViews');
+                          print('   Has Data: ${totalViewsSnapshot.hasData}');
+                          print('   Connection State: ${totalViewsSnapshot.connectionState}');
+                          if (totalViewsSnapshot.hasError) {
+                            print('   ❌ Error: ${totalViewsSnapshot.error}');
+                          }
 
                           // Estadísticas simuladas (ofertas y clientes por ahora estáticos)
                           final ofertas = 12;

@@ -10,6 +10,7 @@ import '../../theme/theme.dart';
 import '../../services/worker_saved_service.dart';
 import '../../services/location_service.dart';
 import '../../services/chat_service.dart';
+import '../../services/profile_views_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/saved_collection_model.dart';
 import '../../models/contact_filter.dart';
@@ -847,11 +848,30 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
 
   Future<void> _incrementWorkerViews(String workerId) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(workerId).set({
-        'views': FieldValue.increment(1),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('Error incrementing views: $e');
+      print('🔍 [VIEWS-FAVORITES] Intentando registrar vista para: $workerId');
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUser = authService.currentUser;
+
+      if (currentUser == null) {
+        print('⚠️ [VIEWS-FAVORITES] No hay usuario logueado');
+        return;
+      }
+
+      if (currentUser.uid == workerId) {
+        print('⚠️ [VIEWS-FAVORITES] No se puede ver tu propio perfil');
+        return;
+      }
+
+      print('📝 [VIEWS-FAVORITES] Llamando a ProfileViewsService.registerProfileView');
+      await ProfileViewsService.registerProfileView(
+        viewerId: currentUser.uid,
+        workerId: workerId,
+      );
+      print('✅ [VIEWS-FAVORITES] Vista registrada exitosamente');
+    } catch (e, stackTrace) {
+      print('❌ [VIEWS-FAVORITES] Error registrando vista: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
