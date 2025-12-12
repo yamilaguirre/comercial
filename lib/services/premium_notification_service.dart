@@ -9,6 +9,32 @@ class PremiumNotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
 
+  /// Notifica a todos los usuarios cuando un trabajador premium crea su perfil
+  /// Se llama desde freelance_work.dart cuando un usuario premium guarda su perfil por primera vez
+  Future<void> handleNewWorkerProfile(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        print('Usuario no encontrado: $userId');
+        return;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final userName = userData['displayName'] ?? 'Usuario';
+
+      // Verificar si tiene perfil de trabajador completo
+      final hasWorkerProfile = _hasWorkerProfile(userData);
+
+      if (hasWorkerProfile) {
+        // Enviar notificación global
+        await _notifyAllUsersAboutPremiumWorker(userId, userName, userData);
+        print('✅ Notificación global enviada para nuevo trabajador premium: $userName');
+      }
+    } catch (e) {
+      print('Error en handleNewWorkerProfile: $e');
+    }
+  }
+
   /// Maneja las notificaciones cuando detecta que un usuario se volvió premium
   /// Este método debe ser llamado cuando la app detecte que premium_users/{userId}.status cambió a "active"
   Future<void> handleNewPremiumUser(String userId) async {

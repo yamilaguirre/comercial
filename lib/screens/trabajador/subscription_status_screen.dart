@@ -466,6 +466,26 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
               ),
             ),
           ],
+
+          const SizedBox(height: 24),
+
+          // Back button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Modular.to.navigate('/freelance/home'),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Volver al Inicio'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Styles.primaryColor,
+                side: const BorderSide(color: Styles.primaryColor),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

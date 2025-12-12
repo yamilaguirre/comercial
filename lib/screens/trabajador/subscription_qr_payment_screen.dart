@@ -121,7 +121,9 @@ class _SubscriptionQRPaymentScreenState
             backgroundColor: Colors.green,
           ),
         );
-        Modular.to.navigate('/worker/subscription-status');
+        // Pop current screen and push status screen to maintain navigation stack
+        Modular.to.pop();
+        Modular.to.pushNamed('/worker/subscription-status');
       }
     } catch (e) {
       setState(() => _isSubmitting = false);

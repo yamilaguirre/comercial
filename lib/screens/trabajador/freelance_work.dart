@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/image_service.dart';
 import '../../services/video_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/premium_notification_service.dart';
 import '../../models/notification_model.dart';
 
 class FreelanceWorkScreen extends StatefulWidget {
@@ -520,7 +521,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
       await user.updateDisplayName(_nameController.text.trim());
       await user.reload();
 
-      // Notificación personal de actualización de perfil (sin notificación global)
+      // Notificación personal de actualización de perfil
       final notificationService = NotificationService();
       await notificationService.createProfileChangeNotification(
         userId: user.uid,
@@ -530,6 +531,13 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
             ? 'Tu perfil de trabajador ha sido creado exitosamente.'
             : 'Tu perfil de trabajador ha sido actualizado exitosamente.',
       );
+
+      // Si es premium y es nuevo perfil, notificar a TODOS los usuarios
+      if (_isPremium && _isNewProfile) {
+        final premiumNotificationService = PremiumNotificationService();
+        await premiumNotificationService.handleNewWorkerProfile(user.uid);
+        print('🌟 Notificación global enviada: Nuevo trabajador premium disponible');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
