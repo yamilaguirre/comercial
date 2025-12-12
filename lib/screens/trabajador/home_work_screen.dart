@@ -299,10 +299,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       child: Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [
-              Styles.primaryColor,
-              Color(0xFF1565C0),
-            ],
+            colors: [Styles.primaryColor, Color(0xFF1565C0)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -319,11 +316,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(
-              Icons.home_work,
-              color: Colors.white,
-              size: 20,
-            ),
+            Icon(Icons.home_work, color: Colors.white, size: 20),
             SizedBox(width: 6),
             Text(
               'Inmobiliaria',
@@ -351,13 +344,25 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-            await AdService.instance.showInterstitialThen(() async {
+            final authService = Provider.of<AuthService>(
+              context,
+              listen: false,
+            );
+            if (authService.isPremium) {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const WorkerLocationSearchScreen(),
                 ),
               );
-            });
+            } else {
+              await AdService.instance.showInterstitialThen(() async {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const WorkerLocationSearchScreen(),
+                  ),
+                );
+              });
+            }
           },
           borderRadius: BorderRadius.circular(16),
           child: Padding(
@@ -794,8 +799,11 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                                       .toList() ??
                                   ['Servicios'],
                               workerLocation: workerLocation,
-                              experienceLevel: profileMap?['experienceLevel'] as String? ?? '',
-                              currency: (profileMap?['currency'] as String?) ?? 'Bs',
+                              experienceLevel:
+                                  profileMap?['experienceLevel'] as String? ??
+                                  '',
+                              currency:
+                                  (profileMap?['currency'] as String?) ?? 'Bs',
                             );
                           },
                         );
@@ -926,7 +934,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                         .toList() ??
                     ['Servicios'],
                 workerLocation: workerLocation,
-                experienceLevel: profileMap?['experienceLevel'] as String? ?? '',
+                experienceLevel:
+                    profileMap?['experienceLevel'] as String? ?? '',
                 currency: (profileMap?['currency'] as String?) ?? 'Bs',
               );
             },
@@ -1161,7 +1170,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: _getLevelColor(experienceLevel).withOpacity(0.15),
+                              color: _getLevelColor(
+                                experienceLevel,
+                              ).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: _getLevelColor(experienceLevel),
@@ -1483,7 +1494,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _getLevelColor(experienceLevel).withOpacity(0.15),
+                          color: _getLevelColor(
+                            experienceLevel,
+                          ).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: _getLevelColor(experienceLevel),
