@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math'; // For shuffling
 import 'package:flutter/services.dart'; // For Clipboard
 import 'package:url_launcher/url_launcher.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
@@ -11,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
 import '../../services/location_service.dart';
 import 'worker_location_search_screen.dart';
+import 'package:chaski_comercial/theme/styles.dart';
 
 class WorkerPublicProfileScreen extends StatefulWidget {
   final WorkerData worker;
@@ -249,8 +251,7 @@ Descarga la app para contactarlo.
         final String price =
             (profile?['price']?.toString() ?? data['price']?.toString() ?? '')
                 .trim();
-        final String currency =
-            profile?['currency']?.toString() ?? 'Bs';
+        final String currency = profile?['currency']?.toString() ?? 'Bs';
         final String experienceLevel =
             profile?['experienceLevel']?.toString() ?? '';
         final List<dynamic> portfolioImagesList =
@@ -393,7 +394,8 @@ Descarga la app para contactarlo.
                                       ],
                                     ),
                                   )
-                                else if (data['verificationStatus'] == 'pending')
+                                else if (data['verificationStatus'] ==
+                                    'pending')
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -423,7 +425,8 @@ Descarga la app para contactarlo.
                                       ],
                                     ),
                                   )
-                                else if (data['verificationStatus'] == 'rejected')
+                                else if (data['verificationStatus'] ==
+                                    'rejected')
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -460,7 +463,9 @@ Descarga la app para contactarlo.
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _getLevelColor(experienceLevel).withOpacity(0.1),
+                                      color: _getLevelColor(
+                                        experienceLevel,
+                                      ).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: _getLevelColor(experienceLevel),
@@ -473,7 +478,9 @@ Descarga la app para contactarlo.
                                         Icon(
                                           _getLevelIcon(experienceLevel),
                                           size: 14,
-                                          color: _getLevelColor(experienceLevel),
+                                          color: _getLevelColor(
+                                            experienceLevel,
+                                          ),
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
@@ -481,7 +488,9 @@ Descarga la app para contactarlo.
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
-                                            color: _getLevelColor(experienceLevel),
+                                            color: _getLevelColor(
+                                              experienceLevel,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -835,8 +844,8 @@ Descarga la app para contactarlo.
                   ),
 
                 const SizedBox(height: 16),
-                
-                if (portfolioImagesList.isNotEmpty) 
+
+                if (portfolioImagesList.isNotEmpty)
                   const Divider(height: 1, thickness: 1),
 
                 // Videos del Portafolio
@@ -876,10 +885,9 @@ Descarga la app para contactarlo.
                               ),
                           itemCount: portfolioVideosList.length,
                           itemBuilder: (context, index) {
-                            final videoUrl = portfolioVideosList[index].toString();
-                            return _VideoThumbnailPlayer(
-                              videoUrl: videoUrl,
-                            );
+                            final videoUrl = portfolioVideosList[index]
+                                .toString();
+                            return _VideoThumbnailPlayer(videoUrl: videoUrl);
                           },
                         ),
                       ],
@@ -1170,7 +1178,7 @@ Descarga la app para contactarlo.
     );
   }
 
-  /// Build similar workers section with VERTICAL scroll
+  /// Build similar workers section with VERTICAL scroll and mixed Premium logic
   Widget _buildSimilarWorkersVertical() {
     final authService = Provider.of<AuthService>(context);
     final currentUserId = authService.currentUser?.uid;
@@ -1191,141 +1199,946 @@ Descarga la app para contactarlo.
           return const SizedBox.shrink();
         }
 
-        final workers = snapshot.data!.docs;
+        final allWorkers = snapshot.data!.docs;
 
-        // Filtrar trabajadores similares
-        final similarWorkers = workers
-            .where((doc) {
-              if (doc.id == widget.worker.id || doc.id == currentUserId) {
-                return false;
-              }
+        // -------------------------------------------------------------
+        // PREPARAR DATOS DEL TARGET (Trabajador Actual)
+        // -------------------------------------------------------------
+        // Intenta obtener datos "crudos" del snapshot para mayor precisión
+        Set<String> targetSubcategories = {};
+        Set<String> targetCategories = {};
 
-              final data = doc.data() as Map<String, dynamic>;
-              final name = data['name'] as String?;
-              if (name == null || name.isEmpty || name.trim().isEmpty) {
-                return false;
-              }
+        try {
+          // Fallback básico desde widget.worker
+          targetCategories.addAll(
+            widget.worker.categories.map((e) => e.toLowerCase().trim()),
+          );
+          targetSubcategories.addAll(
+            widget.worker.profession
+                .toLowerCase()
+                .split('•')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty),
+          );
 
-              final professions = data['professions'] as List<dynamic>?;
-              final workerCategories = widget.worker.categories
-                  .map((e) => e.toLowerCase())
-                  .toSet();
+          // Intenta enriquecer con DB
+          final currentDoc = allWorkers.firstWhere(
+            (d) => d.id == widget.worker.id,
+            orElse: () => allWorkers.first,
+          );
+          if (currentDoc.id == widget.worker.id) {
+            final cData = currentDoc.data() as Map<String, dynamic>;
+            final cProfessions = cData['professions'] as List<dynamic>?;
+            if (cProfessions != null) {
+              for (var p in cProfessions) {
+                final pMap = p as Map<String, dynamic>?;
+                if (pMap != null) {
+                  final cat = pMap['category']?.toString().toLowerCase().trim();
+                  if (cat != null && cat.isNotEmpty) targetCategories.add(cat);
 
-              if (professions != null && professions.isNotEmpty) {
-                for (var prof in professions) {
-                  final profMap = prof as Map<String, dynamic>?;
-                  final category = profMap?['category']
-                      ?.toString()
-                      .toLowerCase();
-                  if (category != null && workerCategories.contains(category)) {
-                    return true;
+                  final subs = pMap['subcategories'] as List<dynamic>?;
+                  if (subs != null) {
+                    targetSubcategories.addAll(
+                      subs.map((s) => s.toString().toLowerCase().trim()),
+                    );
                   }
                 }
               }
+            }
+          }
+        } catch (e) {
+          // ignore error
+        }
 
-              return false;
-            })
-            .take(8)
-            .toList();
+        // -------------------------------------------------------------
+        // FILTRADO EN DOS NIVELES (Strict -> Broad)
+        // -------------------------------------------------------------
 
-        if (similarWorkers.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Text(
-                'No hay trabajadores similares disponibles',
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              ),
+        // 1. Strict Matches: Coinciden en Subcategoría (e.g. "Electricista")
+        final strictMatches = <QueryDocumentSnapshot>[];
+
+        for (var doc in allWorkers) {
+          if (doc.id == widget.worker.id || doc.id == currentUserId) continue;
+
+          final data = doc.data() as Map<String, dynamic>;
+          final name = data['name'] as String?;
+          if (name == null || name.trim().isEmpty) continue;
+
+          bool isStrict = false;
+
+          final professions = data['professions'] as List<dynamic>?;
+
+          if (professions != null) {
+            for (var p in professions) {
+              final pMap = p as Map<String, dynamic>?;
+              if (pMap == null) continue;
+
+              // Check Subcategories (Strict)
+              final subs = pMap['subcategories'] as List<dynamic>?;
+              if (subs != null) {
+                for (var s in subs) {
+                  final sStr = s.toString().toLowerCase().trim();
+                  for (var tSub in targetSubcategories) {
+                    // Containment check for flexibility ("Ingeniero Electricista" matches "Electricista")
+                    if (sStr.contains(tSub) || tSub.contains(sStr)) {
+                      isStrict = true;
+                      break;
+                    }
+                  }
+                  if (isStrict) break;
+                }
+              }
+
+              if (isStrict) break;
+            }
+          }
+
+          // Fallback check on string fields if professions array failed
+          if (!isStrict) {
+            final explicitProf = (data['profession'] as String?)
+                ?.toLowerCase()
+                .trim();
+            if (explicitProf != null) {
+              for (var tSub in targetSubcategories) {
+                if (explicitProf.contains(tSub) ||
+                    tSub.contains(explicitProf)) {
+                  isStrict = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (isStrict) {
+            strictMatches.add(doc);
+          }
+        }
+
+        // Combinar resultados: PRIORIDAD ÚNICA STRICT
+        // Eliminamos el fallback broad porque el usuario prefiere precisión.
+        List<QueryDocumentSnapshot> finalPool = [];
+        finalPool.addAll(strictMatches);
+
+        // Deduplicar por si acaso (aunque los sets separados lo evitan, safety check)
+        final uniqueIds = <String>{};
+        final similarWorkersDocs = <QueryDocumentSnapshot>[];
+        for (var d in finalPool) {
+          if (uniqueIds.add(d.id)) {
+            similarWorkersDocs.add(d);
+          }
+        }
+
+        if (similarWorkersDocs.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.person_off_outlined,
+                  size: 40,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No hay trabajadores similares\ncon la misma profesión.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
             ),
           );
         }
 
-        // VERTICAL scroll usando GridView
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 200,
-            childAspectRatio: 0.62,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: similarWorkers.length,
-          itemBuilder: (context, index) {
-            final workerDoc = similarWorkers[index];
-            final data = workerDoc.data() as Map<String, dynamic>;
+        // 2. Obtener datos de usuarios Premium para ordenamiento
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('premium_users')
+              .where('status', isEqualTo: 'active')
+              .snapshots(),
+          builder: (context, premiumSnapshot) {
+            // Mapa de ID -> Timestamp de inicio de premium
+            final premiumUserIdsMap = <String, Timestamp>{};
 
-            final name = data['name'] as String? ?? '';
-            final photoUrl = data['photoUrl'] as String?;
-            final workerLocation = data['location'] as Map<String, dynamic>?;
-
-            // Obtener profesión
-            String profession =
-                (data['profession'] as String? ??
-                        (data['profile']
-                                as Map<String, dynamic>?)?['profession']
-                            as String? ??
-                        '')
-                    .toString();
-            final professionsData =
-                (data['professions'] as List<dynamic>?) ??
-                ((data['profile'] as Map<String, dynamic>?)?['professions']
-                    as List<dynamic>?);
-            if (profession.isEmpty &&
-                professionsData != null &&
-                professionsData.isNotEmpty) {
-              final List<String> allSubcategories = [];
-              for (var prof in professionsData) {
-                final profMap = prof as Map<String, dynamic>?;
-                final subcategories =
-                    profMap?['subcategories'] as List<dynamic>?;
-                if (subcategories != null && subcategories.isNotEmpty) {
-                  allSubcategories.addAll(
-                    subcategories.map((s) => s.toString()),
-                  );
+            if (premiumSnapshot.hasData) {
+              for (var doc in premiumSnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final startedAt = data['startedAt'] as Timestamp?;
+                if (startedAt != null) {
+                  premiumUserIdsMap[doc.id] = startedAt;
                 }
-              }
-              if (allSubcategories.isNotEmpty) {
-                profession = allSubcategories.take(2).join(' • ');
               }
             }
 
-            final price = (data['price']?.toString() ?? '').trim();
+            // Separar trabajadores similares en Premium y Regulares
+            final premiumWorkers = <QueryDocumentSnapshot>[];
+            final regularWorkers = <QueryDocumentSnapshot>[];
 
-            return StreamBuilder<Map<String, dynamic>>(
-              stream: LocationService.calculateWorkerRatingStream(workerDoc.id),
-              builder: (context, ratingSnapshot) {
-                final ratingData =
-                    ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+            for (var worker in similarWorkersDocs) {
+              if (premiumUserIdsMap.containsKey(worker.id)) {
+                premiumWorkers.add(worker);
+              } else {
+                regularWorkers.add(worker);
+              }
+            }
 
-                return _buildCompactWorkerCard(
-                  workerId: workerDoc.id,
-                  name: name,
-                  profession: profession,
-                  rating: (ratingData['rating'] as num).toDouble(),
-                  reviews: ratingData['reviews'] as int,
-                  price: price,
-                  photoUrl: photoUrl,
-                  phone: data['phoneNumber'] as String? ?? '',
-                  latitude: workerLocation?['latitude'] as double? ?? 0.0,
-                  longitude: workerLocation?['longitude'] as double? ?? 0.0,
-                  categories:
-                      professionsData
-                          ?.map(
-                            (p) =>
-                                (p as Map<String, dynamic>?)?['category']
-                                    ?.toString() ??
-                                '',
-                          )
-                          .where((c) => c.isNotEmpty)
-                          .toList() ??
-                      ['Servicios'],
+            // 3. Ordenar Premiums por fecha de activación (más recientes primero)
+            premiumWorkers.sort((a, b) {
+              final aStartedAt = premiumUserIdsMap[a.id];
+              final bStartedAt = premiumUserIdsMap[b.id];
+              if (aStartedAt == null || bStartedAt == null) return 0;
+              return bStartedAt.compareTo(aStartedAt); // Descendente
+            });
+
+            // 4. Seleccionar los top 2 Premiums
+            final topPremiums = premiumWorkers.take(2).toList();
+            final remainingPremiums = premiumWorkers.skip(2).toList();
+
+            // 5. Mezclar el resto (Premiums restantes + Regulares) aleatoriamente
+            final mixedPool = [...remainingPremiums, ...regularWorkers];
+            mixedPool.shuffle(Random()); // Randomizar posición
+
+            // 6. Construir lista final
+            final displayList = [...topPremiums, ...mixedPool].take(8).toList();
+
+            // CONSTRUIR LAYOUT: Column con filas mixtas
+            List<Widget> layoutWidgets = [];
+            int i = 0;
+            while (i < displayList.length) {
+              final workerDoc = displayList[i];
+              final isPremium = premiumUserIdsMap.containsKey(workerDoc.id);
+
+              if (isPremium) {
+                // PREMIUM: Ocupa todo el ancho (Full Width Row)
+                layoutWidgets.add(
+                  _buildWorkerCardWrapper(workerDoc, isPremium: true),
                 );
-              },
-            );
+                i++;
+              } else {
+                // REGULAR: Intenta formar una fila de 2
+                if (i + 1 < displayList.length) {
+                  final nextWorkerDoc = displayList[i + 1];
+                  final nextIsPremium = premiumUserIdsMap.containsKey(
+                    nextWorkerDoc.id,
+                  );
+
+                  if (!nextIsPremium) {
+                    // Par: Regular + Regular
+                    layoutWidgets.add(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildWorkerCardWrapper(
+                              workerDoc,
+                              isPremium: false,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildWorkerCardWrapper(
+                              nextWorkerDoc,
+                              isPremium: false,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    layoutWidgets.add(const SizedBox(height: 12));
+                    i += 2;
+                  } else {
+                    // Siguiente es Premium, renderizar Regular solo
+                    layoutWidgets.add(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildWorkerCardWrapper(
+                              workerDoc,
+                              isPremium: false,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Spacer(),
+                        ],
+                      ),
+                    );
+                    layoutWidgets.add(const SizedBox(height: 12));
+                    i++;
+                  }
+                } else {
+                  // Último elemento impar
+                  layoutWidgets.add(
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildWorkerCardWrapper(
+                            workerDoc,
+                            isPremium: false,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Spacer(),
+                      ],
+                    ),
+                  );
+                  layoutWidgets.add(const SizedBox(height: 12));
+                  i++;
+                }
+              }
+            }
+
+            return Column(children: layoutWidgets);
           },
         );
       },
+    );
+  }
+
+  // Wrapper para construir la tarjeta correcta según datos
+  Widget _buildWorkerCardWrapper(
+    DocumentSnapshot workerDoc, {
+    required bool isPremium,
+  }) {
+    final data = workerDoc.data() as Map<String, dynamic>;
+
+    final name = data['name'] as String? ?? '';
+    final photoUrl = data['photoUrl'] as String?;
+    final workerLocation = data['location'] as Map<String, dynamic>?;
+
+    // Obtener profesión
+    String profession =
+        (data['profession'] as String? ??
+                (data['profile'] as Map<String, dynamic>?)?['profession']
+                    as String? ??
+                '')
+            .toString();
+    final professionsData =
+        (data['professions'] as List<dynamic>?) ??
+        ((data['profile'] as Map<String, dynamic>?)?['professions']
+            as List<dynamic>?);
+    if (profession.isEmpty &&
+        professionsData != null &&
+        professionsData.isNotEmpty) {
+      final List<String> allSubcategories = [];
+      for (var prof in professionsData) {
+        final profMap = prof as Map<String, dynamic>?;
+        final subcategories = profMap?['subcategories'] as List<dynamic>?;
+        if (subcategories != null && subcategories.isNotEmpty) {
+          allSubcategories.addAll(subcategories.map((s) => s.toString()));
+        }
+      }
+      if (allSubcategories.isNotEmpty) {
+        profession = allSubcategories.take(2).join(' • ');
+      }
+    }
+
+    final price = (data['price']?.toString() ?? '').trim();
+    final currency =
+        (data['profile'] as Map<String, dynamic>?)?['currency'] as String? ??
+        'Bs';
+    final experienceLevel =
+        (data['profile'] as Map<String, dynamic>?)?['experienceLevel']
+            as String? ??
+        '';
+
+    final categories =
+        professionsData
+            ?.map(
+              (p) =>
+                  (p as Map<String, dynamic>?)?['category']?.toString() ?? '',
+            )
+            .where((c) => c.isNotEmpty)
+            .toList() ??
+        ['Servicios'];
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: LocationService.calculateWorkerRatingStream(workerDoc.id),
+      builder: (context, ratingSnapshot) {
+        final ratingData = ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+
+        if (isPremium) {
+          return _buildWidePremiumWorkerCard(
+            workerId: workerDoc.id,
+            name: name,
+            profession: profession,
+            rating: (ratingData['rating'] as num).toDouble(),
+            reviews: ratingData['reviews'] as int,
+            price: price,
+            distance: '',
+            phone: data['phoneNumber'] as String? ?? '',
+            latitude: workerLocation?['latitude'] as double? ?? 0.0,
+            longitude: workerLocation?['longitude'] as double? ?? 0.0,
+            categories: categories,
+            photoUrl: photoUrl,
+            experienceLevel: experienceLevel,
+            currency: currency,
+          );
+        } else {
+          return _buildCompactWorkerCard(
+            workerId: workerDoc.id,
+            name: name,
+            profession: profession,
+            rating: (ratingData['rating'] as num).toDouble(),
+            reviews: ratingData['reviews'] as int,
+            price: price,
+            photoUrl: photoUrl,
+            phone: data['phoneNumber'] as String? ?? '',
+            latitude: workerLocation?['latitude'] as double? ?? 0.0,
+            longitude: workerLocation?['longitude'] as double? ?? 0.0,
+            categories: categories,
+            isPremium: false,
+            experienceLevel: experienceLevel,
+            currency: currency,
+          );
+        }
+      },
+    );
+  }
+
+  Color _getLevelColor(String level) {
+    if (level.toLowerCase().contains('avanzado'))
+      return const Color(0xFFFFD700); // Gold
+    if (level.toLowerCase().contains('intermedio'))
+      return const Color(0xFFC0C0C0); // Silver
+    return const Color(0xFFCD7F32); // Bronze/Default
+  }
+
+  IconData _getLevelIcon(String level) {
+    if (level.toLowerCase().contains('avanzado'))
+      return Icons.workspace_premium;
+    if (level.toLowerCase().contains('intermedio')) return Icons.verified;
+    return Icons.star;
+  }
+
+  // Helper methods for premium worker actions
+  Future<void> _makePhoneCall(String phone) async {
+    if (phone.isNotEmpty) {
+      final Uri launchUri = Uri(scheme: 'tel', path: phone);
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo realizar la llamada')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Número de teléfono no disponible')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleFavorite(String workerId, bool isFavorite) async {
+    final user = Provider.of<AuthService>(context, listen: false).currentUser;
+    if (user == null) return;
+
+    try {
+      if (isFavorite) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid) // Use uid from user object
+            .update({
+              'favoriteWorkers': FieldValue.arrayRemove([workerId]),
+            });
+      } else {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+              'favoriteWorkers': FieldValue.arrayUnion([workerId]),
+            });
+      }
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
+    }
+  }
+
+  String _getChatId(String currentUserId, String otherUserId) {
+    return currentUserId.hashCode <= otherUserId.hashCode
+        ? '${currentUserId}_$otherUserId'
+        : '${otherUserId}_$currentUserId';
+  }
+
+  void _showContactOptions({
+    required BuildContext context,
+    required String workerId,
+    required String workerName,
+    String? workerPhoto,
+    required String workerPhone,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalContext) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Contactar a $workerName',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF25D366),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.phone, color: Colors.white),
+              ),
+              title: const Text('Contactar por WhatsApp'),
+              subtitle: const Text('Enviar mensaje directo'),
+              onTap: () async {
+                Navigator.pop(modalContext);
+                final whatsappUrl = Uri.parse('https://wa.me/$workerPhone');
+                if (await canLaunchUrl(whatsappUrl)) {
+                  await launchUrl(
+                    whatsappUrl,
+                    mode: LaunchMode.externalApplication,
+                  );
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No se pudo abrir WhatsApp'),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Styles.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.chat_bubble, color: Colors.white),
+              ),
+              title: const Text('Chat en la app'),
+              subtitle: const Text('Mensajería interna'),
+              onTap: () async {
+                Navigator.pop(modalContext);
+                if (!context.mounted) return;
+
+                final authService = Provider.of<AuthService>(
+                  context,
+                  listen: false,
+                );
+                final currentUser = authService.currentUser;
+                if (currentUser == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Debes iniciar sesión')),
+                  );
+                  return;
+                }
+
+                final chatId = _getChatId(currentUser.uid, workerId);
+
+                // Check if chat exists
+                final chatDoc = await FirebaseFirestore.instance
+                    .collection('chats')
+                    .doc(chatId)
+                    .get();
+
+                if (!chatDoc.exists) {
+                  await FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(chatId)
+                      .set({
+                        'users': [currentUser.uid, workerId],
+                        'lastMessage': '',
+                        'lastMessageTime': FieldValue.serverTimestamp(),
+                        'createdBy': currentUser.uid,
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
+                }
+
+                if (context.mounted) {
+                  // Use Modular to navigate if available, or Navigator
+                  Modular.to.pushNamed(
+                    '/chat/detail/$chatId',
+                    arguments: {
+                      'chatId': chatId,
+                      'otherUserId': workerId,
+                      'otherUserName': workerName,
+                      'otherUserPhoto': workerPhoto,
+                    },
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWidePremiumWorkerCard({
+    required String workerId,
+    required String name,
+    required String profession,
+    required double rating,
+    required int reviews,
+    required String price,
+    required String distance,
+    String? photoUrl,
+    required String phone,
+    required double latitude,
+    required double longitude,
+    required List<String> categories,
+    Map<String, dynamic>? workerLocation,
+    required String experienceLevel,
+    required String currency,
+  }) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    return Container(
+      width: double.infinity, // Full width
+      margin: const EdgeInsets.only(bottom: 12), // Vertical spacing
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFF6F00), // Vibrant Orange
+            Color(0xFFFFC107), // Vibrant Yellow
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            // Left side: Profile image and Ver Perfil button
+            Expanded(
+              flex: 2,
+              child: GestureDetector(
+                onTap: () {
+                  // _incrementWorkerViews(workerId); // Assuming exist or safely ignored
+                  Modular.to.pushNamed(
+                    '/worker/public-profile',
+                    arguments: WorkerData(
+                      id: workerId,
+                      name: name,
+                      profession: profession,
+                      categories: categories,
+                      latitude: latitude,
+                      longitude: longitude,
+                      photoUrl: photoUrl,
+                      rating: rating,
+                      phone: phone,
+                      price: price,
+                      currency: currency,
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey[200],
+                            image: photoUrl != null && photoUrl.isNotEmpty
+                                ? DecorationImage(
+                                    image: NetworkImage(photoUrl),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: photoUrl == null || photoUrl.isEmpty
+                              ? Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey[400],
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: StreamBuilder<DocumentSnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(authService.currentUser?.uid)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData ||
+                                  snapshot.data?.data() == null) {
+                                return const SizedBox.shrink();
+                              }
+                              final userData =
+                                  snapshot.data!.data() as Map<String, dynamic>;
+                              final favorites =
+                                  (userData['favoriteWorkers']
+                                      as List<dynamic>?) ??
+                                  [];
+                              final isFavorite = favorites.contains(workerId);
+
+                              return GestureDetector(
+                                onTap: () =>
+                                    _toggleFavorite(workerId, isFavorite),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    isFavorite
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    size: 16,
+                                    color: isFavorite
+                                        ? Colors.red
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Styles.primaryColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Ver Perfil',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8), // Bottom padding
+                  ],
+                ),
+              ),
+            ),
+            // Right side: Worker info
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF212121),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${rating.toStringAsFixed(1)} ($reviews)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF616161),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        if (experienceLevel.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getLevelColor(
+                                experienceLevel,
+                              ).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _getLevelColor(experienceLevel),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _getLevelIcon(experienceLevel),
+                                  size: 12,
+                                  color: _getLevelColor(experienceLevel),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  experienceLevel,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _getLevelColor(experienceLevel),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (profession != 'Sin profesión especificada')
+                      Text(
+                        profession,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF616161),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 2),
+                    if (price.isNotEmpty)
+                      Row(
+                        children: [
+                          const Text(
+                            'Desde ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF616161),
+                            ),
+                          ),
+                          Text(
+                            '$currency $price',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Styles.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _makePhoneCall(phone),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Styles.primaryColor,
+                              side: const BorderSide(
+                                color: Styles.primaryColor,
+                                width: 1,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 8,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.phone, size: 13),
+                                SizedBox(width: 3),
+                                Text('Llamar', style: TextStyle(fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _showContactOptions(
+                              context: context,
+                              workerId: workerId,
+                              workerName: name,
+                              workerPhoto: photoUrl,
+                              workerPhone: phone,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 8,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.message, size: 13),
+                                SizedBox(width: 3),
+                                Text('Mensaje', style: TextStyle(fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1342,6 +2155,9 @@ Descarga la app para contactarlo.
     required double latitude,
     required double longitude,
     required List<String> categories,
+    bool isPremium = false,
+    String experienceLevel = '',
+    String currency = 'Bs',
   }) {
     return GestureDetector(
       onTap: () {
@@ -1358,12 +2174,24 @@ Descarga la app para contactarlo.
             rating: rating,
             phone: phone,
             price: price,
+            currency: currency,
           ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          // GRADIENT BORDER LOGIC FOR PREMIUM
+          gradient: isPremium
+              ? const LinearGradient(
+                  colors: [
+                    Color(0xFFFF6F00), // Vibrant Orange
+                    Color(0xFFFFC107), // Vibrant Yellow
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                )
+              : null,
+          color: isPremium ? null : Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -1373,33 +2201,39 @@ Descarga la app para contactarlo.
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            Container(
-              height: 140,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+        // Padding used as Border width if premium
+        padding: isPremium ? const EdgeInsets.all(2) : EdgeInsets.zero,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(isPremium ? 10 : 12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image
+              Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(isPremium ? 10 : 12),
+                    topRight: Radius.circular(isPremium ? 10 : 12),
+                  ),
+                  image: photoUrl != null && photoUrl.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(photoUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                image: photoUrl != null && photoUrl.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(photoUrl),
-                        fit: BoxFit.cover,
-                      )
+                child: photoUrl == null || photoUrl.isEmpty
+                    ? Icon(Icons.person, size: 50, color: Colors.grey[400])
                     : null,
               ),
-              child: photoUrl == null || photoUrl.isEmpty
-                  ? Icon(Icons.person, size: 50, color: Colors.grey[400])
-                  : null,
-            ),
-            // Content
-            Expanded(
-              child: Padding(
+              // Content
+              Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1426,7 +2260,48 @@ Descarga la app para contactarlo.
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    const Spacer(),
+
+                    // Experience Badge
+                    if (experienceLevel.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getLevelColor(
+                            experienceLevel,
+                          ).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _getLevelColor(experienceLevel),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getLevelIcon(experienceLevel),
+                              size: 10,
+                              color: _getLevelColor(experienceLevel),
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              experienceLevel,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: _getLevelColor(experienceLevel),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         const Icon(Icons.star, size: 14, color: Colors.amber),
@@ -1451,7 +2326,7 @@ Descarga la app para contactarlo.
                     const SizedBox(height: 4),
                     if (price.isNotEmpty)
                       Text(
-                        'Bs $price',
+                        '$currency $price',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -1461,48 +2336,21 @@ Descarga la app para contactarlo.
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   // Helper methods para nivel de experiencia
-  Color _getLevelColor(String level) {
-    switch (level.toLowerCase()) {
-      case 'básico':
-        return Colors.blue;
-      case 'intermedio':
-        return Colors.orange;
-      case 'avanzado':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getLevelIcon(String level) {
-    switch (level.toLowerCase()) {
-      case 'básico':
-        return Icons.star_outline;
-      case 'intermedio':
-        return Icons.star_half;
-      case 'avanzado':
-        return Icons.star;
-      default:
-        return Icons.info_outline;
-    }
-  }
 }
 
 // Widget para reproducir videos en el portafolio
 class _VideoThumbnailPlayer extends StatefulWidget {
   final String videoUrl;
 
-  const _VideoThumbnailPlayer({
-    required this.videoUrl,
-  });
+  const _VideoThumbnailPlayer({required this.videoUrl});
 
   @override
   State<_VideoThumbnailPlayer> createState() => _VideoThumbnailPlayerState();
@@ -1575,21 +2423,14 @@ class _VideoThumbnailPlayerState extends State<_VideoThumbnailPlayer> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              color: Colors.red.shade300,
-              size: 40,
-            ),
+            Icon(Icons.error_outline, color: Colors.red.shade300, size: 40),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 'Error al cargar video',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
               ),
             ),
           ],
@@ -1628,7 +2469,7 @@ class _VideoThumbnailPlayerState extends State<_VideoThumbnailPlayer> {
                 child: VideoPlayer(_controller),
               ),
             ),
-            
+
             // Overlay con botón play/pause
             if (!_isPlaying)
               Container(
@@ -1648,16 +2489,13 @@ class _VideoThumbnailPlayerState extends State<_VideoThumbnailPlayer> {
                   ),
                 ),
               ),
-            
+
             // Indicador de video premium en la esquina
             Positioned(
               top: 8,
               right: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Color(0xFFFF6F00), Color(0xFFFFC107)],
@@ -1685,16 +2523,13 @@ class _VideoThumbnailPlayerState extends State<_VideoThumbnailPlayer> {
                 ),
               ),
             ),
-            
+
             // Duración del video en la esquina inferior
             Positioned(
               bottom: 8,
               right: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(4),
