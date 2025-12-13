@@ -58,6 +58,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   final SavedListService _savedListService = SavedListService();
   List<Property> _similarProperties = [];
   final Set<String> _savedPropertyIds = {};
+  final Map<String, bool> _premiumStatus =
+      {}; // Para cachear estado premium de propietarios
 
   @override
   void initState() {
@@ -107,11 +109,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           .collection('properties')
           .where('is_active', isEqualTo: true)
           .where('transaction_type', isEqualTo: _property!.type)
-          .where('property_type', isEqualTo: _property!.propertyTypeRaw)
-          .limit(10);
+          .where('property_type', isEqualTo: _property!.propertyTypeRaw);
 
       final snapshot = await query.get();
-      final properties = snapshot.docs
+      var properties = snapshot.docs
           .where(
             (doc) =>
                 doc.id != widget.propertyId &&
@@ -126,13 +127,45 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         return bDate.compareTo(aDate);
       });
 
+      // Mezclar aleatoriamente TODAS las propiedades
+      properties.shuffle();
+
+      // Cargar estado premium de los propietarios
+      for (final property in properties) {
+        await _checkOwnerPremiumStatus(property.ownerId);
+      }
+
       if (mounted) {
         setState(() {
-          _similarProperties = properties.take(6).toList();
+          _similarProperties = properties;
         });
       }
     } catch (e) {
       debugPrint('Error cargando propiedades similares: $e');
+    }
+  }
+
+  // Verificar si un propietario es premium
+  Future<void> _checkOwnerPremiumStatus(String ownerId) async {
+    if (_premiumStatus.containsKey(ownerId)) {
+      return; // Ya lo tenemos cacheado
+    }
+
+    try {
+      final premiumDoc = await FirebaseFirestore.instance
+          .collection('premium_users')
+          .doc(ownerId)
+          .get();
+
+      final isPremium =
+          premiumDoc.exists &&
+          (premiumDoc.data()?['status'] == 'active' ||
+              premiumDoc.data()?['premium'] == true);
+
+      _premiumStatus[ownerId] = isPremium;
+    } catch (e) {
+      debugPrint('Error checking premium status for $ownerId: $e');
+      _premiumStatus[ownerId] = false;
     }
   }
 
@@ -319,7 +352,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     if (_property == null) return;
 
     final propertyUrl = 'comercial://property/${widget.propertyId}';
-    final message = '¡Mira esta propiedad!\n\n'
+    final message =
+        '¡Mira esta propiedad!\n\n'
         '${_property!.name}\n'
         '${_property!.price}\n'
         '${_property!.location}\n\n'
@@ -329,9 +363,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       await Share.share(message, subject: _property!.name);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al compartir: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al compartir: $e')));
       }
     }
   }
@@ -398,7 +432,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             'chatId': chatId,
             'otherUserId': _property!.ownerId,
             'otherUserName': _ownerData?['displayName'] ?? 'Usuario',
-            'otherUserPhoto': _ownerData?['photoURL'] ?? _ownerData?['photoUrl'],
+            'otherUserPhoto':
+                _ownerData?['photoURL'] ?? _ownerData?['photoUrl'],
             'propertyId': _property!.id,
           },
         );
@@ -608,7 +643,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             const Divider(),
             const SizedBox(height: 24),
             Text(
-              'Te podría interesar',
+              'Propiedades Similares',
               style: TextStyles.subtitle.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -623,16 +658,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               ),
               itemCount: _similarProperties.length,
               itemBuilder: (context, index) {
+                final property = _similarProperties[index];
+                final isPremium = _premiumStatus[property.ownerId] ?? false;
+
                 return CompactPropertyCard(
-                  property: _similarProperties[index],
-                  isFavorite: _savedPropertyIds.contains(
-                    _similarProperties[index].id,
-                  ),
-                  onFavoriteToggle: () =>
-                      _openCollectionDialog(_similarProperties[index]),
+                  property: property,
+                  isFavorite: _savedPropertyIds.contains(property.id),
+                  showGoldenBorder: isPremium,
+                  onFavoriteToggle: () => _openCollectionDialog(property),
                   onTap: () => Modular.to.pushNamed(
-                    '/property/detail/${_similarProperties[index].id}',
-                    arguments: _similarProperties[index],
+                    '/property/detail/${property.id}',
+                    arguments: property,
                   ),
                 );
               },
@@ -790,7 +826,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                         ),
                         child: IconButton(
                           icon: Icon(
-                            _isFavorite ? Icons.favorite : Icons.favorite_border,
+                            _isFavorite
+                                ? Icons.favorite
+                                : Icons.favorite_border,
                             color: _isFavorite ? Colors.red : Colors.black,
                           ),
                           onPressed: _toggleFavorite,
