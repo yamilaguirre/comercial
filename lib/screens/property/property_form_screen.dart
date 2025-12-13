@@ -95,7 +95,11 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
 
   double get progress => completedSteps / 8;
 
-  int get totalMediaCount => _existingImageUrls.length + _newImageFiles.length + _existingVideoUrls.length + _newVideoFiles.length;
+  int get totalMediaCount =>
+      _existingImageUrls.length +
+      _newImageFiles.length +
+      _existingVideoUrls.length +
+      _newVideoFiles.length;
 
   @override
   void initState() {
@@ -266,12 +270,14 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       return;
     }
     if (_existingVideoUrls.length + _newVideoFiles.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Máximo 5 videos')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Máximo 5 videos')));
       return;
     }
-    final XFile? pickedFile = await _picker.pickVideo(source: ImageSource.gallery);
+    final XFile? pickedFile = await _picker.pickVideo(
+      source: ImageSource.gallery,
+    );
     if (pickedFile != null) {
       setState(() => _newVideoFiles.add(pickedFile));
     }
@@ -290,7 +296,8 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       setState(() => _newVideoFiles.removeAt(index));
 
   Widget _buildVideoSection() {
-    final hasVideos = _existingVideoUrls.isNotEmpty || _newVideoFiles.isNotEmpty;
+    final hasVideos =
+        _existingVideoUrls.isNotEmpty || _newVideoFiles.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -331,7 +338,11 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.videocam_outlined, size: 32, color: Styles.primaryColor),
+                  Icon(
+                    Icons.videocam_outlined,
+                    size: 32,
+                    color: Styles.primaryColor,
+                  ),
                   const SizedBox(height: 8),
                   const Text(
                     'Seleccionar videos',
@@ -352,7 +363,8 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: _existingVideoUrls.length + _newVideoFiles.length + 1,
               itemBuilder: (context, index) {
-                if (index == 0 && (_existingVideoUrls.length + _newVideoFiles.length) < 5) {
+                if (index == 0 &&
+                    (_existingVideoUrls.length + _newVideoFiles.length) < 5) {
                   return GestureDetector(
                     onTap: _pickVideos,
                     child: Container(
@@ -361,7 +373,10 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFF5F5F5),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300, width: 1.5),
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                          width: 1.5,
+                        ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -383,7 +398,9 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                 }
                 final videoIndex = index - 1;
                 final isExisting = videoIndex < _existingVideoUrls.length;
-                final displayIndex = isExisting ? videoIndex : videoIndex - _existingVideoUrls.length;
+                final displayIndex = isExisting
+                    ? videoIndex
+                    : videoIndex - _existingVideoUrls.length;
                 return Stack(
                   children: [
                     Container(
@@ -394,7 +411,11 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Center(
-                        child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white),
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          size: 48,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     Positioned(
@@ -410,7 +431,11 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                             color: Colors.black.withOpacity(0.6),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.close, size: 18, color: Colors.white),
+                          child: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -468,11 +493,20 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       // 1. Subir nuevas imágenes
       List<String> uploadedUrls = [];
       if (_newImageFiles.isNotEmpty) {
-        setState(() => _savingStatus = 'Subiendo imágenes ${0}/${_newImageFiles.length}...');
+        setState(
+          () => _savingStatus =
+              'Subiendo imágenes ${0}/${_newImageFiles.length}...',
+        );
         for (int i = 0; i < _newImageFiles.length; i++) {
-          final url = await ImageService.uploadImages([_newImageFiles[i]], 'properties/${user.uid}');
+          final url = await ImageService.uploadImages([
+            _newImageFiles[i],
+          ], 'properties/${user.uid}');
           uploadedUrls.addAll(url);
-          if (mounted) setState(() => _savingStatus = 'Subiendo imágenes ${i + 1}/${_newImageFiles.length}...');
+          if (mounted)
+            setState(
+              () => _savingStatus =
+                  'Subiendo imágenes ${i + 1}/${_newImageFiles.length}...',
+            );
         }
       }
 
@@ -480,18 +514,27 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       List<String> uploadedVideoUrls = [];
       if (_newVideoFiles.isNotEmpty) {
         for (int i = 0; i < _newVideoFiles.length; i++) {
-          if (mounted) setState(() => _savingStatus = 'Subiendo video ${i + 1}/${_newVideoFiles.length}...');
-          final url = await VideoService.uploadVideo(_newVideoFiles[i], 'properties/${user.uid}');
+          if (mounted)
+            setState(
+              () => _savingStatus =
+                  'Subiendo video ${i + 1}/${_newVideoFiles.length}...',
+            );
+          final url = await VideoService.uploadVideo(
+            _newVideoFiles[i],
+            'properties/${user.uid}',
+          );
           uploadedVideoUrls.add(url);
         }
       }
 
       final allImageUrls = [..._existingImageUrls, ...uploadedUrls];
       final allVideoUrls = [..._existingVideoUrls, ...uploadedVideoUrls];
-      final selectedAmenities = _amenityState.entries
-          .where((entry) => entry.value)
-          .map((entry) => entry.key)
-          .toList();
+
+      // Convertir amenities a Map en lugar de List
+      // Firestore espera: {"wifi": true, "parking": true}
+      final amenitiesMap = Map<String, bool>.fromEntries(
+        _amenityState.entries.where((entry) => entry.value),
+      );
 
       final propertyData = {
         'title': _titleController.text.trim(),
@@ -506,7 +549,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         'department': _selectedDepartment,
         'zone_key': _selectedZone,
         'geopoint': _currentGeopoint,
-        'amenities': selectedAmenities,
+        'amenities': amenitiesMap,
         'imageUrls': allImageUrls,
         'videoUrls': allVideoUrls,
         'owner_id': user.uid,
@@ -532,10 +575,11 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     } catch (e) {
       // Error silencioso
     } finally {
-      if (mounted) setState(() {
-        _isSaving = false;
-        _savingStatus = '';
-      });
+      if (mounted)
+        setState(() {
+          _isSaving = false;
+          _savingStatus = '';
+        });
     }
   }
 

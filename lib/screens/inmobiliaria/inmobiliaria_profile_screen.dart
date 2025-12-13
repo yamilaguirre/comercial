@@ -8,7 +8,8 @@ class InmobiliariaProfileScreen extends StatefulWidget {
   const InmobiliariaProfileScreen({super.key});
 
   @override
-  State<InmobiliariaProfileScreen> createState() => _InmobiliariaProfileScreenState();
+  State<InmobiliariaProfileScreen> createState() =>
+      _InmobiliariaProfileScreenState();
 }
 
 class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
@@ -107,11 +108,6 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
                     'Editar Perfil',
                     () => Modular.to.pushNamed('/inmobiliaria/edit-profile'),
                   ),
-                  _buildActionTile(
-                    Icons.settings,
-                    'Configuración',
-                    () {},
-                  ),
                 ]),
                 SizedBox(height: Styles.spacingMedium),
                 SizedBox(
@@ -123,7 +119,9 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: Styles.spacingMedium),
+                      padding: EdgeInsets.symmetric(
+                        vertical: Styles.spacingMedium,
+                      ),
                     ),
                   ),
                 ),
@@ -148,9 +146,7 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
             padding: EdgeInsets.all(Styles.spacingMedium),
             child: Text(
               title,
-              style: TextStyles.subtitle.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyles.subtitle.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           const Divider(height: 1),

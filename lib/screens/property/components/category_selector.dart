@@ -32,18 +32,27 @@ class CategorySelector extends StatelessWidget {
     return GestureDetector(
       onTap: () => onCategorySelected(title),
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: Styles.spacingSmall),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
           color: isSelected ? Styles.primaryColor : const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Styles.primaryColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           title,
           textAlign: TextAlign.center,
           style: TextStyles.body.copyWith(
             color: isSelected ? Colors.white : Styles.textSecondary,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            fontSize: 13,
           ),
         ),
       ),

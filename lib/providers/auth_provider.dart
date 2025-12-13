@@ -179,13 +179,17 @@ class AuthService extends ChangeNotifier {
       // Si el rol ya está en la DB, lo usamos. Si no, o si está 'indefinido', usamos ROLE_PENDING.
       _userRole = doc.data()?['role'] ?? ROLE_PENDING;
 
-      // Verificar estado premium desde premium_users collection para TODOS los roles
-      final premiumDoc = await _firestore
-          .collection('premium_users')
-          .doc(uid)
-          .get();
+      // Verificar estado premium desde subscriptionStatus.status en el documento del usuario
+      // Estructura: users/{uid}/subscriptionStatus/status === 'active'
+      final subscriptionStatus =
+          doc.data()?['subscriptionStatus'] as Map<String, dynamic>?;
       _isPremium =
-          premiumDoc.exists && premiumDoc.data()?['status'] == 'active';
+          subscriptionStatus != null &&
+          subscriptionStatus['status'] == 'active';
+
+      if (kDebugMode) {
+        print('DEBUG - Usuario: $uid, Rol: $_userRole, Premium: $_isPremium');
+      }
     } catch (e) {
       if (kDebugMode) print("Error fetching user role: $e");
       _userRole = ROLE_PENDING;

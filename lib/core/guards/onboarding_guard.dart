@@ -15,20 +15,33 @@ class OnboardingGuard extends RouteGuard {
     if (authService.isAuthenticated) {
       final user = authService.currentUser;
       if (user != null) {
-        // Leer SOLO el campo role de Firestore
+        // Leer datos del usuario de Firestore
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
-        
+
         final role = doc.data()?['role'];
-        
-        // Si es empresa inmobiliaria, ir a dashboard
+
+        // Si es empresa inmobiliaria, verificar suscripción
         if (role == 'inmobiliaria_empresa') {
-          Modular.to.navigate('/inmobiliaria/home');
+          // Verificar si tiene suscripción premium activa
+          final subscriptionStatus =
+              doc.data()?['subscriptionStatus'] as Map<String, dynamic>?;
+          final hasPremium =
+              subscriptionStatus != null &&
+              subscriptionStatus['status'] == 'active';
+
+          if (hasPremium) {
+            // Tiene premium → ir a dashboard
+            Modular.to.navigate('/inmobiliaria/home');
+          } else {
+            // NO tiene premium → ir a onboarding de inmobiliaria
+            Modular.to.navigate('/inmobiliaria/onboarding');
+          }
         } else {
-          // Cualquier otro caso, ir a role selection
-          Modular.to.navigate('/select-role');
+          // Usuario normal: ir directo a property list
+          Modular.to.navigate('/property/home');
         }
       }
       return false;

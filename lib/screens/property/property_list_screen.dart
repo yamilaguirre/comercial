@@ -7,7 +7,6 @@ import 'package:chaski_comercial/services/ad_service.dart';
 import '../../theme/theme.dart';
 // Importamos los nuevos componentes visuales
 import 'components/category_selector.dart';
-import 'components/property_card_list_item.dart';
 import 'components/compact_property_card.dart';
 import 'components/add_to_collection_dialog.dart';
 
@@ -28,15 +27,37 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   String selectedCategory = 'Comprar';
   bool _isLoading = true;
   Position? _currentPosition;
-  List<Property> _allProperties = [];
-  List<Property> _filteredProperties = [];
+
+  // Listas separadas por tipo de usuario (sin filtrar)
+  List<Property> _allPremiumProperties = [];
+  List<Property> _allRealEstateProperties = [];
+  List<Property> _allRegularProperties = [];
+
+  // Listas filtradas por categoría
+  List<Property> _filteredPremiumProperties = [];
+  List<Property> _filteredRealEstateProperties = [];
+  List<Property> _filteredRegularProperties = [];
+
   final Set<String> _savedPropertyIds = {};
   final SavedListService _savedListService = SavedListService();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _initData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // Scroll listener para futuros eventos
   }
 
   Future<void> _initData() async {
@@ -147,54 +168,129 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUserId = authService.currentUser?.uid ?? '';
-      final isPremium = authService.isPremium;
-
-      final searchRadiusMeters = isPremium ? 10000.0 : 10000.0;
 
       final query = FirebaseFirestore.instance
           .collection('properties')
           .where('is_active', isEqualTo: true);
 
+      // Obtener todos los usuarios (sin filtros complejos para empezar)
+      final allUsersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
+
+      final premiumUserIds = <String>{};
+      final realEstateUserIds = <String>{};
+
+      // Clasificar usuarios por suscripción y rol
+      for (var doc in allUsersSnapshot.docs) {
+        final userId = doc.id;
+        final data = doc.data();
+        final role = data['role']?.toString() ?? '';
+
+        // Verificar subscriptionStatus.status (con capital S)
+        final subStatus = data['subscriptionStatus'] != null
+            ? data['subscriptionStatus']['status']?.toString() ?? ''
+            : '';
+
+        print('DEBUG - Usuario: $userId, Rol: $role, SubStatus: $subStatus');
+
+        // Primer IF: Verificar si el usuario tiene subscripción activa
+        if (subStatus == 'active') {
+          // Segundo IF: Dentro de los usuarios con suscripción activa
+          if (role == 'inmobiliaria_empresa') {
+            // Si es inmobiliaria empresa, agregarlo a realEstateUserIds
+            realEstateUserIds.add(userId);
+            print(
+              'DEBUG - $userId agregado a REAL ESTATE (inmobiliaria_empresa)',
+            );
+          } else {
+            // Si tiene suscripción activa pero NO es inmobiliaria_empresa, es usuario premium
+            premiumUserIds.add(userId);
+            print('DEBUG - $userId agregado a PREMIUM (suscripción activa)');
+          }
+        } else {
+          // Usuarios sin subscripción activa permanecen en regular
+          print('DEBUG - $userId sin suscripción activa (REGULAR)');
+        }
+      }
+
+      print('DEBUG - premiumUserIds: $premiumUserIds');
+      print('DEBUG - realEstateUserIds: $realEstateUserIds');
+
       if (currentUserId.isNotEmpty) {
         final snapshot = await query.get();
 
-        final tempProperties = <Map<String, dynamic>>[];
+        final tempPremium = <Property>[];
+        final tempRealEstate = <Property>[];
+        final tempRegular = <Property>[];
 
         for (var doc in snapshot.docs) {
           final data = doc.data();
-          if (data['owner_id'] == currentUserId) continue;
-          
+
           // Filtrar propiedades con available = false
           final available = data['available'];
           if (available == false) continue;
 
           final property = Property.fromFirestore(doc);
-          double distance = double.infinity;
+          final ownerId = data['owner_id'] as String?;
 
           if (_currentPosition != null && property.geopoint != null) {
             final gp = property.geopoint!;
-            distance = Geolocator.distanceBetween(
+            Geolocator.distanceBetween(
               _currentPosition!.latitude,
               _currentPosition!.longitude,
               gp.latitude,
               gp.longitude,
             );
 
-            if (distance > searchRadiusMeters) continue;
+            // No filtrar por distancia, mostrar todos
           }
 
-          tempProperties.add({'obj': property, 'distance': distance});
+          // Clasificar propiedades por tipo de usuario dueño
+          if (ownerId != null) {
+            print(
+              'DEBUG - Propiedad: ${property.name}, Owner: $ownerId, En Premium: ${premiumUserIds.contains(ownerId)}, En RealEstate: ${realEstateUserIds.contains(ownerId)}',
+            );
+
+            // Primer IF: Verificar si el owner tiene subscriptionstatus.status = "active"
+            if (premiumUserIds.contains(ownerId)) {
+              // Si tiene subscripción activa, verificar su rol
+              // Este es un usuario premium (no es inmobiliaria)
+              tempPremium.add(property);
+              print('DEBUG - Agregado a PREMIUM');
+            } else if (realEstateUserIds.contains(ownerId)) {
+              // Si está en realEstateUserIds, es una inmobiliaria
+              tempRealEstate.add(property);
+              print('DEBUG - Agregado a REAL ESTATE');
+            } else {
+              // Usuarios sin subscripción activa
+              tempRegular.add(property);
+              print('DEBUG - Agregado a REGULAR');
+            }
+          } else {
+            tempRegular.add(property);
+          }
         }
 
-        tempProperties.sort(
-          (a, b) =>
-              (a['distance'] as double).compareTo(b['distance'] as double),
-        );
+        // Ordenar cada categoría por fecha (más reciente primero)
+        void sortByDate(List<Property> props) {
+          props.sort((a, b) {
+            final aDate = a.lastPublishedAt ?? a.createdAt ?? DateTime(2000);
+            final bDate = b.lastPublishedAt ?? b.createdAt ?? DateTime(2000);
+            return bDate.compareTo(aDate);
+          });
+        }
+
+        sortByDate(tempPremium);
+        sortByDate(tempRealEstate);
+        sortByDate(tempRegular);
 
         if (mounted) {
-          _allProperties = tempProperties
-              .map((e) => e['obj'] as Property)
-              .toList();
+          _allPremiumProperties = tempPremium;
+          _allRealEstateProperties = tempRealEstate;
+          _allRegularProperties = tempRegular;
+
+          // Aplicar filtros
           _filterProperties();
         }
       }
@@ -216,17 +312,17 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
         ? 'rent'
         : 'anticretico';
 
-    _filteredProperties = _allProperties.where((p) {
-      final type = p.type.toLowerCase();
-      return type.contains(dbType) || (dbType == 'sale' && type == 'venta');
-    }).toList();
+    // Función para filtrar por tipo de transacción
+    List<Property> filterByType(List<Property> props) {
+      return props.where((p) {
+        final type = p.type.toLowerCase();
+        return type.contains(dbType) || (dbType == 'sale' && type == 'venta');
+      }).toList();
+    }
 
-    // Ordenar por fecha de publicación (más reciente primero)
-    _filteredProperties.sort((a, b) {
-      final aDate = a.lastPublishedAt ?? a.createdAt ?? DateTime(2000);
-      final bDate = b.lastPublishedAt ?? b.createdAt ?? DateTime(2000);
-      return bDate.compareTo(aDate);
-    });
+    _filteredPremiumProperties = filterByType(_allPremiumProperties);
+    _filteredRealEstateProperties = filterByType(_allRealEstateProperties);
+    _filteredRegularProperties = filterByType(_allRegularProperties);
 
     if (mounted) setState(() {});
   }
@@ -275,191 +371,199 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           : Stack(
               children: [
                 Column(
-              children: [
-                // HEADER FIJO
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                  children: [
+                    // HEADER FIJO
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: SafeArea(
-                    bottom: false,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Logo
-                        Padding(
-                          padding: EdgeInsets.all(Styles.spacingMedium),
-                          child: Image.asset(
-                            'assets/images/logoColor.png',
-                            height: 50,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-
-                        // Botón de búsqueda por ubicación
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: Styles.spacingMedium,
-                          ),
-                          child: Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Styles.primaryColor,
-                              borderRadius: BorderRadius.circular(12),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Logo con padding reducido
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                Styles.spacingMedium,
+                                Styles.spacingSmall,
+                                Styles.spacingMedium,
+                                Styles.spacingSmall,
+                              ),
+                              child: Image.asset(
+                                'assets/images/logoColor.png',
+                                height: 40,
+                                fit: BoxFit.contain,
+                              ),
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () async {
-                                  await AdService.instance
-                                      .showInterstitialThen(() async {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const PropertyLocationSearchScreen(),
+
+                            // Botón de búsqueda por ubicación con padding reducido
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: Styles.spacingMedium,
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Styles.primaryColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      await AdService.instance
+                                          .showInterstitialThen(() async {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const PropertyLocationSearchScreen(),
+                                              ),
+                                            );
+                                          });
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14.0,
+                                        vertical: 12.0,
                                       ),
-                                    );
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: const [
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Buscar por ubicación',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: const [
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Buscar por ubicación',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              SizedBox(height: 4),
+                                              Text(
+                                                'Encuentra propiedades cerca de ti',
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            'Encuentra propiedades cerca de ti',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 13,
-                                            ),
+                                          Icon(
+                                            Icons.map,
+                                            color: Colors.white,
+                                            size: 24,
                                           ),
                                         ],
                                       ),
-                                      Icon(
-                                        Icons.map,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        SizedBox(height: Styles.spacingMedium),
+                            SizedBox(height: Styles.spacingSmall),
 
-                        // Botones de Categoría
-                        CategorySelector(
-                          selectedCategory: selectedCategory,
-                          onCategorySelected: _onCategorySelected,
+                            // Botones de Categoría
+                            CategorySelector(
+                              selectedCategory: selectedCategory,
+                              onCategorySelected: _onCategorySelected,
+                            ),
+                            SizedBox(height: Styles.spacingSmall),
+                          ],
                         ),
-                        SizedBox(height: Styles.spacingMedium),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
 
-                // CONTENIDO SCROLLEABLE
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Título: Recomendados cerca de ti
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: Styles.spacingMedium,
+                    // CONTENIDO SCROLLEABLE
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: Styles.spacingSmall,
+                            bottom: Styles.spacingLarge,
                           ),
-                          child: Consumer<AuthService>(
-                            builder: (context, authService, _) {
-                              final isPremium = authService.isPremium;
-                              final radiusText = isPremium ? '10 km' : '10 km';
-                              return Text(
-                                'Recomendados cerca de ti ($radiusText aprox)',
-                                style: TextStyles.title.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // SECCIÓN: PROPIEDADES PREMIUM (SCROLL HORIZONTAL)
+                              if (_filteredPremiumProperties.isNotEmpty)
+                                _buildHorizontalPropertySection(
+                                  title: 'Propiedades Premium',
+                                  subtitle: 'Usuarios con suscripción activa',
+                                  properties: _filteredPremiumProperties,
+                                  titleColor: Color(0xFFFF6F00),
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              );
-                            },
+
+                              // SECCIÓN: PROPIEDADES INMOBILIARIAS (SCROLL HORIZONTAL)
+                              if (_filteredRealEstateProperties.isNotEmpty)
+                                _buildHorizontalPropertySection(
+                                  title: 'Propiedades de Inmobiliarias',
+                                  subtitle:
+                                      'Agentes inmobiliarios profesionales',
+                                  properties: _filteredRealEstateProperties,
+                                  titleColor: Color(0xFF1976D2),
+                                ),
+
+                              // SECCIÓN: PROPIEDADES REGULARES (SCROLL NORMAL)
+                              if (_filteredRegularProperties.isNotEmpty)
+                                _buildRegularPropertiesSection(),
+
+                              if (_filteredPremiumProperties.isEmpty &&
+                                  _filteredRealEstateProperties.isEmpty &&
+                                  _filteredRegularProperties.isEmpty)
+                                Padding(
+                                  padding: EdgeInsets.all(Styles.spacingMedium),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.apartment,
+                                          size: 64,
+                                          color: Colors.grey[400],
+                                        ),
+                                        SizedBox(height: Styles.spacingMedium),
+                                        Text(
+                                          'No se encontraron propiedades',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'en la categoría seleccionada',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                        SizedBox(height: Styles.spacingMedium),
-
-                        // Lista de Propiedades Filtradas (Grid)
-                        if (_filteredProperties.isEmpty)
-                          Padding(
-                            padding: EdgeInsets.all(Styles.spacingMedium),
-                            child: const Text(
-                              'No se encontraron propiedades cercanas en esta categoría.',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        else
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: Styles.spacingMedium,
-                            ),
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: 0.85,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
-                                  ),
-                              itemCount: _filteredProperties.length,
-                              itemBuilder: (context, index) {
-                                return CompactPropertyCard(
-                                  property: _filteredProperties[index],
-                                  isFavorite: _savedPropertyIds.contains(
-                                    _filteredProperties[index].id,
-                                  ),
-                                  onFavoriteToggle: () => _openCollectionDialog(
-                                    _filteredProperties[index],
-                                  ),
-                                  onTap: () =>
-                                      _goToDetail(_filteredProperties[index]),
-                                );
-                              },
-                            ),
-                          ),
-                        SizedBox(height: Styles.spacingLarge),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
                 Positioned(
                   bottom: 24,
                   right: 16,
@@ -473,19 +577,29 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                           ),
                           title: Row(
                             children: const [
-                              Icon(Icons.work, color: Styles.primaryColor, size: 28),
+                              Icon(
+                                Icons.work,
+                                color: Styles.primaryColor,
+                                size: 28,
+                              ),
                               SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'Cambiar a Trabajadores',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                           content: const Text(
                             '¿Deseas cambiar al módulo de Trabajadores para buscar servicios?',
-                            style: TextStyle(fontSize: 15, color: Color(0xFF6B7280)),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
                           actions: [
                             TextButton(
@@ -517,10 +631,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [
-                            Styles.primaryColor,
-                            Color(0xFF1565C0),
-                          ],
+                          colors: [Styles.primaryColor, Color(0xFF1565C0)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -537,11 +648,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: const [
-                          Icon(
-                            Icons.work,
-                            color: Colors.white,
-                            size: 20,
-                          ),
+                          Icon(Icons.work, color: Colors.white, size: 20),
                           SizedBox(width: 6),
                           Text(
                             'Trabajadores',
@@ -559,6 +666,322 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  /// Método helper para construir secciones con scroll horizontal
+  Widget _buildHorizontalPropertySection({
+    required String title,
+    required String subtitle,
+    required List<Property> properties,
+    required Color titleColor,
+  }) {
+    // Valores responsivos basados en el tamaño de pantalla
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Usar porcentajes en lugar de píxeles - OPTIMIZADO
+    final horizontalPadding = screenWidth * 0.03; // 3% del ancho
+    final titleFontSize = screenWidth * 0.045; // 4.5% del ancho (máx 20px)
+    final subtitleFontSize = screenWidth * 0.03; // 3% del ancho
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Título con icono y color distintivo
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: titleFontSize.clamp(16.0, 24.0),
+                  fontWeight: FontWeight.bold,
+                  color: titleColor,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              SizedBox(height: 6),
+              // Línea decorativa
+              Container(
+                height: 2.5,
+                width: screenWidth * 0.12,
+                decoration: BoxDecoration(
+                  color: titleColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 8),
+        // Grid con 2 columnas - mismo que propiedades regulares
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: GridView.builder(
+            padding: EdgeInsets.zero, // Eliminar padding por defecto
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.88,
+              crossAxisSpacing: screenWidth * 0.025,
+              mainAxisSpacing: screenWidth * 0.025,
+            ),
+            itemCount: properties.length,
+            itemBuilder: (context, index) {
+              return CompactPropertyCard(
+                property: properties[index],
+                isFavorite: _savedPropertyIds.contains(properties[index].id),
+                onFavoriteToggle: () =>
+                    _openCollectionDialog(properties[index]),
+                onTap: () => _goToDetail(properties[index]),
+                showGoldenBorder: true,
+              );
+            },
+          ),
+        ),
+        SizedBox(height: screenWidth * 0.03),
+      ],
+    );
+  }
+
+  Widget _buildRegularPropertiesSection() {
+    // Valores responsivos basados en porcentajes - OPTIMIZADO
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth * 0.03; // 3% del ancho
+    final crossAxisSpacing = screenWidth * 0.025; // 2.5% del ancho
+    final mainAxisSpacing = screenWidth * 0.025; // 2.5% del ancho
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.88,
+          crossAxisSpacing: crossAxisSpacing,
+          mainAxisSpacing: mainAxisSpacing,
+        ),
+        itemCount: _filteredRegularProperties.length,
+        itemBuilder: (context, index) {
+          return CompactPropertyCard(
+            property: _filteredRegularProperties[index],
+            isFavorite: _savedPropertyIds.contains(
+              _filteredRegularProperties[index].id,
+            ),
+            onFavoriteToggle: () =>
+                _openCollectionDialog(_filteredRegularProperties[index]),
+            onTap: () => _goToDetail(_filteredRegularProperties[index]),
+            showGoldenBorder: false,
+          );
+        },
+      ),
+    );
+  }
+
+  /// Construir tarjeta de propiedad premium estilo trabajadores premium
+  Widget _buildPremiumPropertyCard(Property property) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Usar porcentajes en lugar de píxeles
+    final cardWidth = screenWidth * 0.45; // 45% del ancho de pantalla
+    final marginHorizontal = screenWidth * 0.015; // 1.5% del ancho
+    final marginVertical = screenHeight * 0.02; // 2% de altura
+    final imageHeight = screenHeight * 0.12; // 12% de la altura
+    final paddingSize = screenWidth * 0.03; // 3% del ancho
+    final nameFontSize = screenWidth * 0.03; // 3% del ancho
+
+    return Container(
+      width: cardWidth,
+      margin: EdgeInsets.symmetric(
+        horizontal: marginHorizontal,
+        vertical: marginVertical,
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFF6F00), // Vibrant Orange
+            Color(0xFFFFC107), // Vibrant Yellow
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFFFF6F00).withOpacity(0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(2.5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Column(
+          children: [
+            // Imagen de la propiedad con overlay
+            GestureDetector(
+              onTap: () => _goToDetail(property),
+              child: Stack(
+                children: [
+                  Container(
+                    height: imageHeight,
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(11),
+                      ),
+                      color: Colors.grey[200],
+                      image: property.imageUrl.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(property.imageUrl),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: property.imageUrl.isEmpty
+                        ? Center(
+                            child: Icon(
+                              Icons.image,
+                              size: 35,
+                              color: Colors.grey[400],
+                            ),
+                          )
+                        : null,
+                  ),
+                  // Overlay con gradiente
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(11),
+                        ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.2),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Información de la propiedad
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(paddingSize),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Nombre y ubicación
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          property.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: nameFontSize.clamp(10.0, 14.0),
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2C3E50),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              size: (screenWidth * 0.025).clamp(8.0, 12.0),
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 2),
+                            Expanded(
+                              child: Text(
+                                property.location,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: (screenWidth * 0.025).clamp(
+                                    8.0,
+                                    11.0,
+                                  ),
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    // Precio y botón favorito
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                property.price,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: (screenWidth * 0.028).clamp(
+                                    10.0,
+                                    13.0,
+                                  ),
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFF6F00),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _openCollectionDialog(property),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _savedPropertyIds.contains(property.id)
+                                  ? Colors.red.withOpacity(0.15)
+                                  : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              _savedPropertyIds.contains(property.id)
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: _savedPropertyIds.contains(property.id)
+                                  ? Colors.red
+                                  : Colors.grey[600],
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
