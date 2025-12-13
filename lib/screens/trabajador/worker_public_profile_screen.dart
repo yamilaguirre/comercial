@@ -301,6 +301,11 @@ Descarga la app para contactarlo.
             ],
           ),
           body: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom +
+                  kBottomNavigationBarHeight +
+                  16,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -934,7 +939,7 @@ Descarga la app para contactarlo.
                   ),
                 ),
 
-                const SizedBox(height: 100),
+                const SizedBox(height: 12),
               ],
             ),
           ),

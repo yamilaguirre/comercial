@@ -167,6 +167,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                 _buildHeader(),
                 Expanded(
                   child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 80,
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Column(
