@@ -672,12 +672,15 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
                     // Free workers grid
                     GridView.builder(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom + 120,
+                      ),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
                             maxCrossAxisExtent: 200,
-                            childAspectRatio: 0.62,
+                            childAspectRatio: 0.50,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
@@ -1404,7 +1407,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               children: [
                 // Profile Image
                 Container(
-                  height: 140,
+                  height: 160,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
