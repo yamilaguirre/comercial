@@ -85,32 +85,40 @@ class NotificationService {
       }
     }
 
-    personalSub = personalQuery.snapshots().listen((snap) {
-      lastPersonalSnapshot = snap;
-      emitMerged();
-    }, onError: (e, st) {
-      print('Error personal notifications stream: $e');
-      // If index missing, do fallback one-time fetch without orderBy
-      final errStr = e?.toString() ?? '';
-      if (errStr.contains('requires an index') || errStr.contains('failed-precondition')) {
-        fetchFallbackAndEmit();
-      } else {
-        controller.addError(e);
-      }
-    });
+    personalSub = personalQuery.snapshots().listen(
+      (snap) {
+        lastPersonalSnapshot = snap;
+        emitMerged();
+      },
+      onError: (e, st) {
+        print('Error personal notifications stream: $e');
+        // If index missing, do fallback one-time fetch without orderBy
+        final errStr = e?.toString() ?? '';
+        if (errStr.contains('requires an index') ||
+            errStr.contains('failed-precondition')) {
+          fetchFallbackAndEmit();
+        } else {
+          controller.addError(e);
+        }
+      },
+    );
 
-    globalSub = globalQuery.snapshots().listen((snap) {
-      lastGlobalSnapshot = snap;
-      emitMerged();
-    }, onError: (e, st) {
-      print('Error global notifications stream: $e');
-      final errStr = e?.toString() ?? '';
-      if (errStr.contains('requires an index') || errStr.contains('failed-precondition')) {
-        fetchFallbackAndEmit();
-      } else {
-        controller.addError(e);
-      }
-    });
+    globalSub = globalQuery.snapshots().listen(
+      (snap) {
+        lastGlobalSnapshot = snap;
+        emitMerged();
+      },
+      onError: (e, st) {
+        print('Error global notifications stream: $e');
+        final errStr = e?.toString() ?? '';
+        if (errStr.contains('requires an index') ||
+            errStr.contains('failed-precondition')) {
+          fetchFallbackAndEmit();
+        } else {
+          controller.addError(e);
+        }
+      },
+    );
 
     controller.onCancel = () async {
       await personalSub.cancel();
@@ -185,6 +193,7 @@ class NotificationService {
         'old_price': oldPrice,
         'new_price': newPrice,
         'created_at': FieldValue.serverTimestamp(),
+        'is_global': true,
         'metadata': metadata,
       });
       return docRef.id;
@@ -290,6 +299,7 @@ class NotificationService {
         'message': message,
         'property_id': propertyId,
         'created_at': FieldValue.serverTimestamp(),
+        'is_global': true,
         if (oldPrice != null) 'old_price': oldPrice,
         if (newPrice != null) 'new_price': newPrice,
       });
@@ -315,6 +325,7 @@ class NotificationService {
         'message': '$propertyTitle en $location - $propertyPrice',
         'property_id': propertyId,
         'created_at': FieldValue.serverTimestamp(),
+        'is_global': true,
         'metadata': {
           'property_title': propertyTitle,
           'property_price': propertyPrice,
