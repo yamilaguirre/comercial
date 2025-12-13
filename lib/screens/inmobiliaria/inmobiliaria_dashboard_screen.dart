@@ -8,10 +8,12 @@ class InmobiliariaDashboardScreen extends StatefulWidget {
   const InmobiliariaDashboardScreen({super.key});
 
   @override
-  State<InmobiliariaDashboardScreen> createState() => _InmobiliariaDashboardScreenState();
+  State<InmobiliariaDashboardScreen> createState() =>
+      _InmobiliariaDashboardScreenState();
 }
 
-class _InmobiliariaDashboardScreenState extends State<InmobiliariaDashboardScreen> {
+class _InmobiliariaDashboardScreenState
+    extends State<InmobiliariaDashboardScreen> {
   final AuthService _authService = Modular.get<AuthService>();
   Map<String, dynamic>? _companyData;
   bool _isLoading = true;
@@ -29,7 +31,7 @@ class _InmobiliariaDashboardScreenState extends State<InmobiliariaDashboardScree
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       if (mounted) {
         setState(() {
           _companyData = doc.data();
@@ -50,7 +52,9 @@ class _InmobiliariaDashboardScreenState extends State<InmobiliariaDashboardScree
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: Styles.primaryColor)),
+        body: Center(
+          child: CircularProgressIndicator(color: Styles.primaryColor),
+        ),
       );
     }
 
@@ -68,97 +72,94 @@ class _InmobiliariaDashboardScreenState extends State<InmobiliariaDashboardScree
         }
       },
       child: Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Styles.primaryColor,
-        elevation: 0,
-        title: Text(
-          'Panel Inmobiliaria',
-          style: TextStyles.subtitle.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Styles.primaryColor,
+          elevation: 0,
+          title: Text(
+            'Panel Inmobiliaria',
+            style: TextStyles.subtitle.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _handleLogout,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(Styles.spacingLarge),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: EdgeInsets.all(Styles.spacingLarge),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Styles.primaryColor, Styles.primaryColor.withOpacity(0.8)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.business, size: 60, color: Colors.white),
-                  SizedBox(height: Styles.spacingMedium),
-                  Text(
-                    companyName,
-                    style: TextStyles.title.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: Styles.spacingSmall),
-                  Text(
-                    'RUC: $ruc',
-                    style: TextStyles.body.copyWith(
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: Styles.spacingLarge),
-            Text(
-              'Información de la Empresa',
-              style: TextStyles.subtitle.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: Styles.spacingMedium),
-            _buildInfoCard('Dirección', address, Icons.location_on),
-            _buildInfoCard('Teléfono', phone, Icons.phone),
-            _buildInfoCard('Representante Legal', representative, Icons.person),
-            SizedBox(height: Styles.spacingLarge),
-            Text(
-              'Acciones Rápidas',
-              style: TextStyles.subtitle.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: Styles.spacingMedium),
-            _buildActionButton(
-              'Gestionar Agentes',
-              Icons.people,
-              () {},
-            ),
-            SizedBox(height: Styles.spacingSmall),
-            _buildActionButton(
-              'Ver Propiedades',
-              Icons.home_work,
-              () {},
-            ),
-            SizedBox(height: Styles.spacingSmall),
-            _buildActionButton(
-              'Estadísticas',
-              Icons.analytics,
-              () {},
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: _handleLogout,
             ),
           ],
+        ),
+        body: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.all(Styles.spacingLarge),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(Styles.spacingLarge),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Styles.primaryColor,
+                      Styles.primaryColor.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.business, size: 60, color: Colors.white),
+                    SizedBox(height: Styles.spacingMedium),
+                    Text(
+                      companyName,
+                      style: TextStyles.title.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: Styles.spacingSmall),
+                    Text(
+                      'RUC: $ruc',
+                      style: TextStyles.body.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: Styles.spacingLarge),
+              Text(
+                'Información de la Empresa',
+                style: TextStyles.subtitle.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: Styles.spacingMedium),
+              _buildInfoCard('Dirección', address, Icons.location_on),
+              _buildInfoCard('Teléfono', phone, Icons.phone),
+              _buildInfoCard(
+                'Representante Legal',
+                representative,
+                Icons.person,
+              ),
+              SizedBox(height: Styles.spacingLarge),
+              Text(
+                'Acciones Rápidas',
+                style: TextStyles.subtitle.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: Styles.spacingMedium),
+              _buildActionButton('Gestionar Agentes', Icons.people, () {}),
+              SizedBox(height: Styles.spacingSmall),
+              _buildActionButton('Ver Propiedades', Icons.home_work, () {}),
+              SizedBox(height: Styles.spacingSmall),
+              _buildActionButton('Estadísticas', Icons.analytics, () {}),
+              SizedBox(height: Styles.spacingLarge),
+            ],
           ),
         ),
       ),
@@ -191,9 +192,7 @@ class _InmobiliariaDashboardScreenState extends State<InmobiliariaDashboardScree
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: TextStyles.body.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -226,7 +225,11 @@ class _InmobiliariaDashboardScreenState extends State<InmobiliariaDashboardScree
                 ),
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Styles.primaryColor),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Styles.primaryColor,
+            ),
           ],
         ),
       ),

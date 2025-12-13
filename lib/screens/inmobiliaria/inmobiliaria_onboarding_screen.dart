@@ -92,13 +92,14 @@ class _InmobiliariaOnboardingScreenState
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.business, size: 100, color: Colors.white),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
                 const Text(
                   '¡Bienvenido a tu plataforma de agente inmobiliario!',
                   textAlign: TextAlign.center,
@@ -108,32 +109,32 @@ class _InmobiliariaOnboardingScreenState
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 const Text(
                   'Obtén todos los beneficios como inmobiliaria',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70, fontSize: 16),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
                 _buildBenefit(Icons.add_business, 'Crea tus propios anuncios'),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildBenefit(
                   Icons.visibility,
                   'Los usuarios verán tus anuncios con tu logo',
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildBenefit(
                   Icons.chat_bubble_outline,
                   'Habla directamente con tus clientes',
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildBenefit(
                   Icons.analytics,
                   'Accede a estadísticas de tus propiedades',
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildBenefit(Icons.star, 'Destaca tus mejores propiedades'),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -156,6 +157,7 @@ class _InmobiliariaOnboardingScreenState
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),

@@ -63,9 +63,10 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar(
-              expandedHeight: 220,
+              expandedHeight: 200,
               floating: false,
               pinned: true,
               backgroundColor: Styles.primaryColor,
@@ -145,7 +146,10 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
               ),
             ),
             SliverPadding(
-              padding: EdgeInsets.all(Styles.spacingMedium),
+              padding: EdgeInsets.symmetric(
+                horizontal: Styles.spacingMedium,
+                vertical: Styles.spacingMedium,
+              ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   _buildStatsGrid(),
@@ -153,6 +157,7 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
                   _buildQuickActions(),
                   SizedBox(height: Styles.spacingLarge),
                   _buildRecentActivity(),
+                  SizedBox(height: Styles.spacingLarge),
                 ]),
               ),
             ),
@@ -167,9 +172,9 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: 1.4,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
+      childAspectRatio: 1.5,
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
       children: [
         _buildStatCard(
           'Propiedades',
