@@ -45,6 +45,9 @@ class _WorkerLocationSearchScreenState
   late PageController _pageController;
   int _selectedWorkerIndex = -1;
 
+  // Caché en sesión para evitar múltiples escrituras de la misma vista
+  final Set<String> _viewedCache = <String>{};
+
   // Estado del modo de dibujo
   bool _isDrawingMode = false;
   List<LatLng>? _searchPolygon; // Polígono de búsqueda dibujado
@@ -469,11 +472,24 @@ class _WorkerLocationSearchScreenState
     }
 
     try {
+      final now = DateTime.now();
+      final todayKey = '${now.year.toString().padLeft(4, '0')}'
+          '${now.month.toString().padLeft(2, '0')}'
+          '${now.day.toString().padLeft(2, '0')}';
+
+      final key = '${viewerId}_$workerId\_$todayKey';
+      if (_viewedCache.contains(key)) {
+        print('ℹ️ [VIEWS-MAP] Vista ya registrada hoy en la sesión, omitiendo write');
+        return;
+      }
+
       print('📝 [VIEWS-MAP] Registrando vista en ProfileViewsService...');
       await ProfileViewsService.registerProfileView(
         workerId: workerId,
         viewerId: viewerId,
       );
+
+      _viewedCache.add(key);
       print('✅ [VIEWS-MAP] Vista registrada exitosamente');
     } catch (e) {
       print('❌ [VIEWS-MAP] Error registrando vista de perfil: $e');

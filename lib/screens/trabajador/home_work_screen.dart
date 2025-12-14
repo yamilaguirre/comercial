@@ -29,6 +29,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _locationInitialized = false;
+  // Caché en sesión para evitar múltiples escrituras de la misma vista
+  final Set<String> _viewedCache = <String>{};
 
   @override
   void initState() {
@@ -86,11 +88,25 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     }
 
     try {
+      final now = DateTime.now();
+      final todayKey = '${now.year.toString().padLeft(4, '0')}'
+          '${now.month.toString().padLeft(2, '0')}'
+          '${now.day.toString().padLeft(2, '0')}';
+
+      final key = '${viewerId}_$workerId\_$todayKey';
+      if (_viewedCache.contains(key)) {
+        print('ℹ️ [VIEWS] Vista ya registrada hoy en la sesión, omitiendo write');
+        return;
+      }
+
       print('📝 [VIEWS] Registrando vista en ProfileViewsService...');
       await ProfileViewsService.registerProfileView(
         workerId: workerId,
         viewerId: viewerId,
       );
+
+      // Marcar en caché para evitar múltiples escrituras durante la sesión
+      _viewedCache.add(key);
       print('✅ [VIEWS] Vista registrada exitosamente');
     } catch (e) {
       print('❌ [VIEWS] Error registrando vista de perfil: $e');
@@ -168,7 +184,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).padding.bottom + 80,
+                      // Reserve space for system inset + bottom nav + floating button
+                      bottom: MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight + 120,
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -197,7 +214,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             ),
             // Botón flotante para cambiar de módulo
             Positioned(
-              bottom: 24,
+              // place the button above the bottom navigation bar
+              bottom: kBottomNavigationBarHeight + 16,
               right: 16,
               child: _buildModuleSwitchButton(),
             ),
@@ -458,9 +476,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
         // Filtrar por búsqueda, excluir al usuario actual Y verificar perfil completo
         final filteredWorkers = workers.where((doc) {
-          // Excluir al usuario actual SOLO si NO es premium
-          // Si es premium, permitirle verse para ver cómo se ve su perfil
-          if (doc.id == currentUserId && !isPremiumUser) return false;
+          // No excluir al usuario actual — mostrar siempre su propio perfil
+          // (si es necesario, se ordenará por timestamps como el resto)
 
           final data = doc.data() as Map<String, dynamic>;
           final profile = data['profile'] as Map<String, dynamic>?;
@@ -1407,7 +1424,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               children: [
                 // Profile Image
                 Container(
-                  height: 160,
+                  height: 150,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
@@ -1491,7 +1508,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Profession
                     if (profession != 'Sin profesión especificada')
                       Text(
@@ -1503,7 +1520,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     // Experience Level Badge
                     if (experienceLevel.isNotEmpty)
                       Container(
@@ -1542,7 +1559,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                         ),
                       ),
 
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
 
                     // Location & Distance
                     Row(
@@ -1603,7 +1620,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                       ],
                     ),
 
-                    const Spacer(),
+                    // removed Spacer to keep rating closer to content
                     // Rating
                     Row(
                       children: [
@@ -1627,7 +1644,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     // Price
                     Text(
                       price.isNotEmpty ? '$currency $price' : 'Consultar',

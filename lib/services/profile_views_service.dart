@@ -12,42 +12,40 @@ class ProfileViewsService {
       print('🔍 [ProfileViewsService] Iniciando registro de vista');
       print('   Worker ID: $workerId');
       print('   Viewer ID: $viewerId');
-      
       final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
+      final normalizedDate = DateTime(now.year, now.month, now.day);
 
-      // Crear ID único basado en timestamp exacto + viewer + worker
-      // Esto permite registrar CADA click como una vista nueva
-      final viewId = '${now.millisecondsSinceEpoch}_${viewerId}_$workerId';
-      print('   View ID: $viewId');
-      
+      // Crear una clave diaria: yyyyMMDD
+      final String dateKey = '${normalizedDate.year.toString().padLeft(4, '0')}'
+          '${normalizedDate.month.toString().padLeft(2, '0')}'
+          '${normalizedDate.day.toString().padLeft(2, '0')}';
+
+      // Usar ID por viewer+worker+fecha para permitir 1 vista por usuario por día
+      final viewId = '${viewerId}_${workerId}_$dateKey';
+      print('   View ID (daily dedup): $viewId');
+
+      final docRef = _firestore.collection('profile_views').doc(viewId);
+
+      // Si ya existe para este día, no crear una nueva vista
+      final existing = await docRef.get();
+      if (existing.exists) {
+        print('ℹ️ [ProfileViewsService] Vista ya registrada hoy, omitiendo escritura');
+        return;
+      }
+
       final docData = {
         'workerId': workerId,
         'viewerId': viewerId,
         'viewedAt': FieldValue.serverTimestamp(),
-        'date': Timestamp.fromDate(today), // Fecha normalizada para queries
+        'date': Timestamp.fromDate(normalizedDate), // Fecha normalizada para queries
       };
-      
+
       print('📝 [ProfileViewsService] Escribiendo en: profile_views/$viewId');
       print('   Data: $docData');
 
-      await _firestore.collection('profile_views').doc(viewId).set(
-        docData,
-        SetOptions(merge: true),
-      );
+      await docRef.set(docData);
 
       print('✅ [ProfileViewsService] Vista registrada exitosamente en Firestore');
-      
-      // Verificar que se escribió
-      final verification = await _firestore.collection('profile_views').doc(viewId).get();
-      if (verification.exists) {
-        print('✅ [ProfileViewsService] VERIFICADO: Documento existe en Firestore');
-        print('   Data guardada: ${verification.data()}');
-      } else {
-        print('❌ [ProfileViewsService] ERROR: Documento NO existe después de escribir');
-      }
-      
-      print('✅ Vista de perfil registrada: $workerId visto por $viewerId');
     } catch (e, stackTrace) {
       print('❌ [ProfileViewsService] Error registrando vista de perfil: $e');
       print('❌ StackTrace: $stackTrace');

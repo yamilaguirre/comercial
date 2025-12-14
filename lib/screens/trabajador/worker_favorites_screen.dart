@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/theme.dart';
+import '../property/components/saved_counter.dart';
 import '../../services/worker_saved_service.dart';
 import '../../services/location_service.dart';
 import '../../services/chat_service.dart';
@@ -185,72 +186,188 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final userId = authService.currentUser?.uid ?? '';
-
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Guardados',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.black),
-            onPressed: () {
-              showSearch(
-                context: context,
-                delegate: FavoritesSearchDelegate(
-                  userId: userId,
-                  savedService: _savedService,
-                ),
-              );
-            },
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Column(
-            children: [
-              // Tabs
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // HEADER
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Título y búsqueda
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Guardados',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.search, color: Colors.black),
+                        onPressed: () {
+                          showSearch(
+                            context: context,
+                            delegate: FavoritesSearchDelegate(
+                              userId: userId,
+                              savedService: _savedService,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                  labelColor: Colors.black,
-                  unselectedLabelColor: Colors.grey[600],
-                  labelStyle: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 20),
+
+                  // Tabs - estilo igual a propiedades
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      indicator: BoxDecoration(
+                        color: Styles.primaryColor,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Styles.primaryColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.grey[700],
+                      labelStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      dividerColor: Colors.transparent,
+                      splashFactory: NoSplash.splashFactory,
+                      overlayColor: MaterialStateProperty.all(
+                        Colors.transparent,
+                      ),
+                      tabs: const [
+                        Tab(
+                          height: 44,
+                          child: Center(
+                            child: Text(
+                              'Todo Guardado',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        Tab(
+                          height: 44,
+                          child: Center(
+                            child: Text(
+                              'Mis Colecciones',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  tabs: const [
-                    Tab(text: 'Todo Guardado'),
-                    Tab(text: 'Mis Colecciones'),
-                  ],
-                ),
+                  const SizedBox(height: 16),
+
+                  // Contadores de filtro (solo en la pestaña "Todo Guardado")
+                  AnimatedBuilder(
+                    animation: _tabController,
+                    builder: (context, child) {
+                      if (_tabController.index == 0) {
+                        return Column(
+                          children: [
+                            // Use horizontal scroll on wide screens, Wrap on narrow screens
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final useWrap = constraints.maxWidth < 420;
+                                // Always use horizontal scroll and keep the default
+                                // counter size; users can scroll to see all buttons.
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      SavedCounter(
+                                        icon: Icons.favorite,
+                                        label: ContactFilter.all.label,
+                                        count: _counts[ContactFilter.all] ?? 0,
+                                        color: Styles.primaryColor,
+                                        isSelected: _selectedFilter ==
+                                            ContactFilter.all,
+                                        onTap: () =>
+                                            _onFilterChanged(ContactFilter.all),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      SavedCounter(
+                                        icon: Icons.chat_bubble_outline,
+                                        label: ContactFilter.notContacted.label,
+                                        count: _counts[ContactFilter.notContacted] ??
+                                            0,
+                                        color: Colors.orange,
+                                        isSelected: _selectedFilter ==
+                                            ContactFilter.notContacted,
+                                        onTap: () => _onFilterChanged(
+                                          ContactFilter.notContacted,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      SavedCounter(
+                                        icon: Icons.chat,
+                                        label: ContactFilter.contacted.label,
+                                        count: _counts[ContactFilter.contacted] ??
+                                            0,
+                                        color: Colors.green,
+                                        isSelected: _selectedFilter ==
+                                            ContactFilter.contacted,
+                                        onTap: () => _onFilterChanged(
+                                          ContactFilter.contacted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      }
+                      return const SizedBox(height: 16);
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-            ],
-          ),
+            ),
+
+            // TABS CONTENT
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildAllSavedTab(userId), _buildCollectionsTab(userId)],
+              ),
+            ),
+          ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildAllSavedTab(userId), _buildCollectionsTab(userId)],
       ),
     );
   }
@@ -306,38 +423,6 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
   Widget _buildAllSavedTab(String userId) {
     return Column(
       children: [
-        const SizedBox(height: 16),
-        // Contadores
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildCounter(
-                  filter: ContactFilter.all,
-                  icon: Icons.grid_view,
-                  label: 'Todos',
-                  count: _counts[ContactFilter.all] ?? 0,
-                ),
-                const SizedBox(width: 12),
-                _buildCounter(
-                  filter: ContactFilter.contacted,
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Contactados',
-                  count: _counts[ContactFilter.contacted] ?? 0,
-                ),
-                const SizedBox(width: 12),
-                _buildCounter(
-                  filter: ContactFilter.notContacted,
-                  icon: Icons.favorite_border,
-                  label: 'No contactados',
-                  count: _counts[ContactFilter.notContacted] ?? 0,
-                ),
-              ],
-            ),
-          ),
-        ),
         const SizedBox(height: 16),
         Expanded(
           child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -533,17 +618,21 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: OutlinedButton.icon(
-            onPressed: _createCollection,
-            icon: const Icon(Icons.add),
-            label: const Text('Crear nueva colección'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Styles.primaryColor,
-              side: BorderSide(color: Styles.primaryColor),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _createCollection,
+              icon: const Icon(Icons.add),
+              label: const Text('Crear nueva colección'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Styles.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
               ),
             ),
           ),
