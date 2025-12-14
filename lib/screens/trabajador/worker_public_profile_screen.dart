@@ -952,7 +952,7 @@ Descarga la app para contactarlo.
   // Bottom buttons with gradients
   Widget _buildBottomButtons() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -967,39 +967,44 @@ Descarga la app para contactarlo.
         child: Row(
           children: [
             // Botón Llamar con degradado azul
-            _buildActionButton(
-              icon: Icons.phone,
-              label: 'Llamar',
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF448AFF),
-                  Color(0xFF001BB7),
-                ], // Azul más claro a oscuro
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+            Expanded(
+              flex: 1,
+              child: _buildActionButton(
+                context,
+                icon: Icons.phone,
+                label: 'Llamar',
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF448AFF),
+                    Color(0xFF001BB7),
+                  ], // Azul más claro a oscuro
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                textColor: Colors.white,
+                onPressed: () {
+                  if (widget.worker.phone.isNotEmpty) {
+                    launchUrl(
+                      Uri.parse('tel:${widget.worker.phone}'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Número de teléfono no disponible'),
+                      ),
+                    );
+                  }
+                },
               ),
-              textColor: Colors.white,
-              onPressed: () {
-                if (widget.worker.phone.isNotEmpty) {
-                  launchUrl(
-                    Uri.parse('tel:${widget.worker.phone}'),
-                    mode: LaunchMode.externalApplication,
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Número de teléfono no disponible'),
-                    ),
-                  );
-                }
-              },
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
 
             // Botón WhatsApp (Central y destacado)
             Expanded(
-              flex: 2,
+              flex: 1,
               child: _buildActionButton(
+                context,
                 icon: Icons.chat,
                 label: 'WhatsApp',
                 gradient: const LinearGradient(
@@ -1051,22 +1056,25 @@ Descarga la app para contactarlo.
                 isLarge: true,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
 
             // Botón Contactar con degradado azul
-            _buildActionButton(
-              icon: Icons.chat_bubble_outline,
-              label: 'Contactar\nmediante app',
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF448AFF),
-                  Color(0xFF001BB7),
-                ], // Azul más claro a oscuro
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              textColor: Colors.white,
-              onPressed: () async {
+            Expanded(
+              flex: 1,
+              child: _buildActionButton(
+                context,
+                icon: Icons.chat_bubble_outline,
+                label: 'Contactar\nmediante app',
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF448AFF),
+                    Color(0xFF001BB7),
+                  ], // Azul más claro a oscuro
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                textColor: Colors.white,
+                onPressed: () async {
                 final authService = Provider.of<AuthService>(
                   context,
                   listen: false,
@@ -1116,6 +1124,7 @@ Descarga la app para contactarlo.
                   }
                 }
               },
+              ),
             ),
           ],
         ),
@@ -1124,7 +1133,8 @@ Descarga la app para contactarlo.
   }
 
   /// Helper method to build action buttons with consistent styling
-  Widget _buildActionButton({
+  Widget _buildActionButton(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onPressed,
@@ -1134,46 +1144,55 @@ Descarga la app para contactarlo.
     Gradient? gradient,
     bool isLarge = false,
   }) {
-    return Expanded(
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: color,
-          gradient: gradient,
-          border: borderColor != null
-              ? Border.all(color: borderColor, width: 1.5)
-              : null,
+    final screenHeight = MediaQuery.of(context).size.height;
+    final calculatedHeight = (screenHeight * 0.08).clamp(56.0, 88.0) as double;
+
+    return Container(
+      width: double.infinity,
+      height: calculatedHeight,
+      decoration: BoxDecoration(
+        color: color,
+        gradient: gradient,
+        border: borderColor != null ? Border.all(color: borderColor, width: 1.5) : null,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: gradient != null
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: gradient != null
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(12),
-            child: Column(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
               children: [
-                Icon(icon, size: isLarge ? 24 : 20, color: textColor),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: isLarge ? 13 : 11,
-                    fontWeight: isLarge ? FontWeight.w600 : FontWeight.w500,
-                    color: textColor,
+                Icon(icon, size: isLarge ? 26 : 22, color: textColor),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: isLarge ? 16 : 14,
+                        fontWeight: isLarge ? FontWeight.w600 : FontWeight.w500,
+                        color: textColor,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.visible,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -1440,7 +1459,7 @@ Descarga la app para contactarlo.
                               isPremium: false,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: _buildWorkerCardWrapper(
                               nextWorkerDoc,
