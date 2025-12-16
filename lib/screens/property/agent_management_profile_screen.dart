@@ -93,100 +93,100 @@ class _AgentManagementProfileScreenState
           child: Scaffold(
             backgroundColor: Colors.white,
             body: Stack(
-            children: [
-              Column(
-                children: [
-                  // 1. Cabecera (Parte Constante)
-                  ProfileHeaderSection(
-                    name: name,
-                    role: 'Agente Inmobiliario',
-                    photoUrl: photoUrl,
-                    stats: headerStats,
-                    memberSince: createdAt != null
-                        ? _formatDate(createdAt.toDate())
-                        : null,
-                    onSettingsTap: () {
-                      Modular.to.pushNamed('/property/account');
-                    },
-                  ),
+              children: [
+                Column(
+                  children: [
+                    // 1. Cabecera (Parte Constante)
+                    ProfileHeaderSection(
+                      name: name,
+                      role: 'Agente Inmobiliario',
+                      photoUrl: photoUrl,
+                      stats: headerStats,
+                      memberSince: createdAt != null
+                          ? _formatDate(createdAt.toDate())
+                          : null,
+                      onSettingsTap: () {
+                        Modular.to.pushNamed('/property/account');
+                      },
+                    ),
 
-                  // 2. Contenido Deslizable
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(Styles.spacingMedium),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // --- Botón de Creación ---
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              vertical: Styles.spacingMedium,
-                            ),
-                            child: ElevatedButton.icon(
-                              onPressed: () =>
-                                  Modular.to.pushNamed('/property/new'),
-                              icon: const Icon(
-                                Icons.add_circle_outline,
-                                size: 24,
+                    // 2. Contenido Deslizable
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(Styles.spacingMedium),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // --- Botón de Creación ---
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: Styles.spacingMedium,
                               ),
-                              label: const Text(
-                                'Crear nueva publicación',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    Modular.to.pushNamed('/property/new'),
+                                icon: const Icon(
+                                  Icons.add_circle_outline,
+                                  size: 24,
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Styles.primaryColor,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // --- Estadísticas Generales (Detalle) ---
-                          Text(
-                            'Estadísticas Generales',
-                            style: TextStyles.subtitle.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: Styles.spacingMedium),
-                          _isLoadingStats
-                              ? const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Styles.primaryColor,
+                                label: const Text(
+                                  'Crear nueva publicación',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
                                   ),
-                                )
-                              : _buildStatsGrid(),
-                          SizedBox(height: Styles.spacingLarge),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Styles.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
 
-                          // --- Información de Contacto (Editable) ---
-                          _buildContactInfo(email, phone, userData),
+                            // --- Estadísticas Generales (Detalle) ---
+                            Text(
+                              'Estadísticas Generales',
+                              style: TextStyles.subtitle.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: Styles.spacingMedium),
+                            _isLoadingStats
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Styles.primaryColor,
+                                    ),
+                                  )
+                                : _buildStatsGrid(),
+                            SizedBox(height: Styles.spacingLarge),
 
-                          SizedBox(height: Styles.spacingLarge * 2),
-                        ],
+                            // --- Información de Contacto (Editable) ---
+                            _buildContactInfo(email, phone, userData),
+
+                            SizedBox(height: Styles.spacingLarge * 2),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // Botón de retroceso
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Modular.to.navigate('/property/account'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black.withOpacity(0.5),
                       ),
                     ),
                   ),
-                ],
-              ),
-              // Botón de retroceso
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Modular.to.navigate('/property/account'),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black.withOpacity(0.5),
-                    ),
-                  ),
                 ),
-              ),
               ],
             ),
           ),
@@ -200,7 +200,8 @@ class _AgentManagementProfileScreenState
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: 1.5,
+      // CAMBIO: Bajamos de 1.5 a 1.25 para dar más altura vertical a la tarjeta
+      childAspectRatio: 1.25,
       mainAxisSpacing: Styles.spacingMedium,
       crossAxisSpacing: Styles.spacingMedium,
       children: [

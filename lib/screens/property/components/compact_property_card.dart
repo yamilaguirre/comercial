@@ -179,7 +179,7 @@ class CompactPropertyCard extends StatelessWidget {
         // CONTENIDO
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -231,7 +231,7 @@ class CompactPropertyCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
 
                 // CARACTERÍSTICAS (Camas, Metros)
                 Row(
@@ -262,7 +262,7 @@ class CompactPropertyCard extends StatelessWidget {
                   ],
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 4),
 
                 // AMENIDADES
                 if (property.amenities.isNotEmpty)

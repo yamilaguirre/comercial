@@ -371,6 +371,7 @@ class _PropertyCard extends StatelessWidget {
         final propertyData = snapshot.data?.data() as Map<String, dynamic>?;
         if (propertyData == null) return const SizedBox.shrink();
 
+        // ... (Tus variables title, price, etc. se mantienen igual) ...
         final title = propertyData['title'] ?? 'Propiedad';
         final price = propertyData['price'] ?? 0;
         final currency = propertyData['currency'] ?? 'Bs';
@@ -397,6 +398,8 @@ class _PropertyCard extends StatelessWidget {
             ],
           ),
           child: Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.center, // Alineación vertical
             children: [
               // Imagen de la propiedad
               ClipRRect(
@@ -429,6 +432,7 @@ class _PropertyCard extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       title,
@@ -449,43 +453,20 @@ class _PropertyCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
+
+                    // --- AQUÍ ESTÁ EL CAMBIO ---
+                    // Cambiamos Row por Wrap para evitar el overflow
+                    Wrap(
+                      spacing: 8.0, // Espacio horizontal entre items
+                      runSpacing: 4.0, // Espacio vertical si baja de línea
                       children: [
-                        Icon(Icons.bed, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$rooms hab',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(Icons.bathtub, size: 14, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$bathrooms baño',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.square_foot,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$areaSqm m²',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                        _buildFeatureItem(Icons.bed, '$rooms hab'),
+                        _buildFeatureItem(Icons.bathtub, '$bathrooms baño'),
+                        _buildFeatureItem(Icons.square_foot, '$areaSqm m²'),
                       ],
                     ),
+
+                    // ---------------------------
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -512,6 +493,7 @@ class _PropertyCard extends StatelessWidget {
                 ),
               ),
 
+              const SizedBox(width: 8), // Un pequeño espacio antes del botón
               // Botón Ver
               GestureDetector(
                 onTap: () {
@@ -519,7 +501,7 @@ class _PropertyCard extends StatelessWidget {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: 12, // Reduje un poco el padding horizontal
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
@@ -540,6 +522,18 @@ class _PropertyCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // Método auxiliar para construir los items del Wrap (hace el código más limpio)
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min, // Ocupa solo el espacio necesario
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[600]),
+        const SizedBox(width: 4),
+        Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+      ],
     );
   }
 }

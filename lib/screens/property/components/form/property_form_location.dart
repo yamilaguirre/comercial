@@ -35,39 +35,44 @@ class PropertyFormLocation extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // --- SELECTOR DE DEPARTAMENTO ---
         DropdownButtonFormField<String>(
           value: selectedDepartment,
+          isExpanded:
+              true, // <--- CORRECCIÓN 1: Evita que el dropdown crezca más que la pantalla
           decoration: InputDecoration(
             labelText: 'Departamento',
             prefixIcon: Icon(Icons.map, color: Styles.primaryColor),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             fillColor: Colors.grey.shade50,
           ),
           items: regions.keys.map((String value) {
             return DropdownMenuItem<String>(
               value: value,
-              child: Text(value),
+              child: Text(
+                value,
+                maxLines: 1, // <--- CORRECCIÓN 2: Una sola línea
+                overflow: TextOverflow
+                    .ellipsis, // <--- CORRECCIÓN 3: Pone "..." si no cabe
+              ),
             );
           }).toList(),
           onChanged: onDepartmentChanged,
           validator: (value) =>
               value == null ? 'Selecciona un departamento' : null,
         ),
+
         const SizedBox(height: 16),
+
+        // --- SELECTOR DE ZONA ---
         DropdownButtonFormField<String>(
           value: selectedZone,
+          isExpanded: true, // <--- CORRECCIÓN 1 REPETIDA
           decoration: InputDecoration(
             labelText: 'Zona',
-            prefixIcon: Icon(
-              Icons.location_city,
-              color: Styles.primaryColor,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            prefixIcon: Icon(Icons.location_city, color: Styles.primaryColor),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             fillColor: Colors.grey.shade50,
           ),
@@ -75,15 +80,21 @@ class PropertyFormLocation extends StatelessWidget {
               ? regions[selectedDepartment]!.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
-                    child: Text(value),
+                    child: Text(
+                      value,
+                      maxLines: 1, // <--- CORRECCIÓN 2 REPETIDA
+                      overflow:
+                          TextOverflow.ellipsis, // <--- CORRECCIÓN 3 REPETIDA
+                    ),
                   );
                 }).toList()
               : [],
           onChanged: onZoneChanged,
-          validator: (value) =>
-              value == null ? 'Selecciona una zona' : null,
+          validator: (value) => value == null ? 'Selecciona una zona' : null,
         ),
+
         const SizedBox(height: 24),
+
         const Text(
           'Ubicación exacta',
           style: TextStyle(
@@ -93,6 +104,8 @@ class PropertyFormLocation extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+
+        // --- MAPA PREVIEW ---
         GestureDetector(
           onTap: onSelectLocation,
           child: Container(

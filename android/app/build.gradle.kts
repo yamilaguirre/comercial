@@ -5,21 +5,21 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
+
 dependencies {
-  // Import the Firebase BoM
-  implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
 
+    // TODO: Add the dependencies for Firebase products you want to use
+    // When using the BoM, don't specify versions in Firebase dependencies
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
 
-  // TODO: Add the dependencies for Firebase products you want to use
-  // When using the BoM, don't specify versions in Firebase dependencies
-  implementation("com.google.firebase:firebase-analytics")
-  implementation("com.google.firebase:firebase-auth")
-  implementation("com.google.firebase:firebase-firestore")
-
-
-  // Add the dependencies for any other desired Firebase products
-  // https://firebase.google.com/docs/android/setup#available-libraries
+    // Add the dependencies for any other desired Firebase products
+    // https://firebase.google.com/docs/android/setup#available-libraries
 }
+
 android {
     namespace = "com.chaski.comercial"
     compileSdk = flutter.compileSdkVersion
@@ -45,6 +45,8 @@ android {
         versionName = flutter.versionName
     }
 
+    // HE COMENTADO ESTO PARA QUE NO TE PIDA LA LLAVE QUE FALTA
+    /*
     signingConfigs {
         create("release") {
             storeFile = file(project.property("storeFile") as String)
@@ -53,10 +55,17 @@ android {
             keyPassword = project.property("keyPassword") as String
         }
     }
+    */
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // CAMBIO IMPORTANTE: Usamos la firma 'debug' temporalmente para poder generar el APK
+            signingConfig = signingConfigs.getByName("debug")
+            
+            // Estas opciones ayudan a optimizar, pero a veces causan errores si no están configuradas. 
+            // Las dejamos en false por seguridad ahora.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
