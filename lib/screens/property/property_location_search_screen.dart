@@ -36,7 +36,8 @@ class _PropertyLocationSearchScreenState
   int _selectedPropertyIndex = -1;
   bool _isDrawingMode = false;
   List<LatLng>? _searchPolygon;
-  Set<String> _selectedPropertyTypes = {};
+  final Set<String> _selectedPropertyTypes = {};
+  bool _isCategoryPanelOpen = false;
 
   final Map<String, Map<String, dynamic>> _categoryStyles = {
     'casa': {
@@ -66,23 +67,7 @@ class _PropertyLocationSearchScreenState
     },
   };
 
-  final Map<String, Map<String, dynamic>> _transactionStyles = {
-    'sale': {
-      'color': const Color(0xFF00BCD4),
-      'icon': Icons.sell,
-      'label': 'Venta',
-    },
-    'rent': {
-      'color': const Color(0xFFFF5722),
-      'icon': Icons.key,
-      'label': 'Alquiler',
-    },
-    'anticretico': {
-      'color': const Color(0xFF673AB7),
-      'icon': Icons.handshake,
-      'label': 'Anticrético',
-    },
-  };
+  // _transactionStyles removed (unused)
 
   @override
   void initState() {
@@ -202,18 +187,40 @@ class _PropertyLocationSearchScreenState
   void _filterPropertiesByPolygon() {
     if (_searchPolygon == null || _searchPolygon!.isEmpty) return;
     final filtered = _properties.where((property) {
-      final propertyLocation = LatLng(property.latitude, property.longitude);
-      final withinPolygon = MapGeometryUtils.isPointInPolygon(
-        propertyLocation,
-        _searchPolygon!,
-      );
+      // Filtrar por categorías seleccionadas
       final matchesType =
           _selectedPropertyTypes.isEmpty ||
           _selectedPropertyTypes.contains(
             property.propertyTypeRaw.toLowerCase(),
           );
-      return withinPolygon && matchesType;
+      if (!matchesType) return false;
+
+      final propertyLocation = LatLng(property.latitude, property.longitude);
+
+      // Verificar si está dentro del polígono
+      bool inPolygon = MapGeometryUtils.isPointInPolygon(
+        propertyLocation,
+        _searchPolygon!,
+      );
+
+      // Verificar si está dentro del radio desde la ubicación del usuario
+      bool inRadius = false;
+      if (_userLocation != null) {
+        final distance = Geolocator.distanceBetween(
+          _userLocation!.latitude,
+          _userLocation!.longitude,
+          property.latitude,
+          property.longitude,
+        );
+        final distanceKm = distance / 1000;
+        inRadius = distanceKm <= _searchRadius;
+      }
+
+      // Incluir si está en el polígono O dentro del radio
+      return inPolygon || inRadius;
     }).toList();
+
+    // Ordenar por distancia al centro del polígono
     final center = MapGeometryUtils.calculateCentroid(_searchPolygon!);
     filtered.sort((a, b) {
       final distanceA = MapGeometryUtils.calculateDistance(
@@ -279,10 +286,9 @@ class _PropertyLocationSearchScreenState
                   polygons: [
                     Polygon(
                       points: _searchPolygon!,
-                      color: Styles.primaryColor.withOpacity(0.15),
+                      color: Styles.primaryColor.withAlpha(38),
                       borderColor: Styles.primaryColor,
                       borderStrokeWidth: 3.0,
-                      isFilled: true,
                     ),
                   ],
                 ),
@@ -292,8 +298,8 @@ class _PropertyLocationSearchScreenState
                     CircleMarker(
                       point: _userLocation!,
                       radius: _searchRadius * 1000,
-                      color: Styles.primaryColor.withOpacity(0.05),
-                      borderColor: Styles.primaryColor.withOpacity(0.2),
+                      color: Styles.primaryColor.withAlpha(13),
+                      borderColor: Styles.primaryColor.withAlpha(51),
                       borderStrokeWidth: 1,
                       useRadiusInMeter: true,
                     ),
@@ -313,7 +319,7 @@ class _PropertyLocationSearchScreenState
                           border: Border.all(color: Colors.white, width: 3),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withAlpha(51),
                               blurRadius: 6,
                               offset: const Offset(0, 3),
                             ),
@@ -349,7 +355,7 @@ class _PropertyLocationSearchScreenState
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withAlpha(77),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -393,6 +399,7 @@ class _PropertyLocationSearchScreenState
           _buildHeader(),
           _buildRadiusControl(),
           _buildFloatingButtons(),
+          if (_isCategoryPanelOpen) _buildCategoryPanel(),
         ],
       ),
     );
@@ -403,102 +410,365 @@ class _PropertyLocationSearchScreenState
       top: 0,
       left: 0,
       right: 0,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+      child: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.black.withAlpha(153), Colors.transparent],
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 50,
-              width: 50,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+          child: Row(
+            children: [
+              Container(
+                height: 50,
+                width: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(26),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _selectedPropertyTypes.isNotEmpty
+                              ? '${_selectedPropertyTypes.length} filtros activos'
+                              : 'Buscar propiedades...',
+                          style: TextStyle(
+                            color: _selectedPropertyTypes.isNotEmpty
+                                ? Styles.primaryColor
+                                : Colors.grey,
+                            fontSize: 16,
+                            fontWeight: _selectedPropertyTypes.isNotEmpty
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      if (_selectedPropertyTypes.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedPropertyTypes.clear();
+                              _applyFilters();
+                            });
+                          },
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Botón para abrir panel de categorías
+              Stack(
+                children: [
+                  Container(
+                    height: 50,
+                    width: 50,
+                    decoration: BoxDecoration(
+                      color: _isCategoryPanelOpen
+                          ? Colors.white
+                          : Styles.primaryColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Styles.primaryColor.withAlpha(77),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.tune,
+                        color: _isCategoryPanelOpen
+                            ? Styles.primaryColor
+                            : Colors.white,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isCategoryPanelOpen = !_isCategoryPanelOpen;
+                        });
+                      },
+                    ),
+                  ),
+                  if (_selectedPropertyTypes.isNotEmpty)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '${_selectedPropertyTypes.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => Navigator.of(context).pop(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryPanel() {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 70,
+      right: 12,
+      child: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.75 > 280
+              ? 280
+              : MediaQuery.of(context).size.width * 0.75,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.55,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header del panel
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Styles.primaryColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isCategoryPanelOpen = false;
+                        });
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Filtrar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (_selectedPropertyTypes.isNotEmpty)
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedPropertyTypes.clear();
+                          });
+                          _applyFilters();
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Limpiar',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SizedBox(
-                height: 50,
+              // Lista de categorías
+              Flexible(
                 child: ListView(
-                  scrollDirection: Axis.horizontal,
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   children: _categoryStyles.entries.map((entry) {
                     final isSelected = _selectedPropertyTypes.contains(
                       entry.key,
                     );
-                    final color = entry.value['color'] as Color;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) {
-                              _selectedPropertyTypes.remove(entry.key);
-                            } else {
-                              _selectedPropertyTypes.add(entry.key);
-                            }
-                            _applyFilters();
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: isSelected ? color : Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                    // final color removed (unused)
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedPropertyTypes.remove(entry.key);
+                          } else {
+                            _selectedPropertyTypes.add(entry.key);
+                          }
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Styles.primaryColor.withAlpha(13)
+                              : Colors.transparent,
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.grey[200]!,
+                              width: 1,
+                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                entry.value['icon'] as IconData,
-                                size: 20,
-                                color: isSelected ? Colors.white : color,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              entry.value['icon'] as IconData,
+                              size: 22,
+                              color: isSelected
+                                  ? Styles.primaryColor
+                                  : Colors.grey[600],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
                                 entry.value['label'] as String,
                                 style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
                                   color: isSelected
-                                      ? Colors.white
-                                      : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                      ? Styles.primaryColor
+                                      : Colors.black87,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            if (isSelected)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Styles.primaryColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     );
                   }).toList(),
                 ),
               ),
-            ),
-          ],
+              // Botón Aplicar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(26),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isCategoryPanelOpen = false;
+                        });
+                        _applyFilters();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Styles.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        _selectedPropertyTypes.isNotEmpty
+                            ? 'Aplicar ${_selectedPropertyTypes.length} filtros'
+                            : 'Aplicar Filtros',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
