@@ -163,21 +163,14 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
         return;
       }
 
-      final profile = userData['profile'] as Map<String, dynamic>?;
-
-      // Verificar si tiene profesión seleccionada (indicador de perfil completado)
       final hasProfessions =
           (userData['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
-      final hasPortfolio =
-          (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ?? false;
-      final hasDescription =
-          (profile?['description'] as String?)?.isNotEmpty ?? false;
 
-      // Si tiene los datos básicos completos, ir al módulo freelance
-      if (hasProfessions && hasPortfolio && hasDescription) {
+      // Si tiene profesiones seleccionadas, ir al módulo freelance
+      if (hasProfessions) {
         Modular.to.pushNamed('/freelance/home');
       } else {
-        // Si el perfil está incompleto, ir a completarlo (freelance_work)
+        // Si no tiene profesiones, ir a completar el perfil básico
         Modular.to.pushNamed('/worker/edit-profile');
       }
     } catch (e) {
@@ -288,15 +281,8 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
   bool _hasWorkerProfile(Map<String, dynamic>? userData) {
     if (userData == null) return false;
 
-    final profile = userData['profile'] as Map<String, dynamic>?;
-    final hasProfessions =
-        (userData['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
-    final hasPortfolio =
-        (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ?? false;
-    final hasDescription =
-        (profile?['description'] as String?)?.isNotEmpty ?? false;
-
-    return hasProfessions && hasPortfolio && hasDescription;
+    // Consideramos que tiene perfil si tiene al menos una profesión
+    return (userData['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
   }
 
   void _showConfigurationOptions(Map<String, dynamic>? userData) {
@@ -433,17 +419,39 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Limpiar solo los campos de trabajador
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
-            'professions': FieldValue.delete(),
-            'profile.portfolioImages': FieldValue.delete(),
-            'profile.description': FieldValue.delete(),
-            'profile.experienceYears': FieldValue.delete(),
-            'profile.availability': FieldValue.delete(),
-          });
+      final userId = user.uid;
+
+      // 1. Limpiar campos de trabajador en el documento de usuario
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'professions': FieldValue.delete(),
+        'profession': FieldValue.delete(),
+        'price': FieldValue.delete(),
+        'profile': FieldValue.delete(),
+      });
+
+      // 2. Eliminar vistas del perfil
+      final viewsQuery = await FirebaseFirestore.instance
+          .collection('profile_views')
+          .where('workerId', isEqualTo: userId)
+          .get();
+
+      final viewsBatch = FirebaseFirestore.instance.batch();
+      for (var doc in viewsQuery.docs) {
+        viewsBatch.delete(doc.reference);
+      }
+      await viewsBatch.commit();
+
+      // 3. Eliminar calificaciones y reseñas (feedback)
+      final feedbackQuery = await FirebaseFirestore.instance
+          .collection('feedback')
+          .where('workerId', isEqualTo: userId)
+          .get();
+
+      final feedbackBatch = FirebaseFirestore.instance.batch();
+      for (var doc in feedbackQuery.docs) {
+        feedbackBatch.delete(doc.reference);
+      }
+      await feedbackBatch.commit();
 
       // Cerrar loading
       if (mounted) Navigator.pop(context);
@@ -451,7 +459,10 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
       // Mostrar éxito y navegar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil de trabajador eliminado')),
+          const SnackBar(
+            content: Text('Perfil de trabajador eliminado completamente'),
+            backgroundColor: Colors.green,
+          ),
         );
         // Navegar al módulo de inmobiliaria
         _changeModule();

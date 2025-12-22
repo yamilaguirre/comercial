@@ -50,8 +50,8 @@ class PropertyConstants {
 
   // Monedas (Basado en currency)
   static const List<String> currencies = [
-    'USD', // Dólares
     'BS', // Bolivianos (Bs)
+    'USD', // Dólares
   ];
 
   // Amenities (Basado en amenities_master - ¡Usamos las claves de Firebase!)

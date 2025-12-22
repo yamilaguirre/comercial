@@ -38,6 +38,30 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
         'profession': FieldValue.delete(),
       });
 
+      // 2. Eliminar vistas del perfil
+      final viewsQuery = await FirebaseFirestore.instance
+          .collection('profile_views')
+          .where('workerId', isEqualTo: userId)
+          .get();
+
+      final viewsBatch = FirebaseFirestore.instance.batch();
+      for (var doc in viewsQuery.docs) {
+        viewsBatch.delete(doc.reference);
+      }
+      await viewsBatch.commit();
+
+      // 3. Eliminar calificaciones y reseñas (feedback)
+      final feedbackQuery = await FirebaseFirestore.instance
+          .collection('feedback')
+          .where('workerId', isEqualTo: userId)
+          .get();
+
+      final feedbackBatch = FirebaseFirestore.instance.batch();
+      for (var doc in feedbackQuery.docs) {
+        feedbackBatch.delete(doc.reference);
+      }
+      await feedbackBatch.commit();
+
       // Cerrar indicador de carga
       if (mounted) {
         Navigator.of(context).pop();
@@ -47,7 +71,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Perfil de trabajador eliminado exitosamente'),
+            content: Text('Perfil de trabajador eliminado completamente'),
             backgroundColor: Colors.green,
           ),
         );
@@ -55,7 +79,7 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
 
       // Redirigir a la pantalla de registro de trabajador
       if (mounted) {
-        Modular.to.pushReplacementNamed('/worker/freelance-work');
+        Modular.to.pushReplacementNamed('/worker/edit-profile');
       }
     } catch (e) {
       // Cerrar indicador de carga
@@ -171,12 +195,16 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                         ),
                         builder: (context, totalViewsSnapshot) {
                           final totalViews = totalViewsSnapshot.data ?? 0;
-                          
-                          print('📊 [WORKER_PROFILE] Stream de vistas actualizado');
+
+                          print(
+                            '📊 [WORKER_PROFILE] Stream de vistas actualizado',
+                          );
                           print('   User ID: ${user.uid}');
                           print('   Total Views: $totalViews');
                           print('   Has Data: ${totalViewsSnapshot.hasData}');
-                          print('   Connection State: ${totalViewsSnapshot.connectionState}');
+                          print(
+                            '   Connection State: ${totalViewsSnapshot.connectionState}',
+                          );
                           if (totalViewsSnapshot.hasError) {
                             print('   ❌ Error: ${totalViewsSnapshot.error}');
                           }
@@ -289,7 +317,8 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                                       Modular.to.navigate('/');
                                                     }
                                                   }
-                                                } else if (value == 'delete_profile') {
+                                                } else if (value ==
+                                                    'delete_profile') {
                                                   // Confirmar eliminación de perfil de trabajador
                                                   final confirmDelete =
                                                       await showDialog<bool>(
@@ -331,7 +360,9 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                                       );
 
                                                   if (confirmDelete == true) {
-                                                    await _deleteWorkerProfile(user.uid);
+                                                    await _deleteWorkerProfile(
+                                                      user.uid,
+                                                    );
                                                   }
                                                 }
                                               },
@@ -345,7 +376,12 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
                                                         color: Colors.red,
                                                       ),
                                                       SizedBox(width: 12),
-                                                      Text('Eliminar Perfil Trabajador', style: TextStyle(color: Colors.red)),
+                                                      Text(
+                                                        'Eliminar Perfil Trabajador',
+                                                        style: TextStyle(
+                                                          color: Colors.red,
+                                                        ),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),

@@ -36,14 +36,10 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
   ];
 
   String _selectedCurrency = 'Bs';
-  final List<String> _currencyOptions = ['Bs', '\$'];
+  final List<String> _currencyOptions = ['Bs', 'USD'];
 
   String _selectedLevel = 'Intermedio';
-  final List<String> _levelOptions = [
-    'Básico',
-    'Intermedio',
-    'Avanzado',
-  ];
+  final List<String> _levelOptions = ['Básico', 'Intermedio', 'Avanzado'];
 
   // Almacena las selecciones: Map<categoria, List<subcategorias>>
   final Map<String, List<String>> _selectedProfessions = {};
@@ -102,7 +98,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
           .collection('premium_users')
           .doc(user.uid)
           .get();
-      
+
       if (premiumDoc.exists && premiumDoc.data()?['status'] == 'active') {
         setState(() {
           _isPremium = true;
@@ -119,16 +115,18 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         if (doc.exists) {
           final data = doc.data();
           final profile = data?['profile'] as Map<String, dynamic>?;
-          
+
           // Cargar datos básicos del usuario
           _nameController.text = data?['displayName'] ?? user.displayName ?? '';
-          
+
           // Cargar foto de perfil desde múltiples fuentes posibles
-          final photoUrl = data?['photoURL'] ?? data?['photoUrl'] ?? user.photoURL;
+          final photoUrl =
+              data?['photoURL'] ?? data?['photoUrl'] ?? user.photoURL;
           if (photoUrl != null && photoUrl.isNotEmpty) {
             setState(() {
               _profileImageUrl = photoUrl;
-              _isFaceDetected = true; // Si ya tiene foto, asumimos que es válida
+              _isFaceDetected =
+                  true; // Si ya tiene foto, asumimos que es válida
             });
           }
 
@@ -155,8 +153,12 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
 
               // Cargar moneda
               final currency = profile['currency'] as String?;
-              if (currency != null && _currencyOptions.contains(currency)) {
-                _selectedCurrency = currency;
+              if (currency != null) {
+                if (_currencyOptions.contains(currency)) {
+                  _selectedCurrency = currency;
+                } else if (currency == '\$') {
+                  _selectedCurrency = 'USD';
+                }
               }
 
               // Cargar nivel de experiencia
@@ -219,14 +221,20 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         setState(() {
           _isLoading = true;
         });
-        await _processProfileImage(InputImage.fromFilePath(image.path), File(image.path));
+        await _processProfileImage(
+          InputImage.fromFilePath(image.path),
+          File(image.path),
+        );
       }
     } catch (e) {
       _showError('Error al tomar foto: $e');
     }
   }
 
-  Future<void> _processProfileImage(InputImage inputImage, File imageFile) async {
+  Future<void> _processProfileImage(
+    InputImage inputImage,
+    File imageFile,
+  ) async {
     try {
       final List<Face> faces = await _faceDetector.processImage(inputImage);
 
@@ -451,7 +459,10 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         for (int i = 0; i < _portfolioVideos.length; i++) {
           final xFile = XFile(_portfolioVideos[i].path);
           // Usar VideoService para videos (comprime automáticamente)
-          final url = await VideoService.uploadVideo(xFile, 'worker_videos/${user.uid}');
+          final url = await VideoService.uploadVideo(
+            xFile,
+            'worker_videos/${user.uid}',
+          );
           portfolioVideoUrls.add(url);
         }
       }
@@ -509,10 +520,14 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
 
       // Agregar videos solo si es premium
       if (_isPremium && portfolioVideoUrls.isNotEmpty) {
-        (updateData['profile'] as Map<String, dynamic>)['portfolioVideos'] = portfolioVideoUrls;
+        (updateData['profile'] as Map<String, dynamic>)['portfolioVideos'] =
+            portfolioVideoUrls;
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(updateData);
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update(updateData);
 
       // Actualizar también el perfil de Firebase Auth
       if (profilePhotoUrl != null) {
@@ -527,7 +542,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
         userId: user.uid,
         type: NotificationType.profileNameChanged,
         title: _isNewProfile ? 'Perfil Creado' : 'Perfil Actualizado',
-        message: _isNewProfile 
+        message: _isNewProfile
             ? 'Tu perfil de trabajador ha sido creado exitosamente.'
             : 'Tu perfil de trabajador ha sido actualizado exitosamente.',
       );
@@ -536,7 +551,9 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
       if (_isPremium && _isNewProfile) {
         final premiumNotificationService = PremiumNotificationService();
         await premiumNotificationService.handleNewWorkerProfile(user.uid);
-        print('🌟 Notificación global enviada: Nuevo trabajador premium disponible');
+        print(
+          '🌟 Notificación global enviada: Nuevo trabajador premium disponible',
+        );
       }
 
       if (mounted) {
@@ -706,13 +723,16 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                                           fit: BoxFit.cover,
                                         )
                                       : _profileImageUrl != null
-                                          ? DecorationImage(
-                                              image: NetworkImage(_profileImageUrl!),
-                                              fit: BoxFit.cover,
-                                            )
-                                          : null,
+                                      ? DecorationImage(
+                                          image: NetworkImage(
+                                            _profileImageUrl!,
+                                          ),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : null,
                                 ),
-                                child: _profileImage == null &&
+                                child:
+                                    _profileImage == null &&
                                         _profileImageUrl == null
                                     ? Icon(
                                         Icons.person,
@@ -1335,10 +1355,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Videos ilimitados de hasta 30 segundos cada uno',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 12),
 
@@ -1433,7 +1450,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                             final index = entry.key;
                             final url = entry.value;
                             final controller = _videoControllers[url];
-                            
+
                             return Stack(
                               children: [
                                 Container(
@@ -1443,11 +1460,16 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                     color: Colors.black,
                                   ),
-                                  child: controller != null && controller.value.isInitialized
+                                  child:
+                                      controller != null &&
+                                          controller.value.isInitialized
                                       ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           child: AspectRatio(
-                                            aspectRatio: controller.value.aspectRatio,
+                                            aspectRatio:
+                                                controller.value.aspectRatio,
                                             child: VideoPlayer(controller),
                                           ),
                                         )
@@ -1508,7 +1530,7 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                             final index = entry.key;
                             final file = entry.value;
                             final controller = _videoControllers[file.path];
-                            
+
                             return Stack(
                               children: [
                                 Container(
@@ -1518,11 +1540,16 @@ class _FreelanceWorkScreenState extends State<FreelanceWorkScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                     color: Colors.black,
                                   ),
-                                  child: controller != null && controller.value.isInitialized
+                                  child:
+                                      controller != null &&
+                                          controller.value.isInitialized
                                       ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           child: AspectRatio(
-                                            aspectRatio: controller.value.aspectRatio,
+                                            aspectRatio:
+                                                controller.value.aspectRatio,
                                             child: VideoPlayer(controller),
                                           ),
                                         )
