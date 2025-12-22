@@ -38,6 +38,7 @@ class _PropertyLocationSearchScreenState
   List<LatLng>? _searchPolygon;
   final Set<String> _selectedPropertyTypes = {};
   bool _isCategoryPanelOpen = false;
+  final TextEditingController _searchController = TextEditingController();
 
   final Map<String, Map<String, dynamic>> _categoryStyles = {
     'casa': {
@@ -80,6 +81,7 @@ class _PropertyLocationSearchScreenState
   @override
   void dispose() {
     _mapController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -164,7 +166,14 @@ class _PropertyLocationSearchScreenState
           _selectedPropertyTypes.contains(
             property.propertyTypeRaw.toLowerCase(),
           );
-      return withinRadius && matchesType;
+
+      final searchPrice = _searchController.text.toLowerCase();
+      final matchesSearch =
+          searchPrice.isEmpty ||
+          property.name.toLowerCase().contains(searchPrice) ||
+          property.location.toLowerCase().contains(searchPrice);
+
+      return withinRadius && matchesType && matchesSearch;
     }).toList();
     filtered.sort((a, b) {
       final distanceA = Geolocator.distanceBetween(
@@ -194,6 +203,14 @@ class _PropertyLocationSearchScreenState
             property.propertyTypeRaw.toLowerCase(),
           );
       if (!matchesType) return false;
+
+      final searchPrice = _searchController.text.toLowerCase();
+      final matchesSearch =
+          searchPrice.isEmpty ||
+          property.name.toLowerCase().contains(searchPrice) ||
+          property.location.toLowerCase().contains(searchPrice);
+
+      if (!matchesSearch) return false;
 
       final propertyLocation = LatLng(property.latitude, property.longitude);
 
@@ -417,31 +434,11 @@ class _PropertyLocationSearchScreenState
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.black.withAlpha(153), Colors.transparent],
+              colors: [Colors.black.withOpacity(0.6), Colors.transparent],
             ),
           ),
           child: Row(
             children: [
-              Container(
-                height: 50,
-                width: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(26),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -460,28 +457,43 @@ class _PropertyLocationSearchScreenState
                   child: Row(
                     children: [
                       const Icon(Icons.search, color: Colors.grey),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _selectedPropertyTypes.isNotEmpty
-                              ? '${_selectedPropertyTypes.length} filtros activos'
-                              : 'Buscar propiedades...',
-                          style: TextStyle(
-                            color: _selectedPropertyTypes.isNotEmpty
-                                ? Styles.primaryColor
-                                : Colors.grey,
-                            fontSize: 16,
-                            fontWeight: _selectedPropertyTypes.isNotEmpty
-                                ? FontWeight.w500
-                                : FontWeight.normal,
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) => _applyFilters(),
+                          decoration: InputDecoration(
+                            hintText: _selectedPropertyTypes.isNotEmpty
+                                ? '${_selectedPropertyTypes.length} filtros activos'
+                                : 'Buscar por nombre o zona...',
+                            hintStyle: TextStyle(
+                              color: _selectedPropertyTypes.isNotEmpty
+                                  ? Styles.primaryColor
+                                  : Colors.grey,
+                              fontSize: 15,
+                            ),
+                            border: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            filled: false,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
+                          style: const TextStyle(fontSize: 15),
                         ),
                       ),
-                      if (_selectedPropertyTypes.isNotEmpty)
+                      if (_selectedPropertyTypes.isNotEmpty ||
+                          _searchController.text.isNotEmpty)
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              _selectedPropertyTypes.clear();
+                              if (_searchController.text.isNotEmpty) {
+                                _searchController.clear();
+                              } else {
+                                _selectedPropertyTypes.clear();
+                              }
                               _applyFilters();
                             });
                           },
@@ -505,7 +517,7 @@ class _PropertyLocationSearchScreenState
                     decoration: BoxDecoration(
                       color: _isCategoryPanelOpen
                           ? Colors.white
-                          : Styles.primaryColor,
+                          : const Color(0xFF0033CC),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
@@ -519,7 +531,7 @@ class _PropertyLocationSearchScreenState
                       icon: Icon(
                         Icons.tune,
                         color: _isCategoryPanelOpen
-                            ? Styles.primaryColor
+                            ? const Color(0xFF0033CC)
                             : Colors.white,
                       ),
                       onPressed: () {
