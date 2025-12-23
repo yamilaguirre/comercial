@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:video_compress/video_compress.dart';
 import '../../../theme/theme.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/image_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/chat_model.dart';
+import '../../../services/video_service.dart';
+import '../../../services/subscription_service.dart';
+import '../../trabajador/premium_subscription_modal.dart';
 
 class PropertyChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -37,6 +42,28 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSending = false;
   bool _isUploading = false;
+  bool _isPremium = false;
+  final SubscriptionService _subscriptionService = SubscriptionService();
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToPremiumStatus();
+  }
+
+  void _listenToPremiumStatus() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid;
+    if (userId != null) {
+      _subscriptionService.getUserPremiumStatusStream(userId).listen((status) {
+        if (mounted) {
+          setState(() {
+            _isPremium = status != null;
+          });
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -90,10 +117,10 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
     });
   }
 
-  Future<void> _pickAndSendImage() async {
+  Future<void> _pickAndSendImage(ImageSource source) async {
     try {
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 70,
       );
 
@@ -137,9 +164,343 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
+  void _showPremiumFeatureDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const PremiumSubscriptionModal(),
+    );
+  }
+
+  Future<void> _showMediaPicker() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Título
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  const Text(
+                    'Subir contenido',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[100],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // --- SECCIÓN: IMÁGENES ---
+            _buildPickerSectionHeader(
+              title: 'Imágenes y Fotos',
+              icon: Icons.image_outlined,
+              color: Colors.blue,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Cámara',
+                    subtitle: 'Tomar foto',
+                    icon: Icons.camera_alt_outlined,
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndSendImage(ImageSource.camera);
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Galería',
+                    subtitle: 'Elegir foto',
+                    icon: Icons.photo_library_outlined,
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndSendImage(ImageSource.gallery);
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Divider(),
+            ),
+
+            // --- SECCIÓN: VIDEOS (PREMIUM) ---
+            _buildPickerSectionHeader(
+              title: 'Videos',
+              icon: Icons.videocam_outlined,
+              color: Colors.orange,
+              isPremium: true,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Grabar',
+                    subtitle: 'Nuevo video',
+                    icon: Icons.videocam_outlined,
+                    color: Colors.red,
+                    isLocked: !_isPremium,
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (_isPremium) {
+                        _pickAndSendVideo(ImageSource.camera);
+                      } else {
+                        _showPremiumFeatureDialog();
+                      }
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Galería',
+                    subtitle: 'Elegir video',
+                    icon: Icons.video_library_outlined,
+                    color: Colors.purple,
+                    isLocked: !_isPremium,
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (_isPremium) {
+                        _pickAndSendVideo(ImageSource.gallery);
+                      } else {
+                        _showPremiumFeatureDialog();
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerSectionHeader({
+    required String title,
+    required IconData icon,
+    required Color color,
+    bool isPremium = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          if (isPremium) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF8C00), Color(0xFFFF0080)],
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'PREMIUM',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickerOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    bool isLocked = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                if (isLocked)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.lock,
+                        size: 14,
+                        color: Color(0xFFFF8C00),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndSendVideo(ImageSource source) async {
+    if (!_isPremium) {
+      _showPremiumFeatureDialog();
+      return;
+    }
+    try {
+      final XFile? video = await _imagePicker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: 30),
+      );
+
+      if (video == null) return;
+
+      // Validar duración (especialmente para videos de galería)
+      final info = await VideoCompress.getMediaInfo(video.path);
+      if (info.duration != null && info.duration! > 30000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('El video no puede durar más de 30 segundos'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       setState(() {
-        _isUploading = false;
+        _isUploading = true;
       });
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserId = authService.currentUser?.uid ?? '';
+
+      // Subir video al servidor
+      final videoUrl = await VideoService.uploadVideo(
+        video,
+        'chat_videos/${widget.chatId}',
+      );
+
+      // Enviar mensaje con video
+      final success = await _chatService.sendMessage(
+        widget.chatId,
+        currentUserId,
+        'Video',
+        messageType: 'video',
+        attachmentUrl: videoUrl,
+      );
+
+      if (success) {
+        _scrollToBottom();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error al enviar video')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
     }
   }
 
@@ -251,17 +612,22 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
           if (_isUploading)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              color: Colors.blue.withOpacity(0.1),
-              child: const Row(
+              color: Styles.primaryColor.withOpacity(0.1),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Styles.primaryColor,
+                      ),
+                    ),
                   ),
                   SizedBox(width: 12),
-                  Text('Subiendo imagen...'),
+                  Text('Subiendo archivo...'),
                 ],
               ),
             ),
@@ -286,7 +652,15 @@ class _PropertyChatDetailScreenState extends State<PropertyChatDetailScreen> {
                   // Botón de adjuntar imagen
                   IconButton(
                     icon: Icon(Icons.image, color: Styles.primaryColor),
-                    onPressed: _isUploading ? null : _pickAndSendImage,
+                    onPressed: _isUploading
+                        ? null
+                        : () => _pickAndSendImage(ImageSource.gallery),
+                  ),
+
+                  // Botón de adjuntar medios (clip)
+                  IconButton(
+                    icon: Icon(Icons.attach_file, color: Styles.primaryColor),
+                    onPressed: _isUploading ? null : _showMediaPicker,
                   ),
 
                   // Campo de texto
@@ -602,6 +976,12 @@ class _MessageBubble extends StatelessWidget {
                           },
                         ),
                       ),
+                  ] else if (message.type == MessageType.video) ...[
+                    if (message.attachmentUrl != null)
+                      _VideoMessagePlayer(
+                        videoUrl: message.attachmentUrl!,
+                        isMe: isMe,
+                      ),
                   ] else if (message.type == MessageType.file) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -665,6 +1045,133 @@ class _MessageBubble extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Widget para reproducir videos inline en mensajes
+class _VideoMessagePlayer extends StatefulWidget {
+  final String videoUrl;
+  final bool isMe;
+
+  const _VideoMessagePlayer({required this.videoUrl, required this.isMe});
+
+  @override
+  State<_VideoMessagePlayer> createState() => _VideoMessagePlayerState();
+}
+
+class _VideoMessagePlayerState extends State<_VideoMessagePlayer> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+
+      await _controller.initialize();
+      _controller.setLooping(false);
+
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isInitialized) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        height: 200,
+        width: 250,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: widget.isMe ? Colors.white70 : Colors.grey,
+              size: 40,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Error al cargar video',
+              style: TextStyle(
+                color: widget.isMe ? Colors.white70 : Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_isInitialized) {
+      return Container(
+        height: 200,
+        width: 250,
+        decoration: BoxDecoration(
+          color: Colors.black12,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AspectRatio(
+            aspectRatio: _controller.value.aspectRatio,
+            child: VideoPlayer(_controller),
+          ),
+          IconButton(
+            icon: Icon(
+              _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 50,
+            ),
+            onPressed: () {
+              setState(() {
+                _controller.value.isPlaying
+                    ? _controller.pause()
+                    : _controller.play();
+              });
+            },
           ),
         ],
       ),

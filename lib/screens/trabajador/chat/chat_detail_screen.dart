@@ -9,9 +9,12 @@ import '../../../services/image_service.dart';
 import '../../../services/video_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../models/chat_model.dart';
+import '../premium_subscription_modal.dart';
+import '../../../services/subscription_service.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:video_compress/video_compress.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -39,12 +42,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isSending = false;
   bool _isUploading = false;
   String? _otherUserPhone;
+  bool _isPremium = false;
+  final SubscriptionService _subscriptionService = SubscriptionService();
 
   @override
   void initState() {
     super.initState();
     _markChatAsRead();
     _fetchOtherUserData();
+    _listenToPremiumStatus();
+  }
+
+  void _listenToPremiumStatus() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userId = authService.currentUser?.uid;
+    if (userId != null) {
+      _subscriptionService.getUserPremiumStatusStream(userId).listen((status) {
+        if (mounted) {
+          setState(() {
+            _isPremium = status != null;
+          });
+        }
+      });
+    }
   }
 
   Future<void> _fetchOtherUserData() async {
@@ -253,112 +273,267 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Future<void> _showMediaPicker() async {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Handle bar
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // Título
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
                   const Text(
-                    'Seleccionar medio',
+                    'Subir contenido',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, size: 20),
                     onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[100],
+                    ),
                   ),
                 ],
               ),
             ),
-            const Divider(),
-            const SizedBox(height: 8),
-            // Opción: Grabar video
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.videocam, color: Colors.red),
-              ),
-              title: const Text('Grabar video'),
-              subtitle: const Text('Máximo 30 segundos'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAndSendVideo(ImageSource.camera);
-              },
+            const SizedBox(height: 16),
+
+            // --- SECCIÓN: IMÁGENES ---
+            _buildPickerSectionHeader(
+              title: 'Imágenes y Fotos',
+              icon: Icons.image_outlined,
+              color: Colors.blue,
             ),
-            // Opción: Video desde galería
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Cámara',
+                    subtitle: 'Tomar foto',
+                    icon: Icons.camera_alt_outlined,
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndSendImage(ImageSource.camera);
+                    },
+                  ),
                 ),
-                child: const Icon(Icons.video_library, color: Colors.purple),
-              ),
-              title: const Text('Video de galería'),
-              subtitle: const Text('Máximo 30 segundos'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAndSendVideo(ImageSource.gallery);
-              },
-            ),
-            // Opción: Tomar foto
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Galería',
+                    subtitle: 'Elegir foto',
+                    icon: Icons.photo_library_outlined,
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndSendImage(ImageSource.gallery);
+                    },
+                  ),
                 ),
-                child: const Icon(Icons.camera_alt, color: Colors.blue),
-              ),
-              title: const Text('Tomar foto'),
-              subtitle: const Text('Usar la cámara'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAndSendImage(ImageSource.camera);
-              },
+              ],
             ),
-            // Opción: Foto desde galería
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Divider(),
+            ),
+
+            // --- SECCIÓN: VIDEOS (PREMIUM) ---
+            _buildPickerSectionHeader(
+              title: 'Videos',
+              icon: Icons.videocam_outlined,
+              color: Colors.orange,
+              isPremium: true,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Grabar',
+                    subtitle: 'Nuevo video',
+                    icon: Icons.videocam_outlined,
+                    color: Colors.red,
+                    isLocked: !_isPremium,
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (_isPremium) {
+                        _pickAndSendVideo(ImageSource.camera);
+                      } else {
+                        _showPremiumFeatureDialog();
+                      }
+                    },
+                  ),
                 ),
-                child: const Icon(Icons.photo_library, color: Colors.green),
-              ),
-              title: const Text('Foto de galería'),
-              subtitle: const Text('Seleccionar de tus fotos'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAndSendImage(ImageSource.gallery);
-              },
+                Expanded(
+                  child: _buildPickerOption(
+                    title: 'Galería',
+                    subtitle: 'Elegir video',
+                    icon: Icons.video_library_outlined,
+                    color: Colors.purple,
+                    isLocked: !_isPremium,
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (_isPremium) {
+                        _pickAndSendVideo(ImageSource.gallery);
+                      } else {
+                        _showPremiumFeatureDialog();
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildPickerSectionHeader({
+    required String title,
+    required IconData icon,
+    required Color color,
+    bool isPremium = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          if (isPremium) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF8C00), Color(0xFFFF0080)],
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'PREMIUM',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickerOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    bool isLocked = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                if (isLocked)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.lock,
+                        size: 14,
+                        color: Color(0xFFFF8C00),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPremiumFeatureDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const PremiumSubscriptionModal(),
+    );
+  }
+
   Future<void> _pickAndSendVideo(ImageSource source) async {
+    if (!_isPremium) {
+      _showPremiumFeatureDialog();
+      return;
+    }
     try {
       final XFile? video = await _imagePicker.pickVideo(
         source: source,
@@ -366,6 +541,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       );
 
       if (video == null) return;
+
+      // Validar duración (especialmente para videos de galería)
+      final info = await VideoCompress.getMediaInfo(video.path);
+      if (info.duration != null && info.duration! > 30000) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('El video no puede durar más de 30 segundos'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
 
       setState(() {
         _isUploading = true;
@@ -656,7 +845,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   // Botón de adjuntar imagen
                   IconButton(
                     icon: Icon(Icons.image, color: Styles.primaryColor),
-                    onPressed: _isUploading ? null : () => _pickAndSendImage(ImageSource.gallery),
+                    onPressed: _isUploading
+                        ? null
+                        : () => _pickAndSendImage(ImageSource.gallery),
                   ),
                   // Botón de adjuntar archivo (video/foto)
                   IconButton(
@@ -903,10 +1094,7 @@ class _VideoMessagePlayer extends StatefulWidget {
   final String videoUrl;
   final bool isMe;
 
-  const _VideoMessagePlayer({
-    required this.videoUrl,
-    required this.isMe,
-  });
+  const _VideoMessagePlayer({required this.videoUrl, required this.isMe});
 
   @override
   State<_VideoMessagePlayer> createState() => _VideoMessagePlayerState();
@@ -992,7 +1180,9 @@ class _VideoMessagePlayerState extends State<_VideoMessagePlayer> {
               icon: const Icon(Icons.refresh, size: 16),
               label: const Text('Reintentar'),
               style: TextButton.styleFrom(
-                foregroundColor: widget.isMe ? Colors.white70 : Styles.primaryColor,
+                foregroundColor: widget.isMe
+                    ? Colors.white70
+                    : Styles.primaryColor,
               ),
             ),
           ],

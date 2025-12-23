@@ -6,6 +6,9 @@ import 'package:video_compress/video_compress.dart';
 
 class VideoService {
   static Future<String> uploadVideo(XFile file, String folderPath) async {
+    // Cancelar cualquier compresión previa para evitar errores de "Already have a compression process"
+    await VideoCompress.cancelCompression();
+
     // Comprimir video
     final compressedVideo = await VideoCompress.compressVideo(
       file.path,
