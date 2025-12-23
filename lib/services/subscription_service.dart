@@ -146,6 +146,41 @@ class SubscriptionService {
     }
   }
 
+  // Stream for user premium status
+  Stream<Map<String, dynamic>?> getUserPremiumStatusStream(String userId) {
+    return _firestore.collection('premium_users').doc(userId).snapshots().map((
+      doc,
+    ) {
+      if (!doc.exists) return null;
+      final data = doc.data() as Map<String, dynamic>;
+      return data['status'] == 'active' ? data : null;
+    });
+  }
+
+  // Stream for user's latest subscription request
+  Stream<SubscriptionRequest?> getUserSubscriptionRequestStream(String userId) {
+    return _firestore
+        .collection('subscription_requests')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isEmpty) return null;
+
+          // Sort manually by createdAt descending to get latest
+          final docs = snapshot.docs.toList();
+          docs.sort((a, b) {
+            final aTime = (a.data()['createdAt'] as Timestamp?)?.toDate();
+            final bTime = (b.data()['createdAt'] as Timestamp?)?.toDate();
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime);
+          });
+
+          return SubscriptionRequest.fromFirestore(docs.first);
+        });
+  }
+
   // Get user's subscription status from users collection
   Future<Map<String, dynamic>?> getUserSubscriptionStatus(String userId) async {
     try {

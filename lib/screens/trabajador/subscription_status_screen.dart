@@ -18,52 +18,11 @@ class SubscriptionStatusScreen extends StatefulWidget {
 
 class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
   final _subscriptionService = SubscriptionService();
-  bool _isLoading = true;
-  SubscriptionRequest? _request;
-  Map<String, dynamic>? _premiumStatus;
+  bool _isNavigating = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSubscriptionData();
-  }
-
-  Future<void> _loadSubscriptionData() async {
-    setState(() => _isLoading = true);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-
-    if (user != null) {
-      try {
-        // 1. Check premium_users collection first (Source of Truth for active subscriptions)
-        final premiumStatus = await _subscriptionService.getUserPremiumStatus(
-          user.uid,
-        );
-
-        // 2. Check subscription_requests collection
-        final request = await _subscriptionService.getUserSubscriptionRequest(
-          user.uid,
-        );
-
-        if (mounted) {
-          setState(() {
-            _premiumStatus = premiumStatus;
-            _request = request;
-            _isLoading = false;
-          });
-        }
-      } catch (e) {
-        print('Error loading subscription data: $e');
-        if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error al cargar datos: $e')));
-        }
-      }
-    } else {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   String _formatDate(DateTime date) {
@@ -88,34 +47,72 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('Usuario no autenticado')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Estado de Suscripción'),
         backgroundColor: Styles.primaryColor,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (_isNavigating) return;
+            setState(() => _isNavigating = true);
+            Modular.to.navigate('/worker/account');
+          },
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildBody(),
+      body: StreamBuilder<Map<String, dynamic>?>(
+        stream: _subscriptionService.getUserPremiumStatusStream(user.uid),
+        builder: (context, premiumSnapshot) {
+          return StreamBuilder<SubscriptionRequest?>(
+            stream: _subscriptionService.getUserSubscriptionRequestStream(
+              user.uid,
+            ),
+            builder: (context, requestSnapshot) {
+              if (premiumSnapshot.connectionState == ConnectionState.waiting ||
+                  requestSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final premiumStatus = premiumSnapshot.data;
+              final request = requestSnapshot.data;
+
+              return _buildBodyContents(premiumStatus, request);
+            },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBodyContents(
+    Map<String, dynamic>? premiumStatus,
+    SubscriptionRequest? request,
+  ) {
     // First check if user has active premium in premium_users
-    if (_premiumStatus != null && _premiumStatus!['status'] == 'active') {
-      return _buildApprovedStatus();
+    if (premiumStatus != null && premiumStatus['status'] == 'active') {
+      return _buildApprovedStatus(premiumStatus, request);
     }
 
     // Then check subscription_requests status
-    if (_request != null) {
-      final status = _request!.status;
+    if (request != null) {
+      final status = request.status;
 
       if (status == 'approved') {
-        return _buildApprovedStatus();
+        return _buildApprovedStatus(premiumStatus, request);
       } else if (status == 'pending') {
-        return _buildPendingStatus();
+        return _buildPendingStatus(request);
       } else if (status == 'rejected') {
-        return _buildRejectedStatus();
+        return _buildRejectedStatus(request);
       }
     }
 
@@ -269,13 +266,16 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     );
   }
 
-  Widget _buildApprovedStatus() {
+  Widget _buildApprovedStatus(
+    Map<String, dynamic>? premiumStatus,
+    SubscriptionRequest? request,
+  ) {
     // Use premium_users data if available, otherwise fall back to request data
     final planName =
-        _premiumStatus?['planName'] ?? _request?.planName ?? 'Premium';
-    final amount = _premiumStatus?['amount'] ?? _request?.amount;
-    final startDate = _premiumStatus?['startedAt'];
-    final expiresAt = _premiumStatus?['expiresAt'];
+        premiumStatus?['planName'] ?? request?.planName ?? 'Premium';
+    final amount = premiumStatus?['amount'] ?? request?.amount;
+    final startDate = premiumStatus?['startedAt'];
+    final expiresAt = premiumStatus?['expiresAt'];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -371,7 +371,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     );
   }
 
-  Widget _buildPendingStatus() {
+  Widget _buildPendingStatus(SubscriptionRequest request) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -424,24 +424,24 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           const SizedBox(height: 24),
 
           _buildDetailCard('Información de tu Solicitud', [
-            _buildDetailRow(Icons.shopping_bag, 'Plan', _request!.planName),
+            _buildDetailRow(Icons.shopping_bag, 'Plan', request.planName),
             _buildDetailRow(
               Icons.attach_money,
               'Monto',
-              '${_request!.amount} BOB',
+              '${request.amount} BOB',
             ),
-            if (_request!.createdAt != null)
+            if (request.createdAt != null)
               _buildDetailRow(
                 Icons.calendar_today,
                 'Fecha de envío',
-                _formatDate(_request!.createdAt!),
+                _formatDate(request.createdAt!),
               ),
           ]),
 
           const SizedBox(height: 16),
 
           // Receipt preview
-          if (_request!.receiptUrl.isNotEmpty) ...[
+          if (request.receiptUrl.isNotEmpty) ...[
             const Text(
               'Comprobante de Pago',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -450,7 +450,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(
-                _request!.receiptUrl,
+                request.receiptUrl,
                 width: double.infinity,
                 height: 200,
                 fit: BoxFit.cover,
@@ -473,9 +473,13 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => Modular.to.navigate('/freelance/home'),
+              onPressed: () {
+                if (_isNavigating) return;
+                setState(() => _isNavigating = true);
+                Modular.to.navigate('/worker/account');
+              },
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Volver al Inicio'),
+              label: const Text('Regresar'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Styles.primaryColor,
                 side: const BorderSide(color: Styles.primaryColor),
@@ -491,7 +495,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
     );
   }
 
-  Widget _buildRejectedStatus() {
+  Widget _buildRejectedStatus(SubscriptionRequest request) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -544,8 +548,8 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
           const SizedBox(height: 24),
 
           // Rejection reason
-          if (_request!.rejectionReason != null &&
-              _request!.rejectionReason!.isNotEmpty) ...[
+          if (request.rejectionReason != null &&
+              request.rejectionReason!.isNotEmpty) ...[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -573,7 +577,7 @@ class _SubscriptionStatusScreenState extends State<SubscriptionStatusScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _request!.rejectionReason!,
+                    request.rejectionReason!,
                     style: const TextStyle(fontSize: 14),
                   ),
                 ],

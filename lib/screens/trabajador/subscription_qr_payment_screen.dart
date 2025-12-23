@@ -122,8 +122,8 @@ class _SubscriptionQRPaymentScreenState
           ),
         );
         // Pop current screen and push status screen to maintain navigation stack
-        Modular.to.pop();
-        Modular.to.pushNamed('/worker/subscription-status');
+        // Navigate to status screen directly
+        Modular.to.navigate('/worker/subscription-status');
       }
     } catch (e) {
       setState(() => _isSubmitting = false);
