@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:io';
 import 'dart:async';
 
 import '../../providers/mobiliaria_provider.dart';
@@ -16,7 +15,6 @@ import '../../core/utils/firestore_data_loader.dart';
 import '../../services/image_service.dart';
 import '../../services/video_service.dart';
 import '../../models/property.dart';
-import '../../core/utils/amenity_helper.dart';
 
 // Components
 import 'components/form/property_form_progress_bar.dart';
@@ -60,6 +58,8 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   String? _selectedDepartment;
   String? _selectedZone;
   GeoPoint? _currentGeopoint;
+
+  final List<TextEditingController> _extraContactControllers = [];
 
   Map<String, List<String>> _regions = {};
   bool _isLoadingCatalogs = true;
@@ -120,6 +120,12 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
       _selectedCurrency = PropertyConstants.currencies.first;
     }
 
+    // Inicializar números de contacto extra desde el perfil
+    final authService = Provider.of<AuthService>(context, listen: false);
+    authService.extraContactNumbers.forEach((key, value) {
+      _extraContactControllers.add(TextEditingController(text: value));
+    });
+
     // Add debounced listeners for better performance
     _titleController.addListener(_onTitleChanged);
     _descriptionController.addListener(_onDescriptionChanged);
@@ -161,6 +167,9 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     _roomsController.dispose();
     _bathroomsController.dispose();
     _areaController.dispose();
+    for (var c in _extraContactControllers) {
+      c.dispose();
+    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -448,6 +457,138 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     );
   }
 
+  Widget _buildContactNumbersSection() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final mainPhone = authService.phoneNumber ?? 'Sin número';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Números de Contacto',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              '${_extraContactControllers.length + 1}/5',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Estos números aparecerán en tu publicación para que te contacten.',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.phone, color: Colors.green.shade600, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mainPhone,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Text(
+                      'Número principal (de tu cuenta)',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._extraContactControllers.asMap().entries.map((entry) {
+          int idx = entry.key;
+          var controller = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: 'Número adicional ${idx + 1}',
+                      hintText: 'Ej. 70000000',
+                      prefixIcon: const Icon(Icons.add_call, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _extraContactControllers[idx].dispose();
+                      _extraContactControllers.removeAt(idx);
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.remove_circle_outline,
+                    color: Colors.red,
+                  ),
+                  tooltip: 'Eliminar número',
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        if (_extraContactControllers.length < 4)
+          Container(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _extraContactControllers.add(TextEditingController());
+                });
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Agregar número adicional'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(color: Styles.primaryColor),
+                foregroundColor: Styles.primaryColor,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Future<void> _selectLocationOnMap() async {
     Map<String, double>? extras;
     if (_currentGeopoint != null) {
@@ -569,6 +710,32 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         isPremiumUser: isPremium,
       );
 
+      // 3. Actualizar números extra en el perfil si hubo cambios
+      final currentExtras = authService.extraContactNumbers;
+      final newExtras = <String, String>{};
+      for (int i = 0; i < _extraContactControllers.length; i++) {
+        final val = _extraContactControllers[i].text.trim();
+        if (val.isNotEmpty) {
+          newExtras['phone_$i'] = val;
+        }
+      }
+
+      // Comparar si son diferentes (simplificado)
+      bool changed = currentExtras.length != newExtras.length;
+      if (!changed) {
+        for (var key in newExtras.keys) {
+          if (currentExtras[key] != newExtras[key]) {
+            changed = true;
+            break;
+          }
+        }
+      }
+
+      if (changed) {
+        if (mounted) setState(() => _savingStatus = 'Actualizando perfil...');
+        await authService.updateUserProfile(extraContactNumbers: newExtras);
+      }
+
       if (mounted) {
         Modular.to.pop();
       }
@@ -646,6 +813,8 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                   return const SizedBox(height: 32);
                 },
               ),
+              _buildContactNumbersSection(),
+              const SizedBox(height: 32),
               PropertyFormBasicInfo(
                 selectedTransactionType: _selectedTransactionType,
                 titleController: _titleController,

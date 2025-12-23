@@ -18,6 +18,10 @@ class AuthService extends ChangeNotifier {
   String _userRole = 'indefinido';
   // Estado premium del usuario
   bool _isPremium = false;
+  // Números de contacto adicionales
+  Map<String, String> _extraContactNumbers = {};
+  // Teléfono principal registrado
+  String? _phoneNumber;
 
   // --- GETTERS ---
   bool get isAuthenticated => _isAuthenticated;
@@ -27,6 +31,8 @@ class AuthService extends ChangeNotifier {
   bool get isAuthReady => _isAuthReady;
   String get userRole => _userRole;
   bool get isPremium => _isPremium;
+  Map<String, String> get extraContactNumbers => _extraContactNumbers;
+  String? get phoneNumber => _phoneNumber;
 
   // --- CONSTANTE DEL ROL DE SELECCIÓN PENDIENTE ---
   static const String ROLE_PENDING = 'indefinido';
@@ -114,6 +120,7 @@ class AuthService extends ChangeNotifier {
     String? name,
     String? phone,
     String? photoUrl,
+    Map<String, String>? extraContactNumbers,
   }) async {
     final user = currentUser;
     if (user == null) {
@@ -139,11 +146,22 @@ class AuthService extends ChangeNotifier {
       };
 
       if (name != null) updateData['displayName'] = name;
-      if (phone != null) updateData['phoneNumber'] = phone;
+      if (phone != null) {
+        updateData['phoneNumber'] = phone;
+        _phoneNumber = phone;
+      }
       if (photoUrl != null) updateData['photoURL'] = photoUrl;
+      if (extraContactNumbers != null) {
+        updateData['extraContactNumbers'] = extraContactNumbers;
+      }
 
       // 3. Actualizar campos en Firestore
       await _firestore.collection('users').doc(user.uid).update(updateData);
+
+      // 4. Actualizar estado local
+      if (extraContactNumbers != null) {
+        _extraContactNumbers = extraContactNumbers;
+      }
 
       return true;
     } catch (e) {
@@ -181,11 +199,25 @@ class AuthService extends ChangeNotifier {
 
       // Verificar estado premium desde subscriptionStatus.status en el documento del usuario
       // Estructura: users/{uid}/subscriptionStatus/status === 'active'
+      final data = doc.data();
       final subscriptionStatus =
-          doc.data()?['subscriptionStatus'] as Map<String, dynamic>?;
+          data?['subscriptionStatus'] as Map<String, dynamic>?;
       _isPremium =
           subscriptionStatus != null &&
           subscriptionStatus['status'] == 'active';
+
+      // Cargar teléfono principal
+      _phoneNumber = data?['phoneNumber'];
+
+      // Cargar números extra
+      final extra = data?['extraContactNumbers'];
+      if (extra is Map) {
+        _extraContactNumbers = extra.map(
+          (k, v) => MapEntry(k.toString(), v.toString()),
+        );
+      } else {
+        _extraContactNumbers = {};
+      }
 
       if (kDebugMode) {
         print('DEBUG - Usuario: $uid, Rol: $_userRole, Premium: $_isPremium');

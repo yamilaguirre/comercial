@@ -295,19 +295,119 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     }
   }
 
+  Future<String?> _showPhonePicker(List<String> phones) async {
+    return await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Seleccionar contacto',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'El propietario tiene varios números registrados. Elige uno:',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+                const SizedBox(height: 20),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: phones.length,
+                    itemBuilder: (context, index) {
+                      final phone = phones[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade100),
+                        ),
+                        child: ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Styles.primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.phone_outlined,
+                              color: Styles.primaryColor,
+                              size: 20,
+                            ),
+                          ),
+                          title: Text(
+                            phone,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.chevron_right,
+                            color: Colors.grey.shade400,
+                            size: 20,
+                          ),
+                          onTap: () => Navigator.pop(context, phone),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // Implementación del método de contacto desde la interfaz
   @override
   Future<void> contactOwner(String type) async {
     if (_ownerData == null) return;
 
-    final phone = _ownerData?['phoneNumber'] as String? ?? '';
-    if (phone.isEmpty) {
+    final mainPhone = _ownerData?['phoneNumber'] as String? ?? '';
+    final extraNumbers = _ownerData?['extraContactNumbers'] as Map? ?? {};
+    final allPhones = <String>[];
+
+    if (mainPhone.isNotEmpty) allPhones.add(mainPhone);
+    for (var v in extraNumbers.values) {
+      final s = v.toString();
+      if (s.isNotEmpty && !allPhones.contains(s)) {
+        allPhones.add(s);
+      }
+    }
+
+    if (allPhones.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('El propietario no tiene teléfono registrado'),
         ),
       );
       return;
+    }
+
+    String? phone;
+    if (allPhones.length > 1) {
+      phone = await _showPhonePicker(allPhones);
+      if (phone == null) return; // El usuario canceló la selección
+    } else {
+      phone = allPhones.first;
     }
 
     final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
