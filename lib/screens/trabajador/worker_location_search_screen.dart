@@ -109,9 +109,6 @@ class _WorkerLocationSearchScreenState
 
   Future<void> _loadWorkers() async {
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final currentUserId = authService.currentUser?.uid;
-
       // Fetch premium users to check isPremium status
       final premiumSnapshot = await FirebaseFirestore.instance
           .collection('premium_users')
@@ -126,23 +123,15 @@ class _WorkerLocationSearchScreenState
 
       final workers = <WorkerData>[];
       for (var doc in snapshot.docs) {
-        // Excluir al usuario actual
-        if (doc.id == currentUserId) continue;
-
         final data = doc.data();
         final profile = data['profile'] as Map<String, dynamic>?;
 
-        // Verificar que tenga perfil completo de freelance (igual que home_work_screen)
+        // Relaxed profile completeness check (matching worker_account_screen.dart)
         final hasProfessions =
             (data['professions'] as List<dynamic>?)?.isNotEmpty ?? false;
-        final hasPortfolio =
-            (profile?['portfolioImages'] as List<dynamic>?)?.isNotEmpty ??
-            false;
-        final hasDescription =
-            (profile?['description'] as String?)?.isNotEmpty ?? false;
 
-        // Solo mostrar trabajadores con perfil completo
-        if (!hasProfessions || !hasPortfolio || !hasDescription) {
+        // Solo mostrar trabajadores con al menos una profesión
+        if (!hasProfessions) {
           continue;
         }
 
@@ -197,7 +186,8 @@ class _WorkerLocationSearchScreenState
                 isFixedLocation: location['isFixed'] as bool? ?? false,
                 locationType: location['locationType'] as String?,
                 isPremium: premiumUserIds.contains(doc.id),
-                experienceLevel: (profile?['experienceLevel'] as String?) ?? 'Intermedio',
+                experienceLevel:
+                    (profile?['experienceLevel'] as String?) ?? 'Intermedio',
                 currency: (profile?['currency'] as String?) ?? 'Bs',
               ),
             );
@@ -459,7 +449,9 @@ class _WorkerLocationSearchScreenState
     final authService = Provider.of<AuthService>(context, listen: false);
     final viewerId = authService.currentUser?.uid;
 
-    print('🔍 [VIEWS-MAP] Intentando registrar vista - Viewer: $viewerId, Worker: $workerId');
+    print(
+      '🔍 [VIEWS-MAP] Intentando registrar vista - Viewer: $viewerId, Worker: $workerId',
+    );
 
     if (viewerId == null) {
       print('⚠️ [VIEWS-MAP] No hay usuario logueado, no se registra vista');
@@ -467,19 +459,24 @@ class _WorkerLocationSearchScreenState
     }
 
     if (viewerId == workerId) {
-      print('⚠️ [VIEWS-MAP] Usuario viendo su propio perfil, no se registra vista');
+      print(
+        '⚠️ [VIEWS-MAP] Usuario viendo su propio perfil, no se registra vista',
+      );
       return;
     }
 
     try {
       final now = DateTime.now();
-      final todayKey = '${now.year.toString().padLeft(4, '0')}'
+      final todayKey =
+          '${now.year.toString().padLeft(4, '0')}'
           '${now.month.toString().padLeft(2, '0')}'
           '${now.day.toString().padLeft(2, '0')}';
 
       final key = '${viewerId}_$workerId\_$todayKey';
       if (_viewedCache.contains(key)) {
-        print('ℹ️ [VIEWS-MAP] Vista ya registrada hoy en la sesión, omitiendo write');
+        print(
+          'ℹ️ [VIEWS-MAP] Vista ya registrada hoy en la sesión, omitiendo write',
+        );
         return;
       }
 
@@ -1566,10 +1563,16 @@ class _WorkerLocationSearchScreenState
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: _getLevelColor(worker.experienceLevel).withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: _getLevelColor(
+                                            worker.experienceLevel,
+                                          ).withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: Border.all(
-                                            color: _getLevelColor(worker.experienceLevel),
+                                            color: _getLevelColor(
+                                              worker.experienceLevel,
+                                            ),
                                             width: 1,
                                           ),
                                         ),
@@ -1577,9 +1580,13 @@ class _WorkerLocationSearchScreenState
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              _getLevelIcon(worker.experienceLevel),
+                                              _getLevelIcon(
+                                                worker.experienceLevel,
+                                              ),
                                               size: 10,
-                                              color: _getLevelColor(worker.experienceLevel),
+                                              color: _getLevelColor(
+                                                worker.experienceLevel,
+                                              ),
                                             ),
                                             const SizedBox(width: 3),
                                             Flexible(
@@ -1587,7 +1594,9 @@ class _WorkerLocationSearchScreenState
                                                 worker.experienceLevel,
                                                 style: TextStyle(
                                                   fontSize: 10,
-                                                  color: _getLevelColor(worker.experienceLevel),
+                                                  color: _getLevelColor(
+                                                    worker.experienceLevel,
+                                                  ),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
@@ -1688,7 +1697,9 @@ class _WorkerLocationSearchScreenState
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
                         child: Center(
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
