@@ -93,6 +93,43 @@ class AmenityHelper {
     }
   }
 
+  /// Obtiene el color para una amenidad específica.
+  static Color getAmenityColor(String key) {
+    final normalizedKey = key.toLowerCase().trim();
+    
+    // Servicios Básicos - Azul
+    if (normalizedKey.contains('agua') || normalizedKey.contains('electricidad') || 
+        normalizedKey.contains('gas') || normalizedKey.contains('internet')) {
+      return const Color(0xFF1976D2);
+    }
+    
+    // Climatización - Naranja
+    if (normalizedKey.contains('aire') || normalizedKey.contains('calefaccion') || 
+        normalizedKey.contains('chimenea')) {
+      return const Color(0xFFFF9800);
+    }
+    
+    // Exteriores - Verde
+    if (normalizedKey.contains('piscina') || normalizedKey.contains('jardin') || 
+        normalizedKey.contains('terraza') || normalizedKey.contains('balcon')) {
+      return const Color(0xFF4CAF50);
+    }
+    
+    // Seguridad - Rojo
+    if (normalizedKey.contains('seguridad') || normalizedKey.contains('camara') || 
+        normalizedKey.contains('portero')) {
+      return const Color(0xFFF44336);
+    }
+    
+    // Default - Gris
+    return const Color(0xFF757575);
+  }
+
+  /// Obtiene el icono para una amenidad específica (alias para getIcon).
+  static IconData getAmenityIcon(String key) {
+    return getIcon(key);
+  }
+
   /// Obtiene el icono individual para una AMENIDAD específica.
   static IconData getIcon(String key) {
     final normalizedKey = key.toLowerCase().trim();

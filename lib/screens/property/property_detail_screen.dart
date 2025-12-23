@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -273,6 +274,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
         if (ownerDoc.exists) {
           _ownerData = ownerDoc.data();
         }
+
+        // Verificar si el owner es premium
+        await _checkOwnerPremiumStatus(_property!.ownerId);
       }
     } catch (e) {
       debugPrint("Error cargando detalle: $e");
@@ -879,6 +883,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     final lat = _property!.geopoint!.latitude;
     final lng = _property!.geopoint!.longitude;
 
+    // Verificar si el owner es premium
+    final isOwnerPremium = _premiumStatus[_property!.ownerId] ?? false;
+
     return Container(
       height: 200,
       decoration: BoxDecoration(
@@ -887,49 +894,97 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: LatLng(lat, lng),
-            initialZoom: 15.0,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-            ),
-          ),
+        child: Stack(
           children: [
-            // --- MAPBOX TILE LAYER ---
-            TileLayer(
-              urlTemplate:
-                  'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
-              userAgentPackageName: 'com.mobiliaria.app',
-            ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: LatLng(lat, lng),
-                  width: 40,
-                  height: 40,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Styles.primaryColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
+            // Mapa original
+            FlutterMap(
+              options: MapOptions(
+                initialCenter: LatLng(lat, lng),
+                initialZoom: 15.0,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.none, // Deshabilitar interacción
+                ),
+              ),
+              children: [
+                // --- MAPBOX TILE LAYER ---
+                TileLayer(
+                  urlTemplate:
+                      'https://api.mapbox.com/styles/v1/$_mapboxStyleId/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxAccessToken',
+                  userAgentPackageName: 'com.mobiliaria.app',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: LatLng(lat, lng),
+                      width: 40,
+                      height: 40,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Styles.primaryColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                      ],
+                        child: const Icon(
+                          Icons.home,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.home,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
+            // Mostrar blur y overlay solo si el owner NO es premium
+            if (!isOwnerPremium) ...[
+              // Efecto de blur sobre el mapa
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+                  child: Container(color: Colors.black.withOpacity(0.1)),
+                ),
+              ),
+              // Overlay con candado y mensaje
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.lock_outline,
+                        size: 48,
+                        color: Styles.primaryColor,
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          'Ver anuncio para poder ver\nla ubicación de la propiedad',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[800],
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
