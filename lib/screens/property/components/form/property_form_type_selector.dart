@@ -17,12 +17,26 @@ class PropertyFormTypeSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '¿Qué tipo de propiedad es?',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: '¿Qué tipo de propiedad es?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),

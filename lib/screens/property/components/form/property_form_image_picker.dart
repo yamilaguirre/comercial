@@ -26,12 +26,26 @@ class PropertyFormImagePicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Fotos de la propiedad',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Fotos de la propiedad',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),

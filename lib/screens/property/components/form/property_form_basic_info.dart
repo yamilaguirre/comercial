@@ -28,12 +28,26 @@ class PropertyFormBasicInfo extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '¿Qué deseas hacer?',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: '¿Qué deseas hacer?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -76,12 +90,26 @@ class PropertyFormBasicInfo extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Título del anuncio',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Título del anuncio',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -112,12 +140,26 @@ class PropertyFormBasicInfo extends StatelessWidget {
           },
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Descripción detallada',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Descripción detallada',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -146,12 +188,26 @@ class PropertyFormBasicInfo extends StatelessWidget {
           },
         ),
         const SizedBox(height: 24),
-        const Text(
-          'Precio',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Precio',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 8),

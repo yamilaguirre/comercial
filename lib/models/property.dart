@@ -23,6 +23,7 @@ class Property {
   final String ownerId;
   final List<String> imageUrls;
   final List<String> videoUrls;
+  final List<String> advertiserLinks; // Links de anunciadores
 
   // Campos opcionales para edición precisa
   final String? department;
@@ -64,6 +65,7 @@ class Property {
     this.ownerId = '',
     this.imageUrls = const [],
     this.videoUrls = const [],
+    this.advertiserLinks = const [],
     this.department,
     this.zone,
     this.views = 0,
@@ -104,6 +106,13 @@ class Property {
       ).where((url) => url.isNotEmpty).toList();
     }
 
+    List<String> advLinks = [];
+    if (data['advertiserLinks'] is List) {
+      advLinks = List<String>.from(
+        data['advertiserLinks'],
+      ).where((url) => url.isNotEmpty).toList();
+    }
+
     final firstImageUrl = urls.isNotEmpty
         ? urls.first
         : 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=400&h=300&fit=crop';
@@ -131,6 +140,7 @@ class Property {
       ownerId: data['owner_id'] ?? '',
       imageUrls: urls,
       videoUrls: videos,
+      advertiserLinks: advLinks,
       department: data['department'],
       zone: data['zone_key'],
       views: data['views'] ?? 0,

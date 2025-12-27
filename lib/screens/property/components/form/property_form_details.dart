@@ -5,12 +5,14 @@ class PropertyFormDetails extends StatelessWidget {
   final TextEditingController roomsController;
   final TextEditingController bathroomsController;
   final TextEditingController areaController;
+  final bool isRequired;
 
   const PropertyFormDetails({
     super.key,
     required this.roomsController,
     required this.bathroomsController,
     required this.areaController,
+    this.isRequired = false,
   });
 
   @override
@@ -32,14 +34,52 @@ class PropertyFormDetails extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Características principales',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'Características principales',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (isRequired) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Obligatorio',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
+          if (isRequired)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Las inmobiliarias deben completar todas estas características',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+            ),
           const SizedBox(height: 24),
           Row(
             children: [

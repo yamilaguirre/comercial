@@ -4,7 +4,6 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 // Importaciones de Mapa (Asumo que _buildMapSection todavía está en esta pantalla)
 import 'package:flutter_map/flutter_map.dart';
@@ -61,6 +60,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
   final Set<String> _savedPropertyIds = {};
   final Map<String, bool> _premiumStatus =
       {}; // Para cachear estado premium de propietarios
+  bool _isMapUnlocked = false; // Estado de desbloqueo del mapa
 
   @override
   void initState() {
@@ -376,6 +376,27 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     );
   }
 
+  Future<void> _unlockMapWithAd() async {
+    if (_isMapUnlocked) return;
+
+    try {
+      await AdService.instance.showInterstitialThen(() async {
+        if (mounted) {
+          setState(() {
+            _isMapUnlocked = true;
+          });
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo mostrar el anuncio: $e')),
+        );
+      }
+    }
+    return;
+  }
+
   // Implementación del método de contacto desde la interfaz
   @override
   Future<void> contactOwner(String type) async {
@@ -681,6 +702,259 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
     );
   }
 
+  // Sección de links de anunciadores
+  Widget _buildAdvertiserLinksSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.link, color: Styles.primaryColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Enlaces Externos',
+              style: TextStyles.subtitle.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Styles.primaryColor.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Styles.primaryColor.withOpacity(0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Esta propiedad también está publicada en:',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...(_property!.advertiserLinks.asMap().entries.map((entry) {
+                final index = entry.key;
+                final link = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: InkWell(
+                    onTap: () async {
+                      final uri = Uri.parse(link);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Styles.primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.open_in_new,
+                              size: 14,
+                              color: Styles.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Enlace ${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  link,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Styles.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList()),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Sección de números de contacto adicionales
+  Widget _buildExtraContactNumbersSection() {
+    final extraNumbers = _ownerData?['extraContactNumbers'] as Map? ?? {};
+    if (extraNumbers.isEmpty) return const SizedBox.shrink();
+
+    final phonesList = extraNumbers.values
+        .map((v) => v.toString())
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    if (phonesList.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.phone_in_talk, color: Styles.primaryColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Números de Contacto Adicionales',
+              style: TextStyles.subtitle.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'También puedes contactar al propietario en:',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...(phonesList.asMap().entries.map((entry) {
+                final index = entry.key;
+                final phone = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: InkWell(
+                    onTap: () async {
+                      final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+                      final finalPhone =
+                          (cleanPhone.length == 8 &&
+                              !cleanPhone.startsWith('591'))
+                          ? '591$cleanPhone'
+                          : cleanPhone;
+                      final uri = Uri.parse("tel:$finalPhone");
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.phone,
+                              size: 14,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Número ${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  phone,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.call,
+                            size: 16,
+                            color: Colors.green.shade600,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList()),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   // Contenido adicional (DESLIZABLE)
   Widget _buildScrollableContent() {
     if (_property == null) return const SizedBox.shrink();
@@ -704,6 +978,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             overflow: TextOverflow.fade,
           ),
           const SizedBox(height: 24),
+          if (_property!.advertiserLinks.isNotEmpty) ...[
+            _buildAdvertiserLinksSection(),
+            const SizedBox(height: 24),
+          ],
+          if (_ownerData != null) ...[
+            _buildExtraContactNumbersSection(),
+            const SizedBox(height: 24),
+          ],
           if (_property!.amenities.isNotEmpty) ...[
             Text(
               'Comodidades',
@@ -985,6 +1267,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
 
     // Verificar si el owner es premium
     final isOwnerPremium = _premiumStatus[_property!.ownerId] ?? false;
+    final isMapUnlocked = isOwnerPremium || _isMapUnlocked;
 
     return Container(
       height: 200,
@@ -1042,8 +1325,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 ),
               ],
             ),
-            // Mostrar blur y overlay solo si el owner NO es premium
-            if (!isOwnerPremium) ...[
+            // Mostrar blur y overlay solo si el mapa NO está desbloqueado
+            if (!isMapUnlocked) ...[
               // Efecto de blur sobre el mapa
               Positioned.fill(
                 child: BackdropFilter(
@@ -1051,36 +1334,58 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                   child: Container(color: Colors.black.withOpacity(0.1)),
                 ),
               ),
-              // Overlay con candado y mensaje
+              // Overlay clickeable con candado y mensaje
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.lock_outline,
-                        size: 48,
-                        color: Styles.primaryColor,
-                      ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          'Ver anuncio para poder ver\nla ubicación de la propiedad',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                            height: 1.4,
+                child: GestureDetector(
+                  onTap: _unlockMapWithAd,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.play_circle_outline,
+                          size: 48,
+                          color: Styles.primaryColor,
+                        ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'Toca para ver anuncio y\ndesbloquear la ubicación',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                              height: 1.4,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Styles.primaryColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'VER ANUNCIO',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1163,11 +1468,10 @@ class _FullScreenGalleryDialog extends StatefulWidget {
 
 class _FullScreenGalleryDialogState extends State<_FullScreenGalleryDialog> {
   late PageController _pageController;
-  late int _currentIndex;
+
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
   }
 
@@ -1187,7 +1491,6 @@ class _FullScreenGalleryDialogState extends State<_FullScreenGalleryDialog> {
             controller: _pageController,
             itemCount: widget.images.length,
             physics: const ClampingScrollPhysics(),
-            onPageChanged: (index) => setState(() => _currentIndex = index),
             itemBuilder: (context, index) {
               return InteractiveViewer(
                 minScale: 0.5,

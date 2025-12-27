@@ -60,6 +60,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   GeoPoint? _currentGeopoint;
 
   final List<TextEditingController> _extraContactControllers = [];
+  final List<TextEditingController> _advertiserLinkControllers = [];
 
   Map<String, List<String>> _regions = {};
   bool _isLoadingCatalogs = true;
@@ -170,6 +171,9 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     for (var c in _extraContactControllers) {
       c.dispose();
     }
+    for (var c in _advertiserLinkControllers) {
+      c.dispose();
+    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -194,6 +198,11 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     _currentGeopoint = property.geopoint;
     _existingImageUrls = List.from(property.imageUrls);
     _existingVideoUrls = List.from(property.videoUrls);
+
+    // Inicializar links de anunciadores
+    for (final link in property.advertiserLinks) {
+      _advertiserLinkControllers.add(TextEditingController(text: link));
+    }
 
     for (var key in property.amenities) {
       if (_amenityState.containsKey(key)) _amenityState[key] = true;
@@ -589,6 +598,100 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
     );
   }
 
+  Widget _buildAdvertiserLinksSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Links de Anunciador',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              'Opcional',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Agrega enlaces externos donde se publica esta propiedad (ej. OLX, Facebook Marketplace, etc.).',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        const SizedBox(height: 16),
+        ..._advertiserLinkControllers.asMap().entries.map((entry) {
+          int idx = entry.key;
+          var controller = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: 'Link ${idx + 1}',
+                      hintText: 'Ej. https://www.olx.bo/...',
+                      prefixIcon: const Icon(Icons.link, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    keyboardType: TextInputType.url,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _advertiserLinkControllers[idx].dispose();
+                      _advertiserLinkControllers.removeAt(idx);
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.remove_circle_outline,
+                    color: Colors.red,
+                  ),
+                  tooltip: 'Eliminar link',
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        Container(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _advertiserLinkControllers.add(TextEditingController());
+              });
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar link de anunciador'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              side: BorderSide(color: Styles.primaryColor),
+              foregroundColor: Styles.primaryColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _selectLocationOnMap() async {
     Map<String, double>? extras;
     if (_currentGeopoint != null) {
@@ -610,6 +713,58 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
   }
 
   Future<void> _saveProperty() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isRealEstateAgency = authService.userRole == 'inmobiliaria_empresa';
+
+    // Validaciones adicionales para inmobiliarias
+    if (isRealEstateAgency) {
+      // Validar características principales
+      if (_roomsController.text.isEmpty ||
+          _bathroomsController.text.isEmpty ||
+          _areaController.text.isEmpty ||
+          int.tryParse(_roomsController.text) == null ||
+          int.tryParse(_bathroomsController.text) == null ||
+          double.tryParse(_areaController.text) == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Las inmobiliarias deben completar todas las características principales',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _showError = true;
+        });
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _showError = false);
+        });
+        return;
+      }
+
+      // Validar mínimo 5 amenidades
+      final selectedAmenities = _amenityState.entries
+          .where((e) => e.value)
+          .length;
+      if (selectedAmenities < 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Las inmobiliarias deben seleccionar al menos 5 comodidades (tienes $selectedAmenities)',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _showError = true;
+        });
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _showError = false);
+        });
+        return;
+      }
+    }
+
     if (!_formKey.currentState!.validate() ||
         (_existingImageUrls.isEmpty && _newImageFiles.isEmpty) ||
         _currentGeopoint == null) {
@@ -677,6 +832,12 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         _amenityState.entries.where((entry) => entry.value),
       );
 
+      // Recolectar links de anunciadores
+      final advertiserLinks = _advertiserLinkControllers
+          .map((ctrl) => ctrl.text.trim())
+          .where((link) => link.isNotEmpty)
+          .toList();
+
       final propertyData = {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -693,6 +854,7 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
         'amenities': amenitiesMap,
         'imageUrls': allImageUrls,
         'videoUrls': allVideoUrls,
+        'advertiserLinks': advertiserLinks,
         'owner_id': user.uid,
         'is_active': true,
       };
@@ -799,6 +961,8 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                 onRemoveExisting: _removeExistingImage,
                 onRemoveNew: _removeNewImage,
               ),
+              const SizedBox(height: 32),
+              _buildAdvertiserLinksSection(),
               const SizedBox(height: 24),
               Consumer<AuthService>(
                 builder: (context, authService, _) {
@@ -833,12 +997,6 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                     setState(() => _selectedPropertyType = val),
               ),
               const SizedBox(height: 32),
-              PropertyFormDetails(
-                roomsController: _roomsController,
-                bathroomsController: _bathroomsController,
-                areaController: _areaController,
-              ),
-              const SizedBox(height: 32),
               PropertyFormLocation(
                 selectedDepartment: _selectedDepartment,
                 selectedZone: _selectedZone,
@@ -859,19 +1017,95 @@ class _PropertyFormScreenState extends State<PropertyFormScreen> {
                 onSelectLocation: _selectLocationOnMap,
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Comodidades',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+              Consumer<AuthService>(
+                builder: (context, authService, _) {
+                  return PropertyFormDetails(
+                    roomsController: _roomsController,
+                    bathroomsController: _bathroomsController,
+                    areaController: _areaController,
+                    isRequired: authService.userRole == 'inmobiliaria_empresa',
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              PropertyFormAmenities(
-                amenityState: _amenityState,
-                onAmenityChanged: (key, val) =>
-                    setState(() => _amenityState[key] = val),
+              const SizedBox(height: 32),
+              Consumer<AuthService>(
+                builder: (context, authService, _) {
+                  final isRealEstateAgency =
+                      authService.userRole == 'inmobiliaria_empresa';
+                  final selectedCount = _amenityState.entries
+                      .where((e) => e.value)
+                      .length;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Comodidades',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              if (isRealEstateAgency) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'Obligatorio',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (isRealEstateAgency)
+                            Text(
+                              '$selectedCount/5 mín.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: selectedCount >= 5
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (isRealEstateAgency) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Las inmobiliarias deben seleccionar al menos 5 comodidades',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      PropertyFormAmenities(
+                        amenityState: _amenityState,
+                        onAmenityChanged: (key, val) =>
+                            setState(() => _amenityState[key] = val),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 100), // Space for FAB
             ],

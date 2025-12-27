@@ -41,7 +41,8 @@ class PropertyFormLocation extends StatelessWidget {
           isExpanded:
               true, // <--- CORRECCIÓN 1: Evita que el dropdown crezca más que la pantalla
           decoration: InputDecoration(
-            labelText: 'Departamento',
+            labelText: 'Departamento *',
+            labelStyle: const TextStyle(color: Colors.black87),
             prefixIcon: Icon(Icons.map, color: Styles.primaryColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
@@ -70,7 +71,8 @@ class PropertyFormLocation extends StatelessWidget {
           value: selectedZone,
           isExpanded: true, // <--- CORRECCIÓN 1 REPETIDA
           decoration: InputDecoration(
-            labelText: 'Zona',
+            labelText: 'Zona *',
+            labelStyle: const TextStyle(color: Colors.black87),
             prefixIcon: Icon(Icons.location_city, color: Styles.primaryColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
@@ -95,12 +97,26 @@ class PropertyFormLocation extends StatelessWidget {
 
         const SizedBox(height: 24),
 
-        const Text(
-          'Ubicación exacta',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Ubicación exacta',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
