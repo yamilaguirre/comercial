@@ -92,13 +92,13 @@ class CompactPropertyCard extends StatelessWidget {
               ),
               child: Image.network(
                 property.imageUrl,
-                height: 100,
+                height: 90,
                 width: double.infinity,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
                   return Container(
-                    height: 100,
+                    height: 90,
                     color: Colors.grey[200],
                     child: Center(
                       child: SizedBox(
@@ -117,7 +117,7 @@ class CompactPropertyCard extends StatelessWidget {
                   );
                 },
                 errorBuilder: (context, error, stackTrace) => Container(
-                  height: 100,
+                  height: 90,
                   color: Colors.grey[300],
                   child: const Icon(
                     Icons.image_not_supported,
@@ -179,7 +179,7 @@ class CompactPropertyCard extends StatelessWidget {
         // CONTENIDO
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -188,33 +188,33 @@ class CompactPropertyCard extends StatelessWidget {
                 Text(
                   property.price,
                   style: TextStyles.title.copyWith(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Styles.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
 
                 // NOMBRE
                 Text(
                   property.name,
                   style: TextStyles.body.copyWith(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
 
                 // UBICACIÓN
                 Row(
                   children: [
                     Icon(
                       Icons.location_on,
-                      size: 10,
+                      size: 9,
                       color: Styles.textSecondary,
                     ),
                     const SizedBox(width: 2),
@@ -222,7 +222,7 @@ class CompactPropertyCard extends StatelessWidget {
                       child: Text(
                         property.location,
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 8,
                           color: Styles.textSecondary,
                         ),
                         maxLines: 1,
@@ -236,25 +236,25 @@ class CompactPropertyCard extends StatelessWidget {
                 // CARACTERÍSTICAS (Camas, Metros)
                 Row(
                   children: [
-                    Icon(Icons.bed, size: 11, color: Styles.textSecondary),
+                    Icon(Icons.bed, size: 10, color: Styles.textSecondary),
                     Text(
                       ' ${property.bedrooms}',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         color: Styles.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Icon(
                       Icons.square_foot,
-                      size: 11,
+                      size: 10,
                       color: Styles.textSecondary,
                     ),
                     Text(
                       ' ${property.area.toInt()}',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 8,
                         color: Styles.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
@@ -262,17 +262,17 @@ class CompactPropertyCard extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
 
                 // AMENIDADES
                 if (property.amenities.isNotEmpty)
                   Row(
                     children: property.amenities.take(4).map((key) {
                       return Padding(
-                        padding: const EdgeInsets.only(right: 3),
+                        padding: const EdgeInsets.only(right: 2),
                         child: Icon(
                           AmenityHelper.getIcon(key),
-                          size: 12,
+                          size: 11,
                           color: Styles.primaryColor.withOpacity(0.7),
                         ),
                       );

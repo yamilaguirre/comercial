@@ -50,7 +50,7 @@ class PropertyCard extends StatelessWidget {
                 _buildImageSection(cardWidth),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(6),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -59,18 +59,18 @@ class PropertyCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF2C3E50),
                             height: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
                             Icon(
                               Icons.location_on,
-                              size: 12,
+                              size: 11,
                               color: Colors.grey[600],
                             ),
                             const SizedBox(width: 2),
@@ -80,21 +80,21 @@ class PropertyCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   color: Colors.grey[600],
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         _buildCompactInfo(),
                         const Spacer(),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
-                            vertical: 4,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1976D2).withOpacity(0.1),
@@ -106,7 +106,7 @@ class PropertyCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF1976D2),
                             ),
@@ -128,7 +128,7 @@ class PropertyCard extends StatelessWidget {
     return Stack(
       children: [
         Container(
-          height: cardWidth * 0.65,
+          height: cardWidth * 0.55,
           decoration: BoxDecoration(
             color: Colors.grey[200],
             image: property.imageUrl.isNotEmpty
@@ -237,7 +237,7 @@ class PropertyCard extends StatelessWidget {
       for (final amenity in amenitiesList) {
         final amenityIcon = AmenityHelper.getAmenityIcon(amenity);
         final amenityColor = AmenityHelper.getAmenityColor(amenity);
-        
+
         infoItems.add(
           Container(
             padding: const EdgeInsets.all(3),
@@ -255,10 +255,6 @@ class PropertyCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: infoItems,
-    );
+    return Wrap(spacing: 4, runSpacing: 4, children: infoItems);
   }
 }

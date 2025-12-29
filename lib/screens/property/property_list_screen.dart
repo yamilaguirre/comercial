@@ -6,10 +6,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
 import '../../theme/theme.dart';
 import 'components/category_selector.dart';
-import 'components/compact_property_card.dart';
 import 'components/add_to_collection_dialog.dart';
 import 'components/property_carousel.dart';
 import 'components/property_card.dart';
+import 'components/property_vertical_list.dart';
 import '../../models/property.dart';
 import '../../services/saved_list_service.dart';
 import 'property_location_search_screen.dart';
@@ -508,9 +508,18 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                   onTap: _goToDetail,
                                 ),
 
-                              // SECCIÓN: PROPIEDADES REGULARES (SCROLL NORMAL)
+                              // SECCIÓN: PROPIEDADES REGULARES (SCROLL VERTICAL INFINITO)
                               if (_filteredRegularProperties.isNotEmpty)
-                                _buildRegularPropertiesSection(),
+                                PropertyVerticalList(
+                                  title: 'Todas las Propiedades',
+                                  properties: _filteredRegularProperties,
+                                  titleColor: const Color(0xFF2C3E50),
+                                  savedPropertyIds: _savedPropertyIds,
+                                  onFavoriteToggle: _openCollectionDialog,
+                                  onTap: _goToDetail,
+                                  hasMore: false,
+                                  isLoading: false,
+                                ),
 
                               if (_filteredPremiumProperties.isEmpty &&
                                   _filteredRealEstateProperties.isEmpty &&
@@ -670,7 +679,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
       // Cambiar el rol del usuario a 'trabajador' antes de navegar
       await authService.updateUserRole('trabajador');
       // Navegar al módulo de trabajadores (pantalla principal)
-      Modular.to.navigate('/trabajador/home');
+      Modular.to.navigate('/worker/home-worker');
     } catch (e) {
       debugPrint('Error al cambiar de módulo: $e');
     }
@@ -732,13 +741,13 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.88,
+              childAspectRatio: 0.68,
               crossAxisSpacing: screenWidth * 0.025,
               mainAxisSpacing: screenWidth * 0.025,
             ),
             itemCount: properties.length,
             itemBuilder: (context, index) {
-              return CompactPropertyCard(
+              return PropertyCard(
                 property: properties[index],
                 isFavorite: _savedPropertyIds.contains(properties[index].id),
                 onFavoriteToggle: () =>
@@ -751,41 +760,6 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
         ),
         SizedBox(height: screenWidth * 0.03),
       ],
-    );
-  }
-
-  Widget _buildRegularPropertiesSection() {
-    // Valores responsivos basados en porcentajes - OPTIMIZADO
-    final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalPadding = screenWidth * 0.03; // 3% del ancho
-    final crossAxisSpacing = screenWidth * 0.025; // 2.5% del ancho
-    final mainAxisSpacing = screenWidth * 0.025; // 2.5% del ancho
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: crossAxisSpacing,
-          mainAxisSpacing: mainAxisSpacing,
-        ),
-        itemCount: _filteredRegularProperties.length,
-        itemBuilder: (context, index) {
-          return PropertyCard(
-            property: _filteredRegularProperties[index],
-            isFavorite: _savedPropertyIds.contains(
-              _filteredRegularProperties[index].id,
-            ),
-            onFavoriteToggle: () =>
-                _openCollectionDialog(_filteredRegularProperties[index]),
-            onTap: () => _goToDetail(_filteredRegularProperties[index]),
-            showGoldenBorder: false,
-          );
-        },
-      ),
     );
   }
 }

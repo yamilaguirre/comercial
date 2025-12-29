@@ -23,7 +23,7 @@ import '../../providers/mobiliaria_provider.dart';
 import 'components/detail_feature_item.dart';
 import 'components/detail_owner_contact_card.dart';
 import 'components/add_to_collection_dialog.dart';
-import 'components/compact_property_card.dart';
+import 'components/property_card.dart';
 
 // --- CONSTANTES DE MAPA (RESTAURADAS) ---
 const String _mapboxAccessToken =
@@ -1039,11 +1039,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 // Quitamos el const aquí
                 crossAxisCount: 2,
-                // SI la pantalla es menor a 400px (móviles pequeños), usa 0.70 (más alto).
-                // SI es mayor, usa 0.85 (tu diseño original).
+                // SI la pantalla es menor a 400px (móviles pequeños), usa 0.62 (más alto).
+                // SI es mayor, usa 0.68 (tu diseño original).
                 childAspectRatio: MediaQuery.of(context).size.width < 400
-                    ? 0.70
-                    : 0.85,
+                    ? 0.58
+                    : 0.62,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
@@ -1052,7 +1052,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
                 final property = _similarProperties[index];
                 final isPremium = _premiumStatus[property.ownerId] ?? false;
 
-                return CompactPropertyCard(
+                return PropertyCard(
                   property: property,
                   isFavorite: _savedPropertyIds.contains(property.id),
                   showGoldenBorder: isPremium,

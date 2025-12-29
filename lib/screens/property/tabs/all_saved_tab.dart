@@ -4,7 +4,7 @@ import '../../../theme/theme.dart';
 import '../../../models/property.dart';
 import '../../../models/contact_filter.dart';
 import '../../../services/saved_list_service.dart';
-import '../components/compact_property_card.dart';
+import '../components/property_card.dart';
 import '../components/add_to_collection_dialog.dart';
 
 class AllSavedTab extends StatefulWidget {
@@ -109,14 +109,14 @@ class _AllSavedTabState extends State<AllSavedTab> {
         padding: const EdgeInsets.all(16),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.85,
+          childAspectRatio: 0.62,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
         ),
         itemCount: _properties.length,
         itemBuilder: (context, index) {
           final property = _properties[index];
-          return CompactPropertyCard(
+          return PropertyCard(
             property: property,
             isFavorite: true, // En esta pestaña siempre son favoritos
             onFavoriteToggle: () => _openCollectionDialog(property),
@@ -126,6 +126,7 @@ class _AllSavedTabState extends State<AllSavedTab> {
                 arguments: property,
               );
             },
+            showGoldenBorder: false,
           );
         },
       ),
