@@ -15,6 +15,7 @@ import '../../models/property.dart';
 import '../../services/saved_list_service.dart';
 import 'property_location_search_screen.dart';
 import '../../providers/auth_provider.dart';
+import '../components/promotional_overlay.dart';
 
 class PropertyListScreen extends StatefulWidget {
   const PropertyListScreen({super.key});
@@ -564,8 +565,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                       ),
                     ),
                   ],
-                ),
-                // Botón flotante para cambiar de módulo
+                ), // Promotional Banner Overlay
+                const PromotionalOverlay(), // Botón flotante para cambiar de módulo
                 Positioned(
                   // place the button above the bottom navigation bar
                   bottom: kBottomNavigationBarHeight + 16,
