@@ -17,6 +17,7 @@ import 'components/add_to_worker_collection_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/chat_service.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
+import '../components/promotional_overlay.dart';
 
 class HomeWorkScreen extends StatefulWidget {
   const HomeWorkScreen({super.key});
@@ -75,7 +76,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
     final viewerId = authService.currentUser?.uid;
 
-    print('🔍 [VIEWS] Intentando registrar vista - Viewer: $viewerId, Worker: $workerId');
+    print(
+      '🔍 [VIEWS] Intentando registrar vista - Viewer: $viewerId, Worker: $workerId',
+    );
 
     if (viewerId == null) {
       print('⚠️ [VIEWS] No hay usuario logueado, no se registra vista');
@@ -89,13 +92,16 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
 
     try {
       final now = DateTime.now();
-      final todayKey = '${now.year.toString().padLeft(4, '0')}'
+      final todayKey =
+          '${now.year.toString().padLeft(4, '0')}'
           '${now.month.toString().padLeft(2, '0')}'
           '${now.day.toString().padLeft(2, '0')}';
 
       final key = '${viewerId}_$workerId\_$todayKey';
       if (_viewedCache.contains(key)) {
-        print('ℹ️ [VIEWS] Vista ya registrada hoy en la sesión, omitiendo write');
+        print(
+          'ℹ️ [VIEWS] Vista ya registrada hoy en la sesión, omitiendo write',
+        );
         return;
       }
 
@@ -185,7 +191,10 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                   child: SingleChildScrollView(
                     padding: EdgeInsets.only(
                       // Reserve space for system inset + bottom nav + floating button
-                      bottom: MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight + 120,
+                      bottom:
+                          MediaQuery.of(context).padding.bottom +
+                          kBottomNavigationBarHeight +
+                          120,
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -212,6 +221,8 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                 ),
               ],
             ),
+            // Promotional Banner Overlay
+            const PromotionalOverlay(),
             // Botón flotante para cambiar de módulo
             Positioned(
               // place the button above the bottom navigation bar

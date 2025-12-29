@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
+import '../components/promotional_overlay.dart';
 import '../../theme/theme.dart';
 import 'components/category_selector.dart';
 import 'components/compact_property_card.dart';
@@ -562,6 +563,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                   right: 16,
                   child: _buildModuleSwitchButton(),
                 ),
+                // Promotional Banner Overlay
+                const PromotionalOverlay(),
               ],
             ),
     );
@@ -658,7 +661,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   }
 
   void _changeModule() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
+    final authService = Modular.get<AuthService>();
     final user = authService.currentUser;
 
     if (user == null) {
@@ -667,10 +670,10 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
     }
 
     try {
-      // Cambiar el rol del usuario a 'trabajador' antes de navegar
-      await authService.updateUserRole('trabajador');
+      // Cambiar el rol del usuario a 'trabajo' antes de navegar
+      await authService.updateUserRole('trabajo');
       // Navegar al módulo de trabajadores (pantalla principal)
-      Modular.to.navigate('/trabajador/home');
+      Modular.to.navigate('/worker/home-worker');
     } catch (e) {
       debugPrint('Error al cambiar de módulo: $e');
     }
