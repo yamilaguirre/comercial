@@ -172,7 +172,7 @@ class _InmobiliariaHomeScreenState extends State<InmobiliariaHomeScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.3,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
       children: [

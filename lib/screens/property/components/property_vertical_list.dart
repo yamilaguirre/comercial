@@ -12,6 +12,7 @@ class PropertyVerticalList extends StatefulWidget {
   final VoidCallback? onLoadMore;
   final bool hasMore;
   final bool isLoading;
+  final Map<String, String>? companyLogos; // propertyId -> companyLogo
 
   const PropertyVerticalList({
     super.key,
@@ -24,6 +25,7 @@ class PropertyVerticalList extends StatefulWidget {
     this.onLoadMore,
     this.hasMore = false,
     this.isLoading = false,
+    this.companyLogos,
   });
 
   @override
@@ -129,6 +131,7 @@ class _PropertyVerticalListState extends State<PropertyVerticalList> {
                 onFavoriteToggle: () => widget.onFavoriteToggle(property),
                 onTap: () => widget.onTap(property),
                 showGoldenBorder: false,
+                companyLogo: widget.companyLogos?[property.id],
               );
             },
           ),

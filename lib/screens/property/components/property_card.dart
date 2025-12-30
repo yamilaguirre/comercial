@@ -8,6 +8,7 @@ class PropertyCard extends StatelessWidget {
   final VoidCallback onFavoriteToggle;
   final VoidCallback onTap;
   final bool showGoldenBorder;
+  final String? companyLogo;
 
   const PropertyCard({
     super.key,
@@ -16,6 +17,7 @@ class PropertyCard extends StatelessWidget {
     required this.onFavoriteToggle,
     required this.onTap,
     this.showGoldenBorder = false,
+    this.companyLogo,
   });
 
   @override
@@ -159,6 +161,47 @@ class PropertyCard extends StatelessWidget {
             ),
           ),
         ),
+        // Logo de inmobiliaria en esquina superior izquierda
+        if (companyLogo != null && companyLogo!.isNotEmpty)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  companyLogo!,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 32,
+                      height: 32,
+                      color: Colors.grey[200],
+                      child: Icon(
+                        Icons.business,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
         Positioned(
           top: 6,
           right: 6,

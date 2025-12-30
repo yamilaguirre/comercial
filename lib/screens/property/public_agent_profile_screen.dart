@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
 import '../../models/property.dart';
 import '../../services/agent_stats_service.dart';
+import 'components/property_card.dart';
 
 class PublicAgentProfileScreen extends StatefulWidget {
   final String userId;
@@ -110,7 +111,9 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
           'Hola ${_userData?['displayName'] ?? ''}, vi tu perfil en Comercial y me gustaría consultarte.',
         );
         await AdService.instance.showInterstitialThen(() async {
-          await _launchUrl(Uri.parse('https://wa.me/$finalPhone?text=$message'));
+          await _launchUrl(
+            Uri.parse('https://wa.me/$finalPhone?text=$message'),
+          );
         });
       }
     } else if (type == 'email') {
@@ -498,146 +501,32 @@ class _PublicAgentProfileScreenState extends State<PublicAgentProfileScreen>
       );
     }
 
-    return ListView.builder(
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisSpacing = screenWidth * 0.025;
+    final mainAxisSpacing = screenWidth * 0.025;
+
+    return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.62,
+        crossAxisSpacing: crossAxisSpacing,
+        mainAxisSpacing: mainAxisSpacing,
+      ),
       itemCount: _userProperties.length,
       itemBuilder: (context, index) {
-        return _buildPropertyCard(_userProperties[index]);
+        final property = _userProperties[index];
+        return PropertyCard(
+          property: property,
+          isFavorite: false,
+          onFavoriteToggle: () {},
+          onTap: () => Modular.to.pushNamed(
+            '/property/detail/${property.id}',
+            arguments: property,
+          ),
+          showGoldenBorder: false,
+        );
       },
-    );
-  }
-
-  Widget _buildPropertyCard(Property property) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => Modular.to.pushNamed('/property/detail/${property.id}'),
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            children: [
-              // Imagen
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: SizedBox(
-                  height: 180,
-                  width: double.infinity,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        property.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Styles.primaryColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            property.price,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Contenido
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      property.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            property.location,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildFeature(
-                          Icons.bed_outlined,
-                          '${property.bedrooms}',
-                        ),
-                        _buildFeature(
-                          Icons.bathtub_outlined,
-                          '${property.bathrooms}',
-                        ),
-                        _buildFeature(
-                          Icons.square_foot,
-                          '${property.area.round()} m²',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

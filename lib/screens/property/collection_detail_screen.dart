@@ -4,6 +4,7 @@ import '../../theme/theme.dart';
 import '../../services/saved_list_service.dart';
 import '../../models/saved_collection_model.dart';
 import '../../models/property.dart';
+import 'components/property_card.dart';
 
 class CollectionDetailScreen extends StatefulWidget {
   final SavedCollection collection;
@@ -140,12 +141,27 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                 ],
               ),
             )
-          : ListView.builder(
+          : GridView.builder(
               padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.62,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
               itemCount: _properties.length,
               itemBuilder: (context, index) {
                 final property = _properties[index];
-                return _buildPropertyCard(property);
+                return PropertyCard(
+                  property: property,
+                  isFavorite: true,
+                  onFavoriteToggle: () => _removeProperty(property),
+                  onTap: () => Modular.to.pushNamed(
+                    '/property/detail/${property.id}',
+                    arguments: property,
+                  ),
+                  showGoldenBorder: false,
+                );
               },
             ),
     );

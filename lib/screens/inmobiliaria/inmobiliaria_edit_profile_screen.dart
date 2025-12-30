@@ -12,20 +12,26 @@ class InmobiliariaEditProfileScreen extends StatefulWidget {
   const InmobiliariaEditProfileScreen({super.key});
 
   @override
-  State<InmobiliariaEditProfileScreen> createState() => _InmobiliariaEditProfileScreenState();
+  State<InmobiliariaEditProfileScreen> createState() =>
+      _InmobiliariaEditProfileScreenState();
 }
 
-class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileScreen> {
+class _InmobiliariaEditProfileScreenState
+    extends State<InmobiliariaEditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _companyNameController = TextEditingController();
-  final TextEditingController _rucController = TextEditingController();
+  final TextEditingController _documentNumberController =
+      TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  List<TextEditingController> _phoneControllers = [TextEditingController()];
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _representativeController = TextEditingController();
-  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _representativeController =
+      TextEditingController();
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = true;
@@ -34,6 +40,7 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isAgent = false;
 
   String? _originalEmail;
   String? _userId;
@@ -48,9 +55,11 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
   @override
   void dispose() {
     _companyNameController.dispose();
-    _rucController.dispose();
+    _documentNumberController.dispose();
     _addressController.dispose();
-    _phoneController.dispose();
+    for (var controller in _phoneControllers) {
+      controller.dispose();
+    }
     _emailController.dispose();
     _representativeController.dispose();
     _currentPasswordController.dispose();
@@ -82,11 +91,19 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
       if (userDoc.exists) {
         final userData = userDoc.data() as Map<String, dynamic>;
 
+        // Cargar teléfonos
+        final phoneNumbers = (userData['phoneNumbers'] as List<dynamic>?) ?? [];
+        if (phoneNumbers.isNotEmpty) {
+          _phoneControllers = phoneNumbers
+              .map((phone) => TextEditingController(text: phone.toString()))
+              .toList();
+        }
+
         setState(() {
+          _isAgent = userData['isAgent'] ?? false;
           _companyNameController.text = userData['companyName'] ?? '';
-          _rucController.text = userData['ruc'] ?? '';
+          _documentNumberController.text = userData['documentNumber'] ?? '';
           _addressController.text = userData['address'] ?? '';
-          _phoneController.text = userData['phoneNumber'] ?? '';
           _emailController.text = userData['email'] ?? user.email ?? '';
           _representativeController.text = userData['representativeName'] ?? '';
           _photoUrl = userData['companyLogo'] ?? userData['photoURL'];
@@ -172,14 +189,22 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
         }
       }
 
+      // Recopilar teléfonos
+      final phones = _phoneControllers
+          .map((c) => c.text.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
+
       await FirebaseFirestore.instance.collection('users').doc(_userId).update({
         'companyName': _companyNameController.text.trim(),
         'displayName': _companyNameController.text.trim(),
-        'ruc': _rucController.text.trim(),
+        'documentNumber': _documentNumberController.text.trim(),
         'address': _addressController.text.trim(),
-        'phoneNumber': _phoneController.text.trim(),
+        'phoneNumbers': phones,
         'email': _emailController.text.trim(),
-        'representativeName': _representativeController.text.trim(),
+        'representativeName': _isAgent
+            ? null
+            : _representativeController.text.trim(),
       });
 
       await user.updateDisplayName(_companyNameController.text.trim());
@@ -352,20 +377,45 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
                                   hintText: 'Inmobiliaria ABC',
                                   prefixIcon: Icons.business_outlined,
                                 ),
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                                validator: (v) =>
+                                    v!.isEmpty ? 'Requerido' : null,
                               ),
                               SizedBox(height: Styles.spacingMedium),
 
-                              _buildLabel('RUC/NIT'),
+                              _buildLabel(
+                                _isAgent ? 'Número de CI' : 'Número de NIT',
+                              ),
                               SizedBox(height: Styles.spacingSmall),
                               TextFormField(
-                                controller: _rucController,
+                                controller: _documentNumberController,
                                 decoration: _buildInputDecoration(
-                                  hintText: 'Número de identificación',
+                                  hintText: _isAgent ? 'CI' : 'NIT',
                                   prefixIcon: Icons.badge_outlined,
                                 ),
                                 keyboardType: TextInputType.number,
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                                validator: (v) =>
+                                    v!.isEmpty ? 'Requerido' : null,
+                              ),
+                              SizedBox(height: Styles.spacingMedium),
+
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    _isAgent
+                                        ? 'Agente Inmobiliario'
+                                        : 'Inmobiliaria',
+                                    style: TextStyles.caption.copyWith(
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ),
                               SizedBox(height: Styles.spacingMedium),
 
@@ -377,34 +427,92 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
                                   hintText: 'Dirección de la oficina',
                                   prefixIcon: Icons.location_on_outlined,
                                 ),
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                                validator: (v) =>
+                                    v!.isEmpty ? 'Requerido' : null,
                               ),
                               SizedBox(height: Styles.spacingMedium),
 
-                              _buildLabel('Teléfono'),
-                              SizedBox(height: Styles.spacingSmall),
-                              TextFormField(
-                                controller: _phoneController,
-                                decoration: _buildInputDecoration(
-                                  hintText: '+591 XXXXXXXX',
-                                  prefixIcon: Icons.phone_outlined,
-                                ),
-                                keyboardType: TextInputType.phone,
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _buildLabel('Teléfonos'),
+                                  if (_phoneControllers.length < 5)
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        setState(() {
+                                          _phoneControllers.add(
+                                            TextEditingController(),
+                                          );
+                                        });
+                                      },
+                                      icon: Icon(Icons.add, size: 18),
+                                      label: Text('Agregar'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Styles.primaryColor,
+                                      ),
+                                    ),
+                                ],
                               ),
-                              SizedBox(height: Styles.spacingMedium),
+                              SizedBox(height: Styles.spacingSmall),
+                              ..._phoneControllers.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final controller = entry.value;
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: Styles.spacingMedium,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: controller,
+                                          decoration: _buildInputDecoration(
+                                            hintText: '+591 XXXXXXXX',
+                                            prefixIcon: Icons.phone_outlined,
+                                          ),
+                                          keyboardType: TextInputType.phone,
+                                          validator: (v) {
+                                            if (index == 0 && v!.isEmpty) {
+                                              return 'Al menos un teléfono es requerido';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      if (_phoneControllers.length > 1)
+                                        IconButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              controller.dispose();
+                                              _phoneControllers.removeAt(index);
+                                            });
+                                          },
+                                          icon: Icon(
+                                            Icons.remove_circle_outline,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              }),
 
-                              _buildLabel('Representante Legal'),
-                              SizedBox(height: Styles.spacingSmall),
-                              TextFormField(
-                                controller: _representativeController,
-                                decoration: _buildInputDecoration(
-                                  hintText: 'Nombre completo',
-                                  prefixIcon: Icons.person_outline,
+                              if (!_isAgent) ...[
+                                _buildLabel('Representante Legal'),
+                                SizedBox(height: Styles.spacingSmall),
+                                TextFormField(
+                                  controller: _representativeController,
+                                  decoration: _buildInputDecoration(
+                                    hintText: 'Nombre completo',
+                                    prefixIcon: Icons.person_outline,
+                                  ),
+                                  validator: (v) => !_isAgent && v!.isEmpty
+                                      ? 'Requerido'
+                                      : null,
                                 ),
-                                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                              ),
-                              SizedBox(height: Styles.spacingMedium),
+                                SizedBox(height: Styles.spacingMedium),
+                              ],
 
                               _buildLabel('Correo electrónico'),
                               SizedBox(height: Styles.spacingSmall),
@@ -415,8 +523,9 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
                                   prefixIcon: Icons.email_outlined,
                                 ),
                                 keyboardType: TextInputType.emailAddress,
-                                validator: (v) =>
-                                    !v!.contains('@') ? 'Correo inválido' : null,
+                                validator: (v) => !v!.contains('@')
+                                    ? 'Correo inválido'
+                                    : null,
                               ),
                               if (_emailController.text != _originalEmail)
                                 Padding(
@@ -437,7 +546,9 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
                               SizedBox(height: Styles.spacingLarge),
 
                               // Cambio de contraseña
-                              _buildSectionTitle('Cambiar Contraseña (Opcional)'),
+                              _buildSectionTitle(
+                                'Cambiar Contraseña (Opcional)',
+                              ),
                               SizedBox(height: Styles.spacingSmall),
                               Text(
                                 'Deja estos campos vacíos si no deseas cambiar tu contraseña',
@@ -495,7 +606,8 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
                                 obscureText: _obscureNewPassword,
                                 validator: (v) {
                                   if (v!.isEmpty) return null;
-                                  if (v.length < 6) return 'Mínimo 6 caracteres';
+                                  if (v.length < 6)
+                                    return 'Mínimo 6 caracteres';
                                   return null;
                                 },
                               ),
@@ -574,20 +686,20 @@ class _InmobiliariaEditProfileScreenState extends State<InmobiliariaEditProfileS
   }
 
   Widget _buildSectionTitle(String text) => Text(
-        text,
-        style: TextStyles.subtitle.copyWith(
-          fontWeight: FontWeight.bold,
-          color: Styles.textPrimary,
-        ),
-      );
+    text,
+    style: TextStyles.subtitle.copyWith(
+      fontWeight: FontWeight.bold,
+      color: Styles.textPrimary,
+    ),
+  );
 
   Widget _buildLabel(String text) => Text(
-        text,
-        style: TextStyles.body.copyWith(
-          fontWeight: FontWeight.w500,
-          color: Styles.textPrimary,
-        ),
-      );
+    text,
+    style: TextStyles.body.copyWith(
+      fontWeight: FontWeight.w500,
+      color: Styles.textPrimary,
+    ),
+  );
 
   InputDecoration _buildInputDecoration({
     required String hintText,

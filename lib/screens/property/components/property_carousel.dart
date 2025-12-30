@@ -12,6 +12,7 @@ class PropertyCarousel extends StatelessWidget {
   final Set<String> savedPropertyIds;
   final Function(Property) onFavoriteToggle;
   final Function(Property) onTap;
+  final Map<String, String>? companyLogos; // propertyId -> companyLogo
 
   const PropertyCarousel({
     super.key,
@@ -24,6 +25,7 @@ class PropertyCarousel extends StatelessWidget {
     required this.savedPropertyIds,
     required this.onFavoriteToggle,
     required this.onTap,
+    this.companyLogos,
   });
 
   @override
@@ -85,6 +87,7 @@ class PropertyCarousel extends StatelessWidget {
                   onFavoriteToggle: () => onFavoriteToggle(property),
                   onTap: () => onTap(property),
                   showGoldenBorder: true,
+                  companyLogo: companyLogos?[property.id],
                 ),
               );
             },
@@ -94,6 +97,4 @@ class PropertyCarousel extends StatelessWidget {
       ],
     );
   }
-
-
 }

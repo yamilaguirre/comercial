@@ -1036,14 +1036,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                // Quitamos el const aquí
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                // SI la pantalla es menor a 400px (móviles pequeños), usa 0.62 (más alto).
-                // SI es mayor, usa 0.68 (tu diseño original).
-                childAspectRatio: MediaQuery.of(context).size.width < 400
-                    ? 0.58
-                    : 0.62,
+                childAspectRatio: 0.82, // Mismo que los carruseles
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),

@@ -11,16 +11,33 @@ class SubscriptionService {
   // Get all active subscription plans
   Future<List<SubscriptionPlan>> getActivePlans() async {
     try {
+      print('🔍 Buscando planes activos...');
       final snapshot = await _firestore
           .collection('subscription_plans')
           .where('active', isEqualTo: true)
           .get();
 
-      return snapshot.docs
+      print('📦 Documentos encontrados: ${snapshot.docs.length}');
+
+      for (var doc in snapshot.docs) {
+        print('📄 Documento ID: ${doc.id}');
+        print('   Data: ${doc.data()}');
+      }
+
+      final plans = snapshot.docs
           .map((doc) => SubscriptionPlan.fromFirestore(doc))
           .toList();
+
+      print('✅ Planes parseados: ${plans.length}');
+      for (var plan in plans) {
+        print(
+          '   - ${plan.name}: ${plan.price} ${plan.currency} (${plan.duration})',
+        );
+      }
+
+      return plans;
     } catch (e) {
-      print('Error fetching active plans: $e');
+      print('❌ Error fetching active plans: $e');
       rethrow;
     }
   }

@@ -48,9 +48,11 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
           final companyName = data?['companyName'] ?? 'Empresa';
           final companyLogo = data?['companyLogo'];
-          final ruc = data?['ruc'] ?? 'N/A';
+          final isAgent = data?['isAgent'] ?? false;
+          final documentLabel = isAgent ? 'CI' : 'NIT';
+          final documentNumber = data?['documentNumber'] ?? 'N/A';
           final address = data?['address'] ?? 'N/A';
-          final phone = data?['phoneNumber'] ?? 'N/A';
+          final phoneNumbers = (data?['phoneNumbers'] as List<dynamic>?) ?? [];
           final email = data?['email'] ?? 'N/A';
           final representative = data?['representativeName'] ?? 'N/A';
 
@@ -86,7 +88,7 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'RUC: $ruc',
+                        isAgent ? 'Agente Inmobiliario' : 'Inmobiliaria',
                         style: TextStyles.body.copyWith(
                           color: Styles.textSecondary,
                         ),
@@ -96,10 +98,23 @@ class _InmobiliariaProfileScreenState extends State<InmobiliariaProfileScreen> {
                 ),
                 SizedBox(height: Styles.spacingMedium),
                 _buildInfoSection('Información de la Empresa', [
+                  _buildInfoTile(Icons.badge, documentLabel, documentNumber),
                   _buildInfoTile(Icons.location_on, 'Dirección', address),
-                  _buildInfoTile(Icons.phone, 'Teléfono', phone),
+                  ...phoneNumbers.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final phone = entry.value.toString();
+                    final label = phoneNumbers.length > 1
+                        ? 'Teléfono ${index + 1}'
+                        : 'Teléfono';
+                    return _buildInfoTile(Icons.phone, label, phone);
+                  }),
                   _buildInfoTile(Icons.email, 'Correo', email),
-                  _buildInfoTile(Icons.person, 'Representante', representative),
+                  if (!isAgent)
+                    _buildInfoTile(
+                      Icons.person,
+                      'Representante',
+                      representative,
+                    ),
                 ]),
                 SizedBox(height: Styles.spacingMedium),
                 _buildInfoSection('Configuración', [

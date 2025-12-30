@@ -43,6 +43,9 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
   final SavedListService _savedListService = SavedListService();
   final ScrollController _scrollController = ScrollController();
 
+  // Map para almacenar logos de inmobiliarias: propertyId -> companyLogo
+  final Map<String, String> _companyLogos = {};
+
   @override
   void initState() {
     super.initState();
@@ -218,6 +221,22 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
       print('DEBUG - premiumUserIds: $premiumUserIds');
       print('DEBUG - realEstateUserIds: $realEstateUserIds');
 
+      // Crear map de logos de inmobiliarias: userId -> companyLogo
+      final userLogos = <String, String>{};
+      for (var doc in allUsersSnapshot.docs) {
+        final userId = doc.id;
+        final data = doc.data();
+        final role = data['role']?.toString() ?? '';
+
+        // Solo guardar logos de inmobiliarias
+        if (role == 'inmobiliaria_empresa') {
+          final logo = data['companyLogo']?.toString() ?? '';
+          if (logo.isNotEmpty) {
+            userLogos[userId] = logo;
+          }
+        }
+      }
+
       if (currentUserId.isNotEmpty) {
         final snapshot = await query.get();
 
@@ -252,6 +271,11 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
             print(
               'DEBUG - Propiedad: ${property.name}, Owner: $ownerId, En Premium: ${premiumUserIds.contains(ownerId)}, En RealEstate: ${realEstateUserIds.contains(ownerId)}',
             );
+
+            // Almacenar el logo si el owner es inmobiliaria
+            if (userLogos.containsKey(ownerId)) {
+              _companyLogos[property.id] = userLogos[ownerId]!;
+            }
 
             // Primer IF: Verificar si el owner tiene subscriptionstatus.status = "active"
             if (premiumUserIds.contains(ownerId)) {
@@ -494,6 +518,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                   savedPropertyIds: _savedPropertyIds,
                                   onFavoriteToggle: _openCollectionDialog,
                                   onTap: _goToDetail,
+                                  companyLogos: _companyLogos,
                                 ),
 
                               // SECCIÓN: PROPIEDADES INMOBILIARIAS (SCROLL HORIZONTAL)
@@ -508,6 +533,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                   savedPropertyIds: _savedPropertyIds,
                                   onFavoriteToggle: _openCollectionDialog,
                                   onTap: _goToDetail,
+                                  companyLogos: _companyLogos,
                                 ),
 
                               // SECCIÓN: PROPIEDADES REGULARES (SCROLL VERTICAL INFINITO)
@@ -521,6 +547,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                   onTap: _goToDetail,
                                   hasMore: false,
                                   isLoading: false,
+                                  companyLogos: _companyLogos,
                                 ),
 
                               if (_filteredPremiumProperties.isEmpty &&

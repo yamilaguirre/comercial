@@ -7,6 +7,8 @@ import 'package:chaski_comercial/services/ad_service.dart';
 import '../../theme/theme.dart';
 // Importamos los nuevos componentes visuales
 import '../property/components/category_selector.dart';
+import '../property/components/property_carousel.dart';
+import '../property/components/property_vertical_list.dart';
 import '../property/components/compact_property_card.dart';
 import '../property/components/add_to_collection_dialog.dart';
 
@@ -42,6 +44,9 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
   final Set<String> _savedPropertyIds = {};
   final SavedListService _savedListService = SavedListService();
   final ScrollController _scrollController = ScrollController();
+
+  // Map para almacenar logos de inmobiliarias: propertyId -> companyLogo
+  final Map<String, String> _companyLogos = {};
 
   @override
   void initState() {
@@ -218,6 +223,22 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
       print('DEBUG - premiumUserIds: $premiumUserIds');
       print('DEBUG - realEstateUserIds: $realEstateUserIds');
 
+      // Crear map de logos de inmobiliarias: userId -> companyLogo
+      final userLogos = <String, String>{};
+      for (var doc in allUsersSnapshot.docs) {
+        final userId = doc.id;
+        final data = doc.data();
+        final role = data['role']?.toString() ?? '';
+
+        // Solo guardar logos de inmobiliarias
+        if (role == 'inmobiliaria_empresa') {
+          final logo = data['companyLogo']?.toString() ?? '';
+          if (logo.isNotEmpty) {
+            userLogos[userId] = logo;
+          }
+        }
+      }
+
       if (currentUserId.isNotEmpty) {
         final snapshot = await query.get();
 
@@ -252,6 +273,11 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
             print(
               'DEBUG - Propiedad: ${property.name}, Owner: $ownerId, En Premium: ${premiumUserIds.contains(ownerId)}, En RealEstate: ${realEstateUserIds.contains(ownerId)}',
             );
+
+            // Almacenar el logo si el owner es inmobiliaria
+            if (userLogos.containsKey(ownerId)) {
+              _companyLogos[property.id] = userLogos[ownerId]!;
+            }
 
             // Primer IF: Verificar si el owner tiene subscriptionstatus.status = "active"
             if (premiumUserIds.contains(ownerId)) {
@@ -501,26 +527,47 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
                             children: [
                               // SECCIÓN: PROPIEDADES PREMIUM (SCROLL HORIZONTAL)
                               if (_filteredPremiumProperties.isNotEmpty)
-                                _buildHorizontalPropertySection(
+                                PropertyCarousel(
                                   title: 'Propiedades Premium',
-                                  subtitle: 'Usuarios con suscripción activa',
                                   properties: _filteredPremiumProperties,
-                                  titleColor: Color(0xFFFF6F00),
+                                  primaryColor: const Color(0xFFFF6F00),
+                                  secondaryColor: const Color(0xFFFFC107),
+                                  badgeText: 'PREMIUM',
+                                  badgeIcon: Icons.star,
+                                  savedPropertyIds: _savedPropertyIds,
+                                  onFavoriteToggle: _openCollectionDialog,
+                                  onTap: _goToDetail,
+                                  companyLogos: _companyLogos,
                                 ),
 
                               // SECCIÓN: PROPIEDADES INMOBILIARIAS (SCROLL HORIZONTAL)
                               if (_filteredRealEstateProperties.isNotEmpty)
-                                _buildHorizontalPropertySection(
+                                PropertyCarousel(
                                   title: 'Propiedades de Inmobiliarias',
-                                  subtitle:
-                                      'Agentes inmobiliarios profesionales',
                                   properties: _filteredRealEstateProperties,
-                                  titleColor: Color(0xFF1976D2),
+                                  primaryColor: const Color(0xFF1976D2),
+                                  secondaryColor: const Color(0xFF42A5F5),
+                                  badgeText: 'INMOBILIARIA',
+                                  badgeIcon: Icons.business,
+                                  savedPropertyIds: _savedPropertyIds,
+                                  onFavoriteToggle: _openCollectionDialog,
+                                  onTap: _goToDetail,
+                                  companyLogos: _companyLogos,
                                 ),
 
-                              // SECCIÓN: PROPIEDADES REGULARES (SCROLL NORMAL)
+                              // SECCIÓN: PROPIEDADES REGULARES (SCROLL VERTICAL INFINITO)
                               if (_filteredRegularProperties.isNotEmpty)
-                                _buildRegularPropertiesSection(),
+                                PropertyVerticalList(
+                                  title: 'Todas las Propiedades',
+                                  properties: _filteredRegularProperties,
+                                  titleColor: const Color(0xFF2C3E50),
+                                  savedPropertyIds: _savedPropertyIds,
+                                  onFavoriteToggle: _openCollectionDialog,
+                                  onTap: _goToDetail,
+                                  hasMore: false,
+                                  isLoading: false,
+                                  companyLogos: _companyLogos,
+                                ),
 
                               if (_filteredPremiumProperties.isEmpty &&
                                   _filteredRealEstateProperties.isEmpty &&
@@ -567,322 +614,6 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
                 ),
               ],
             ),
-    );
-  }
-
-  /// Método helper para construir secciones con scroll horizontal
-  Widget _buildHorizontalPropertySection({
-    required String title,
-    required String subtitle,
-    required List<Property> properties,
-    required Color titleColor,
-  }) {
-    // Valores responsivos basados en el tamaño de pantalla
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    // Usar porcentajes en lugar de píxeles - OPTIMIZADO
-    final horizontalPadding = screenWidth * 0.03; // 3% del ancho
-    final titleFontSize = screenWidth * 0.045; // 4.5% del ancho (máx 20px)
-    final subtitleFontSize = screenWidth * 0.03; // 3% del ancho
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Título con icono y color distintivo
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: titleFontSize.clamp(16.0, 24.0),
-                  fontWeight: FontWeight.bold,
-                  color: titleColor,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              SizedBox(height: 6),
-              // Línea decorativa
-              Container(
-                height: 2.5,
-                width: screenWidth * 0.12,
-                decoration: BoxDecoration(
-                  color: titleColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8),
-        // Grid con 2 columnas - mismo que propiedades regulares
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: GridView.builder(
-            padding: EdgeInsets.zero, // Eliminar padding por defecto
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.88,
-              crossAxisSpacing: screenWidth * 0.025,
-              mainAxisSpacing: screenWidth * 0.025,
-            ),
-            itemCount: properties.length,
-            itemBuilder: (context, index) {
-              return CompactPropertyCard(
-                property: properties[index],
-                isFavorite: _savedPropertyIds.contains(properties[index].id),
-                onFavoriteToggle: () =>
-                    _openCollectionDialog(properties[index]),
-                onTap: () => _goToDetail(properties[index]),
-                showGoldenBorder: true,
-              );
-            },
-          ),
-        ),
-        SizedBox(height: screenWidth * 0.03),
-      ],
-    );
-  }
-
-  Widget _buildRegularPropertiesSection() {
-    // Valores responsivos basados en porcentajes - OPTIMIZADO
-    final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalPadding = screenWidth * 0.03; // 3% del ancho
-    final crossAxisSpacing = screenWidth * 0.025; // 2.5% del ancho
-    final mainAxisSpacing = screenWidth * 0.025; // 2.5% del ancho
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.88,
-          crossAxisSpacing: crossAxisSpacing,
-          mainAxisSpacing: mainAxisSpacing,
-        ),
-        itemCount: _filteredRegularProperties.length,
-        itemBuilder: (context, index) {
-          return CompactPropertyCard(
-            property: _filteredRegularProperties[index],
-            isFavorite: _savedPropertyIds.contains(
-              _filteredRegularProperties[index].id,
-            ),
-            onFavoriteToggle: () =>
-                _openCollectionDialog(_filteredRegularProperties[index]),
-            onTap: () => _goToDetail(_filteredRegularProperties[index]),
-            showGoldenBorder: false,
-          );
-        },
-      ),
-    );
-  }
-
-  /// Construir tarjeta de propiedad premium estilo trabajadores premium
-  Widget _buildPremiumPropertyCard(Property property) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    // Usar porcentajes en lugar de píxeles
-    final cardWidth = screenWidth * 0.45; // 45% del ancho de pantalla
-    final marginHorizontal = screenWidth * 0.015; // 1.5% del ancho
-    final marginVertical = screenHeight * 0.02; // 2% de altura
-    final imageHeight = screenHeight * 0.12; // 12% de la altura
-    final paddingSize = screenWidth * 0.03; // 3% del ancho
-    final nameFontSize = screenWidth * 0.03; // 3% del ancho
-
-    return Container(
-      width: cardWidth,
-      margin: EdgeInsets.symmetric(
-        horizontal: marginHorizontal,
-        vertical: marginVertical,
-      ),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFF6F00), // Vibrant Orange
-            Color(0xFFFFC107), // Vibrant Yellow
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0xFFFF6F00).withOpacity(0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Container(
-        margin: const EdgeInsets.all(2.5),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-        ),
-        child: Column(
-          children: [
-            // Imagen de la propiedad con overlay
-            GestureDetector(
-              onTap: () => _goToDetail(property),
-              child: Stack(
-                children: [
-                  Container(
-                    height: imageHeight,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(11),
-                      ),
-                      color: Colors.grey[200],
-                      image: property.imageUrl.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(property.imageUrl),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: property.imageUrl.isEmpty
-                        ? Center(
-                            child: Icon(
-                              Icons.image,
-                              size: 35,
-                              color: Colors.grey[400],
-                            ),
-                          )
-                        : null,
-                  ),
-                  // Overlay con gradiente
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(11),
-                        ),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.2),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Información de la propiedad
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.all(paddingSize),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Nombre y ubicación
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          property.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: nameFontSize.clamp(10.0, 14.0),
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF2C3E50),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              size: (screenWidth * 0.025).clamp(8.0, 12.0),
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 2),
-                            Expanded(
-                              child: Text(
-                                property.location,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: (screenWidth * 0.025).clamp(
-                                    8.0,
-                                    11.0,
-                                  ),
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    // Precio y botón favorito
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                property.price,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: (screenWidth * 0.028).clamp(
-                                    10.0,
-                                    13.0,
-                                  ),
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFFF6F00),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => _openCollectionDialog(property),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: _savedPropertyIds.contains(property.id)
-                                  ? Colors.red.withOpacity(0.15)
-                                  : Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Icon(
-                              _savedPropertyIds.contains(property.id)
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: _savedPropertyIds.contains(property.id)
-                                  ? Colors.red
-                                  : Colors.grey[600],
-                              size: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
