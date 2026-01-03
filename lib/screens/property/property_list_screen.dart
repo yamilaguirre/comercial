@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
@@ -405,8 +406,8 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                 Styles.spacingMedium,
                                 Styles.spacingSmall,
                               ),
-                              child: Image.asset(
-                                'assets/images/logoColor.png',
+                              child: SvgPicture.asset(
+                                'assets/images/LogoColor.svg',
                                 height: 40,
                                 fit: BoxFit.contain,
                               ),

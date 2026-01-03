@@ -1,6 +1,7 @@
 // filepath: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
@@ -200,8 +201,8 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 SizedBox(height: Styles.spacingXLarge),
                 Center(
-                  child: Image.asset(
-                    'assets/images/logoColor.png',
+                  child: SvgPicture.asset(
+                    'assets/images/LogoColor.svg',
                     height: 60,
                     fit: BoxFit.contain,
                   ),
@@ -216,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 SizedBox(height: Styles.spacingXLarge),
-                
+
                 // Tabs
                 Row(
                   children: [
