@@ -425,7 +425,7 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
                                 Styles.spacingSmall,
                               ),
                               child: Image.asset(
-                                'assets/images/logoColor.png',
+                                'assets/images/LogoColor.png',
                                 height: 40,
                                 fit: BoxFit.contain,
                               ),

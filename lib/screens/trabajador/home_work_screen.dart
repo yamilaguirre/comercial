@@ -252,7 +252,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       child: Column(
         children: [
           // Logo
-          Image.asset('assets/images/logoColor.png', height: 50),
+          Image.asset('assets/images/LogoColor.png', height: 50),
           const SizedBox(height: 16),
 
           // Barra de búsqueda

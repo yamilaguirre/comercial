@@ -287,7 +287,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                 const SizedBox(height: 40),
                 Center(
                   child: Image.asset(
-                    'assets/images/logoColor.png',
+                    'assets/images/LogoColor.png',
                     height: 70,
                     fit: BoxFit.contain,
                   ),
