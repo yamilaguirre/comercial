@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -253,7 +252,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       child: Column(
         children: [
           // Logo
-          SvgPicture.asset('assets/images/LogoColor.svg', height: 50),
+          Image.asset('assets/images/logoColor.png', height: 50),
           const SizedBox(height: 16),
 
           // Barra de búsqueda

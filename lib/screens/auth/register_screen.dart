@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/theme.dart';
 
 // Esta pantalla ahora solo es el punto de entrada para el registro/login
@@ -26,8 +25,8 @@ class RegisterScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
-                child: SvgPicture.asset(
-                  'assets/images/LogoColor.svg',
+                child: Image.asset(
+                  'assets/images/logoColor.png',
                   height: 60,
                   fit: BoxFit.contain,
                 ),

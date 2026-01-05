@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
@@ -425,8 +424,8 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
                                 Styles.spacingMedium,
                                 Styles.spacingSmall,
                               ),
-                              child: SvgPicture.asset(
-                                'assets/images/LogoColor.svg',
+                              child: Image.asset(
+                                'assets/images/logoColor.png',
                                 height: 40,
                                 fit: BoxFit.contain,
                               ),

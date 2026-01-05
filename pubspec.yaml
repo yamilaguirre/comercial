@@ -35,7 +35,6 @@ dependencies:
   flutter_image_compress: ^2.1.0 # Para comprimir imágenes
   video_compress: ^3.1.3 # Para comprimir videos
   video_player: ^2.8.2 # Para reproducir videos
-  flutter_svg: ^2.0.10+1
 
   flutter_map: ^7.0.0 # O la versión más reciente compatible
   latlong2: ^0.9.1
