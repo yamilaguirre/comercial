@@ -17,9 +17,9 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
-  
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   bool _isLoading = false;
   bool _codeSent = false;
   String _verificationId = '';
@@ -107,78 +107,84 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
 
       if (user != null && mounted) {
         final phoneWithCode = '+591${_phoneController.text.trim()}';
-        
-        print('🔍 [LOGIN] Usuario autenticado - UID: ${user.uid}, Phone: ${user.phoneNumber}');
-        
+
+        print(
+          '🔍 [LOGIN] Usuario autenticado - UID: ${user.uid}, Phone: ${user.phoneNumber}',
+        );
+
         // PASO 1: Buscar si ya existe un documento con este número de teléfono
         final existingUserQuery = await FirebaseFirestore.instance
             .collection('users')
             .where('phoneNumber', isEqualTo: phoneWithCode)
             .limit(1)
             .get();
-        
+
         bool isNewUser = true;
         Map<String, dynamic>? existingData;
         String? oldUid;
-        
+
         if (existingUserQuery.docs.isNotEmpty) {
           // Ya existe un usuario con este número de teléfono
           final existingDoc = existingUserQuery.docs.first;
           oldUid = existingDoc.id;
           existingData = existingDoc.data();
           isNewUser = false;
-          
-          print('⚠️ [LOGIN] Usuario existente encontrado con UID antiguo: $oldUid');
+
+          print(
+            '⚠️ [LOGIN] Usuario existente encontrado con UID antiguo: $oldUid',
+          );
           print('🔍 [LOGIN] UID nuevo de Auth: ${user.uid}');
-          
+
           // Si el UID es diferente, actualizar el documento al nuevo UID
           if (oldUid != user.uid) {
             print('🔄 [LOGIN] Migrando documento de $oldUid a ${user.uid}...');
-            
+
             // Copiar todos los datos al nuevo UID
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(user.uid)
                 .set({
-              ...existingData,
-              'uid': user.uid, // Actualizar el UID
-              'lastLogin': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-              'phoneNumber': phoneWithCode,
-            });
-            
+                  ...existingData,
+                  'uid': user.uid, // Actualizar el UID
+                  'lastLogin': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'phoneNumber': phoneWithCode,
+                });
+
             // Migrar documento de premium_users si existe
             try {
               final premiumDoc = await FirebaseFirestore.instance
                   .collection('premium_users')
                   .doc(oldUid)
                   .get();
-              
+
               if (premiumDoc.exists) {
-                print('🔄 [LOGIN] Migrando premium_users de $oldUid a ${user.uid}...');
-                
+                print(
+                  '🔄 [LOGIN] Migrando premium_users de $oldUid a ${user.uid}...',
+                );
+
                 // Copiar documento premium al nuevo UID
                 await FirebaseFirestore.instance
                     .collection('premium_users')
                     .doc(user.uid)
                     .set({
-                  ...premiumDoc.data()!,
-                  'userId': user.uid, // Actualizar el userId si existe
-                  'updatedAt': FieldValue.serverTimestamp(),
-                });
-                
+                      ...premiumDoc.data()!,
+                      'userId': user.uid, // Actualizar el userId si existe
+                      'updatedAt': FieldValue.serverTimestamp(),
+                    });
+
                 // Eliminar documento premium antiguo
                 await FirebaseFirestore.instance
                     .collection('premium_users')
                     .doc(oldUid)
                     .delete();
-                
+
                 print('✅ [LOGIN] premium_users migrado exitosamente');
               }
             } catch (e) {
               print('⚠️ [LOGIN] Error migrando premium_users: $e');
             }
-            
+
             // Eliminar el documento viejo de users
             try {
               await FirebaseFirestore.instance
@@ -189,7 +195,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
             } catch (e) {
               print('⚠️ [LOGIN] No se pudo eliminar documento antiguo: $e');
             }
-            
+
             print('✅ [LOGIN] Migración completada a UID=${user.uid}');
           } else {
             // Mismo UID, solo actualizar
@@ -197,11 +203,11 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                 .collection('users')
                 .doc(user.uid)
                 .set({
-              'lastLogin': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-              'phoneNumber': phoneWithCode,
-            }, SetOptions(merge: true));
-            
+                  'lastLogin': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'phoneNumber': phoneWithCode,
+                }, SetOptions(merge: true));
+
             print('✅ [LOGIN] Documento ACTUALIZADO para UID=${user.uid}');
           }
         } else {
@@ -210,17 +216,17 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
               .collection('users')
               .doc(user.uid)
               .set({
-            'uid': user.uid,
-            'phoneNumber': phoneWithCode,
-            'role': 'indefinido',
-            'status': 'indefinido',
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-            'lastLogin': FieldValue.serverTimestamp(),
-            'isActive': true,
-            'needsProfileCompletion': true,
-          });
-          
+                'uid': user.uid,
+                'phoneNumber': phoneWithCode,
+                'role': 'indefinido',
+                'status': 'indefinido',
+                'createdAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+                'lastLogin': FieldValue.serverTimestamp(),
+                'isActive': true,
+                'needsProfileCompletion': true,
+              });
+
           print('✅ [LOGIN] Documento CREADO en Firestore para UID=${user.uid}');
         }
 
@@ -231,24 +237,27 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
           await _auth.signOut();
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Esta es una cuenta de empresa. Usa el portal inmobiliario';
+            _errorMessage =
+                'Esta es una cuenta de empresa. Usa el portal inmobiliario';
           });
           return;
         }
 
         print('✅ Login exitoso: UID=${user.uid}, navegando a /select-role');
-        
+
         // Si es un nuevo usuario, informarle que debe completar su perfil
         if (isNewUser && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('¡Bienvenido! Completa tu perfil después de seleccionar tu rol'),
+              content: Text(
+                '¡Bienvenido! Completa tu perfil después de seleccionar tu rol',
+              ),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
             ),
           );
         }
-        
+
         // Login exitoso
         if (mounted) {
           Modular.to.navigate('/select-role');
@@ -278,7 +287,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                 const SizedBox(height: 40),
                 Center(
                   child: Image.asset(
-                    'assets/images/logoColor.png',
+                    'assets/images/LogoColor.png',
                     height: 70,
                     fit: BoxFit.contain,
                   ),
@@ -293,7 +302,7 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                
+
                 // Tabs
                 Row(
                   children: [
@@ -360,7 +369,10 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
                         decoration: BoxDecoration(
                           border: Border.all(color: const Color(0xFFE0E0E0)),
                           borderRadius: BorderRadius.circular(8),
@@ -381,7 +393,10 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Center(
-                                    child: Text('🇧🇴', style: TextStyle(fontSize: 16)),
+                                    child: Text(
+                                      '🇧🇴',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
                                   ),
                                 );
                               },
@@ -403,11 +418,15 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE0E0E0),
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE0E0E0),
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -452,7 +471,9 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -521,7 +542,9 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -550,12 +573,17 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      Modular.to.navigate('/register-form', arguments: 'cliente');
+                      Modular.to.navigate(
+                        '/register-form',
+                        arguments: 'cliente',
+                      );
                     },
                     child: RichText(
                       text: TextSpan(
                         text: "No tienes una cuenta? ",
-                        style: TextStyles.body.copyWith(color: Styles.textSecondary),
+                        style: TextStyles.body.copyWith(
+                          color: Styles.textSecondary,
+                        ),
                         children: [
                           TextSpan(
                             text: 'Regístrate',

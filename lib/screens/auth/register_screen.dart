@@ -26,7 +26,7 @@ class RegisterScreen extends StatelessWidget {
             children: [
               Center(
                 child: Image.asset(
-                  'assets/images/logoColor.png',
+                  'assets/images/LogoColor.png',
                   height: 60,
                   fit: BoxFit.contain,
                 ),
