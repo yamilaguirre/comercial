@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/theme.dart';
 
@@ -286,10 +287,9 @@ class _LoginScreenPhoneState extends State<LoginScreenPhone> {
               children: [
                 const SizedBox(height: 40),
                 Center(
-                  child: Image.asset(
-                    'assets/images/LogoColor.png',
+                  child: SvgPicture.asset(
+                    'assets/images/Logo P2.svg',
                     height: 70,
-                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(height: 48),
