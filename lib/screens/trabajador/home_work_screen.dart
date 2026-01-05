@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:flutter_modular/flutter_modular.dart'
     hide ModularWatchExtension;
@@ -226,7 +227,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
             // Botón flotante para cambiar de módulo
             Positioned(
               // place the button above the bottom navigation bar
-              bottom: kBottomNavigationBarHeight + 16,
+              bottom: 8,
               right: 16,
               child: _buildModuleSwitchButton(),
             ),
@@ -252,7 +253,9 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
       child: Column(
         children: [
           // Logo
-          Image.asset('assets/images/logoColor.png', height: 50),
+          Center(
+            child: SvgPicture.asset('assets/images/Logo P2.svg', height: 70),
+          ),
           const SizedBox(height: 16),
 
           // Barra de búsqueda

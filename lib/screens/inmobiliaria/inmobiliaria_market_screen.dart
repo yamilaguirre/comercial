@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/theme.dart';
 // Importamos los nuevos componentes visuales
 import '../property/components/category_selector.dart';
@@ -424,10 +425,11 @@ class _InmobiliariaMarketScreenState extends State<InmobiliariaMarketScreen> {
                                 Styles.spacingMedium,
                                 Styles.spacingSmall,
                               ),
-                              child: Image.asset(
-                                'assets/images/logoColor.png',
-                                height: 40,
-                                fit: BoxFit.contain,
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/images/Logo P2.svg',
+                                  height: 70,
+                                ),
                               ),
                             ),
 

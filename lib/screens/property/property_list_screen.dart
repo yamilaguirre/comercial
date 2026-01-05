@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:chaski_comercial/services/ad_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../components/promotional_overlay.dart';
 import '../../theme/theme.dart';
 import 'components/category_selector.dart';
@@ -196,30 +197,20 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
             ? data['subscriptionStatus']['status']?.toString() ?? ''
             : '';
 
-        print('DEBUG - Usuario: $userId, Rol: $role, SubStatus: $subStatus');
-
         // Primer IF: Verificar si el usuario tiene subscripción activa
         if (subStatus == 'active') {
           // Segundo IF: Dentro de los usuarios con suscripción activa
           if (role == 'inmobiliaria_empresa') {
             // Si es inmobiliaria empresa, agregarlo a realEstateUserIds
             realEstateUserIds.add(userId);
-            print(
-              'DEBUG - $userId agregado a REAL ESTATE (inmobiliaria_empresa)',
-            );
           } else {
             // Si tiene suscripción activa pero NO es inmobiliaria_empresa, es usuario premium
             premiumUserIds.add(userId);
-            print('DEBUG - $userId agregado a PREMIUM (suscripción activa)');
           }
         } else {
           // Usuarios sin subscripción activa permanecen en regular
-          print('DEBUG - $userId sin suscripción activa (REGULAR)');
         }
       }
-
-      print('DEBUG - premiumUserIds: $premiumUserIds');
-      print('DEBUG - realEstateUserIds: $realEstateUserIds');
 
       // Crear map de logos de inmobiliarias: userId -> companyLogo
       final userLogos = <String, String>{};
@@ -268,10 +259,6 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
 
           // Clasificar propiedades por tipo de usuario dueño
           if (ownerId != null) {
-            print(
-              'DEBUG - Propiedad: ${property.name}, Owner: $ownerId, En Premium: ${premiumUserIds.contains(ownerId)}, En RealEstate: ${realEstateUserIds.contains(ownerId)}',
-            );
-
             // Almacenar el logo si el owner es inmobiliaria
             if (userLogos.containsKey(ownerId)) {
               _companyLogos[property.id] = userLogos[ownerId]!;
@@ -282,15 +269,12 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
               // Si tiene subscripción activa, verificar su rol
               // Este es un usuario premium (no es inmobiliaria)
               tempPremium.add(property);
-              print('DEBUG - Agregado a PREMIUM');
             } else if (realEstateUserIds.contains(ownerId)) {
               // Si está en realEstateUserIds, es una inmobiliaria
               tempRealEstate.add(property);
-              print('DEBUG - Agregado a REAL ESTATE');
             } else {
               // Usuarios sin subscripción activa
               tempRegular.add(property);
-              print('DEBUG - Agregado a REGULAR');
             }
           } else {
             tempRegular.add(property);
@@ -405,10 +389,11 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                 Styles.spacingMedium,
                                 Styles.spacingSmall,
                               ),
-                              child: Image.asset(
-                                'assets/images/logoColor.png',
-                                height: 40,
-                                fit: BoxFit.contain,
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/images/Logo P2.svg',
+                                  height: 70,
+                                ),
                               ),
                             ),
 
@@ -592,16 +577,16 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                       ),
                     ),
                   ],
-                ), // Promotional Banner Overlay
-                const PromotionalOverlay(), // Botón flotante para cambiar de módulo
-                Positioned(
-                  // place the button above the bottom navigation bar
-                  bottom: kBottomNavigationBarHeight + 16,
-                  right: 16,
-                  child: _buildModuleSwitchButton(),
                 ),
                 // Promotional Banner Overlay
                 const PromotionalOverlay(),
+                // Botón flotante para cambiar de módulo
+                Positioned(
+                  // place the button above the bottom navigation bar
+                  bottom: 8,
+                  right: 16,
+                  child: _buildModuleSwitchButton(),
+                ),
               ],
             ),
     );
@@ -712,7 +697,7 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
       // Navegar al módulo de trabajadores (pantalla principal)
       Modular.to.navigate('/worker/home-worker');
     } catch (e) {
-      debugPrint('Error al cambiar de módulo: $e');
+      // Error al cambiar de módulo
     }
   }
 

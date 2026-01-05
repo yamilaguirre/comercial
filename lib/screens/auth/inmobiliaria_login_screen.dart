@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/theme.dart';
 
 class InmobiliariaLoginScreen extends StatefulWidget {
@@ -151,10 +152,9 @@ class _InmobiliariaLoginScreenState extends State<InmobiliariaLoginScreen> {
                 children: [
                   SizedBox(height: Styles.spacingXLarge),
                   Center(
-                    child: Icon(
-                      Icons.business,
-                      size: 80,
-                      color: Styles.primaryColor,
+                    child: SvgPicture.asset(
+                      'assets/images/Logo P2.svg',
+                      height: 70,
                     ),
                   ),
                   SizedBox(height: Styles.spacingLarge),
