@@ -18,6 +18,7 @@ import '../../core/utils/property_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chat_service.dart';
 import '../../services/saved_list_service.dart';
+import '../../services/yaaps_service.dart';
 import '../../providers/mobiliaria_provider.dart';
 
 import 'components/detail_feature_item.dart';
@@ -1023,6 +1024,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
             ),
             const SizedBox(height: 12),
             _buildMapSection(), // Se mantiene aquí
+            const SizedBox(height: 16),
+            _buildInterconnectivitySection(),
             const SizedBox(height: 24),
           ],
           if (_similarProperties.isNotEmpty) ...[
@@ -1388,6 +1391,73 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen>
           ],
         ),
       ),
+    );
+  }
+
+  // --- SECCIÓN DE INTERCONECTIVIDAD (YaAps) ---
+  Widget _buildInterconnectivitySection() {
+    if (_property?.geopoint == null) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        // Botón Mudarme (Primario/Prominente)
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => YaApsService.abrirYaAps(
+              esMudanza: true,
+              lat: _property!.latitude,
+              lng: _property!.longitude,
+              address: _property!.location,
+            ),
+            icon: const Icon(Icons.local_shipping, color: Colors.white),
+            label: const Text(
+              'MUDARME AL LUGAR',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.1,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Styles.accentColor, // Naranja para prominencia
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Styles.radiusLarge),
+              ),
+              elevation: 4,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Botón Visitar (Secundario)
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => YaApsService.abrirYaAps(
+              esMudanza: false,
+              lat: _property!.latitude,
+              lng: _property!.longitude,
+              address: _property!.location,
+            ),
+            icon: Icon(Icons.local_taxi, color: Styles.primaryColor),
+            label: Text(
+              'VISITAR LUGAR (PEDIR TAXI)',
+              style: TextStyle(
+                color: Styles.primaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              side: BorderSide(color: Styles.primaryColor, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Styles.radiusLarge),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

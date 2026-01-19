@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -25,6 +28,12 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    val keystoreProperties = Properties()
+    val keystorePropertiesFile = rootProject.file("key.properties")
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -45,25 +54,20 @@ android {
         versionName = flutter.versionName
     }
 
-    // HE COMENTADO ESTO PARA QUE NO TE PIDA LA LLAVE QUE FALTA
-    /*
     signingConfigs {
         create("release") {
-            storeFile = file(project.property("storeFile") as String)
-            storePassword = project.property("storePassword") as String
-            keyAlias = project.property("keyAlias") as String
-            keyPassword = project.property("keyPassword") as String
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { project.file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
         }
     }
-    */
 
     buildTypes {
         release {
-            // CAMBIO IMPORTANTE: Usamos la firma 'debug' temporalmente para poder generar el APK
-            signingConfig = signingConfigs.getByName("debug")
+            // Usamos la configuración de firma oficial para el lanzamiento
+            signingConfig = signingConfigs.getByName("release")
             
-            // Estas opciones ayudan a optimizar, pero a veces causan errores si no están configuradas. 
-            // Las dejamos en false por seguridad ahora.
             isMinifyEnabled = false
             isShrinkResources = false
         }
