@@ -193,7 +193,11 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _fetchUserRole(String uid) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
+      // Intentar obtener del servidor para asegurar datos frescos si es posible, si no, usar caché
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get(const GetOptions(source: Source.serverAndCache));
       // Si el rol ya está en la DB, lo usamos. Si no, o si está 'indefinido', usamos ROLE_PENDING.
       _userRole = doc.data()?['role'] ?? ROLE_PENDING;
 
@@ -305,10 +309,7 @@ class AuthService extends ChangeNotifier {
 
       if (user != null) {
         await user.reload();
-        user = _auth.currentUser;
-
         try {
-          await _saveUserToFirestore(user!);
           await _fetchUserRole(user.uid);
         } catch (e) {
           if (kDebugMode)
@@ -355,10 +356,7 @@ class AuthService extends ChangeNotifier {
 
       if (user != null) {
         await user.reload();
-        user = _auth.currentUser;
-
         try {
-          await _saveUserToFirestore(user!);
           await _fetchUserRole(user.uid);
         } catch (e) {
           if (kDebugMode)
@@ -417,6 +415,10 @@ class AuthService extends ChangeNotifier {
       if (extraData != null) {
         data.addAll(extraData);
       }
+
+      // Eliminar campos obsoletos si vienen en extraData por error
+      data.remove('referenceNumber');
+      data.remove('photoUrl');
 
       await docRef.set(data, SetOptions(merge: true));
     } catch (e) {

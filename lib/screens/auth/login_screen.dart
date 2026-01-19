@@ -1,6 +1,7 @@
 // filepath: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/auth_provider.dart';
@@ -13,175 +14,227 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  // CLAVE: Se añade una clave para gestionar el estado del formulario
-  final _formKey = GlobalKey<FormState>();
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
 
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  // ERROR STATE: Variable para mostrar el error específico de la contraseña/credenciales
-  String? _passwordError;
-
-  // Obtenemos la instancia del AuthService inyectada por Modular
   final AuthService _authService = Modular.get<AuthService>();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Escucha el estado de carga y errores
-  bool get _isLoading => _authService.isLoading;
+  bool _isLoading = false;
+  bool _codeSent = false;
+  String? _errorMessage;
+  String _verificationId = '';
 
   @override
   void initState() {
     super.initState();
-    // Añadimos un listener para reconstruir el widget en cambios (ej. isLoading)
+    _tabController = TabController(length: 2, vsync: this);
     _authService.addListener(_onAuthServiceChanged);
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _authService.removeListener(_onAuthServiceChanged);
-    _emailController.dispose();
-    _passwordController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
   void _onAuthServiceChanged() {
-    if (mounted) {
-      // Reconstruye el widget para actualizar el estado (ej. botón de loading)
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
-  void _handleLogin() async {
-    // 1. Limpiar el error anterior
-    setState(() {
-      _passwordError = null;
-    });
+  void _handleExistenceCheck(User user) async {
+    // CHEQUEO DE EXISTENCIA: Forzar servidor para evitar caché persistente de perfiles borrados
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get(const GetOptions(source: Source.server));
 
-    // 2. Usar el Form Key para validar los campos
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (doc.exists) {
+      final userData = doc.data();
+      final role = userData?['role'] ?? 'indefinido';
 
-    try {
-      final user = await _authService.signInWithEmailPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+      if (role == 'indefinido') {
+        print(
+          '🚀 [FUNNEL] Usuario con perfil incompleto, redirigiendo a registro...',
+        );
+        _redirectToRegister(user);
+        return;
+      }
+
+      if (role == 'inmobiliaria_empresa') {
+        await _authService.signOut();
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'Esta es una cuenta de empresa. Usa el portal inmobiliario';
+        });
+        return;
+      }
+      Modular.to.navigate('/select-role');
+    } else {
+      // --- NUEVA LÓGICA ESTRICTA ---
+      // Si es un usuario nuevo detectado en el LOGIN, no lo dejamos pasar.
+      // Debe registrarse explícitamente por el botón de Registro.
+      print(
+        '🚀 [FUNNEL] Intento de login de usuario nuevo con Google. BLOQUEANDO.',
       );
 
-      if (user != null && mounted) {
-        // Verificar que no sea empresa o agente inmobiliario
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+      // 1. Cerrar sesión inmediatamente
+      await _authService.signOut();
 
-        final role = userDoc.data()?['role'];
-
-        // Bloquear si es empresa inmobiliaria
-        if (role == 'inmobiliaria_empresa') {
-          await _authService.signOut();
-          setState(() {
-            _passwordError =
-                'Esta es una cuenta de empresa. Usa el portal inmobiliario';
-          });
-          return;
-        }
-
-        Future.microtask(() {
-          // Redirección inmediata a /select-role
-          Modular.to.navigate('/select-role');
-        });
-      } else if (mounted) {
-        // Mensajes específicos según el error del AuthService
-        final error = _authService.errorMessage ?? '';
-        setState(() {
-          if (error.contains('Usuario no encontrado')) {
-            _passwordError = 'No existe una cuenta con este correo';
-          } else if (error.contains('Contraseña incorrecta')) {
-            _passwordError = 'La contraseña es incorrecta';
-          } else if (error.contains('Correo inválido')) {
-            _passwordError = 'El formato del correo no es válido';
-          } else if (error.contains('red')) {
-            _passwordError = 'Sin conexión a internet. Verifica tu red';
-          } else {
-            _passwordError = 'Correo o contraseña incorrectos';
-          }
-        });
-      }
-    } catch (e) {
+      // 2. Notificar al usuario
       if (mounted) {
         setState(() {
-          _passwordError = 'No se pudo iniciar sesión. Intenta nuevamente';
+          _isLoading = false;
+          _errorMessage =
+              'No tienes una cuenta creada. Por favor, ve a "Crear una cuenta nueva" primero.';
         });
-      }
-    }
-  }
 
-  void _handleGoogleLogin() async {
-    // Limpiar errores visuales al intentar con Google
-    setState(() {
-      _passwordError = null;
-    });
-
-    try {
-      final user = await _authService.signInWithGoogle();
-
-      if (user != null && mounted) {
-        Future.microtask(() {
-          Modular.to.navigate('/select-role');
-        });
-      } else if (mounted) {
-        if (_authService.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo iniciar sesión con Google'),
-              backgroundColor: Styles.errorColor,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo iniciar sesión con Google'),
+            content: Text(
+              'No tienes una cuenta. Por favor, regístrate primero.',
+            ),
             backgroundColor: Styles.errorColor,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     }
   }
 
-  void _goToRegister() {
-    Modular.to.navigate('/register-form', arguments: 'cliente');
-  }
-
-  // --- WIDGETS DE CONSTRUCCIÓN ---
-
-  Widget _buildSocialButtonWithImage(String imagePath, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Image.asset(
-            imagePath,
-            width: 28,
-            height: 28,
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
+  void _redirectToRegister(User user) {
+    Modular.to.navigate(
+      '/register-form',
+      arguments: {'userType': 'cliente', 'prefilledUser': user},
     );
   }
 
-  // --- BUILD ---
+  // --- Lógica de Google ---
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final user = await _authService.signInWithGoogle();
+      if (user != null && mounted) {
+        // CHEQUEO DE EXISTENCIA: Forzar servidor para evitar caché persistente de perfiles borrados
+        // This check is now integrated into _handleExistenceCheck
+        _handleExistenceCheck(user);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error al iniciar sesión con Google';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- Lógica de Teléfono ---
+  Future<void> _sendOTP() async {
+    final phoneText = _phoneController.text.trim();
+    if (phoneText.length < 8) {
+      setState(() => _errorMessage = 'Número inválido');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final phone = '+591$phoneText';
+
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phone,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _signInWithPhoneCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() {
+            _isLoading = false;
+            if (e.code == 'too-many-requests' ||
+                e.message?.contains('39') == true) {
+              _errorMessage =
+                  'Problemas con SMS en tu región. Por favor, usa Google.';
+            } else {
+              _errorMessage = 'Error: ${e.message}';
+            }
+          });
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _codeSent = true;
+            _isLoading = false;
+          });
+        },
+        codeAutoRetrievalTimeout: (String vId) => _verificationId = vId,
+        timeout: const Duration(seconds: 60),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Hubo un problema al enviar el código.';
+      });
+    }
+  }
+
+  Future<void> _verifyOTP() async {
+    if (_otpController.text.length < 6) {
+      setState(() => _errorMessage = 'Ingresa el código de 6 dígitos');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId,
+        smsCode: _otpController.text.trim(),
+      );
+      await _signInWithPhoneCredential(credential);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Código incorrecto o expirado.';
+      });
+    }
+  }
+
+  Future<void> _signInWithPhoneCredential(
+    PhoneAuthCredential credential,
+  ) async {
+    try {
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null && mounted) {
+        _handleExistenceCheck(user);
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error al autenticar con el teléfono.';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,324 +242,302 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: Styles.spacingLarge,
-            vertical: Styles.spacingXLarge,
-          ),
-          child: Form(
-            // CLAVE: Usamos el Form widget
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: Styles.spacingXLarge),
-                Center(
-                  child: SvgPicture.asset(
-                    'assets/images/Logo P2.svg',
-                    height: 70,
-                  ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              Center(
+                child: Image.asset(
+                  'assets/images/logo_blue.png',
+                  height: 100,
+                  errorBuilder: (_, __, ___) =>
+                      SvgPicture.asset('assets/images/Logo P2.svg', height: 60),
                 ),
-                SizedBox(height: Styles.spacingXLarge * 1.5),
-                Text(
-                  'Iniciar Sesión',
-                  style: TextStyles.title.copyWith(
-                    fontSize: 24,
-                    color: Styles.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+              const SizedBox(height: 40),
+              Text(
+                'Iniciar Sesión',
+                textAlign: TextAlign.center,
+                style: TextStyles.title.copyWith(
+                  fontSize: 26,
+                  color: Styles.textPrimary,
+                  fontWeight: FontWeight.bold,
                 ),
-                SizedBox(height: Styles.spacingXLarge),
+              ),
+              const SizedBox(height: 32),
 
-                // Tabs
-                Row(
+              // TABS UI
+              TabBar(
+                controller: _tabController,
+                indicatorColor: Styles.primaryColor,
+                labelColor: Styles.primaryColor,
+                unselectedLabelColor: Colors.grey[400],
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                tabs: const [
+                  Tab(text: 'Con Google'),
+                  Tab(text: 'Con Teléfono'),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              SizedBox(
+                height: 280, // Adjusted height to accommodate content
+                child: TabBarView(
+                  controller: _tabController,
                   children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Styles.primaryColor,
-                              width: 2,
+                    // Google Tab
+                    Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _handleGoogleLogin,
+                          icon: Image.asset(
+                            'assets/images/google.png',
+                            height: 24,
+                          ),
+                          label: const Text(
+                            'Continuar con Google',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Styles.textPrimary,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 24,
+                            ),
+                            side: BorderSide(color: Colors.grey[300]!),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
-                        child: Text(
-                          'Con Email',
+                        const SizedBox(height: 20),
+                        Text(
+                          'Rápido, fácil y seguro con tu cuenta de Google.',
                           textAlign: TextAlign.center,
-                          style: TextStyles.body.copyWith(
-                            color: Styles.primaryColor,
-                            fontWeight: FontWeight.w600,
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 13,
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          Modular.to.navigate('/login-phone');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.grey[300]!,
-                                width: 2,
+
+                    // Phone Tab
+                    Column(
+                      children: [
+                        if (!_codeSent) ...[
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: const Color(0xFFE0E0E0),
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.grey[50],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Image.asset(
+                                      'assets/images/icon/bolivia_flag.png',
+                                      width: 24,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Text('🇧🇴'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      '+591',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: InputDecoration(
+                                    hintText: 'Número de Teléfono',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFE0E0E0),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _sendOTP,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Styles.primaryColor,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white,
+                                    )
+                                  : const Text(
+                                      'Verificar Número',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ] else ...[
+                          TextFormField(
+                            controller: _otpController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              letterSpacing: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '000000',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                           ),
-                          child: Text(
-                            'Con Teléfono',
-                            textAlign: TextAlign.center,
-                            style: TextStyles.body.copyWith(
-                              color: Colors.grey[600],
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _verifyOTP,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Styles.primaryColor,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Confirmar Código',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                          TextButton(
+                            onPressed: () => setState(() => _codeSent = false),
+                            child: const Text('Cambiar número'),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
-                SizedBox(height: Styles.spacingXLarge),
-                Text(
-                  'Correo',
-                  style: TextStyles.body.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Styles.textPrimary,
-                  ),
-                ),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  // Validación de campo requerido
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'El correo es requerido.';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Ingrese un correo válido.';
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'ejemplo@email.com',
-                    hintStyle: const TextStyle(
-                      color: Color(0xFFD9D9D9),
-                      fontSize: 14,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0),
-                        width: 1,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0),
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Styles.primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: Styles.spacingMedium,
-                      vertical: Styles.spacingMedium,
-                    ),
-                  ),
-                ),
-                SizedBox(height: Styles.spacingLarge),
-                Text(
-                  'Contraseña',
-                  style: TextStyles.body.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Styles.textPrimary,
-                  ),
-                ),
-                SizedBox(height: Styles.spacingSmall),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  // Validación de campo requerido
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'La contraseña es requerida.';
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    hintText: '••••••••',
-                    hintStyle: const TextStyle(
-                      color: Color(0xFFD9D9D9),
-                      fontSize: 14,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    // Si hay un error, el borde cambia a rojo
-                    errorBorder: _passwordError != null
-                        ? OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Styles.errorColor,
-                              width: 1,
-                            ),
-                          )
-                        : null,
-                    focusedErrorBorder: _passwordError != null
-                        ? OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Styles.errorColor,
-                              width: 2,
-                            ),
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0),
-                        width: 1,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE0E0E0),
-                        width: 1,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Styles.primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: Styles.spacingMedium,
-                      vertical: Styles.spacingMedium,
-                    ),
-                  ),
-                ),
-                // Mostrar el mensaje de error de credenciales aquí
-                if (_passwordError != null)
-                  Padding(
-                    padding: EdgeInsets.only(top: Styles.spacingXSmall),
-                    child: Text(
-                      _passwordError!,
-                      style: TextStyles.caption.copyWith(
-                        color: Styles.errorColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+              ),
 
-                SizedBox(
-                  height:
-                      Styles.spacingXLarge -
-                      (_passwordError != null ? Styles.spacingXSmall : 0),
-                ), // Ajustar el espacio si se muestra el error
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    // Deshabilita el botón durante la carga
-                    onPressed: _isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Styles.primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      disabledBackgroundColor: Styles.primaryColor.withAlpha(
-                        153,
-                      ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Styles.errorColor,
+                      fontSize: 13,
                     ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            'Iniciar Sesión',
-                            style: TextStyles.button.copyWith(fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              const SizedBox(height: 32),
+              Center(
+                child: GestureDetector(
+                  onTap: () => Modular.to.navigate(
+                    '/register-form',
+                    arguments: 'cliente',
+                  ),
+                  child: RichText(
+                    text: TextSpan(
+                      text: "¿No tienes una cuenta? ",
+                      style: const TextStyle(color: Styles.textSecondary),
+                      children: [
+                        TextSpan(
+                          text: 'Regístrate',
+                          style: TextStyle(
+                            color: Styles.primaryColor,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                SizedBox(height: Styles.spacingXLarge),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              ),
+
+              const SizedBox(height: 24),
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
                   children: [
                     Text(
-                      "¿No tienes una cuenta? ",
-                      style: TextStyles.body.copyWith(
-                        color: Styles.textSecondary,
-                      ),
+                      '¿Eres una empresa o agente inmobiliario? ',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
                     GestureDetector(
-                      onTap: _goToRegister,
-                      child: Text(
-                        'Regístrate',
-                        style: TextStyles.body.copyWith(
+                      onTap: () => Modular.to.navigate('/inmobiliaria-login'),
+                      child: const Text(
+                        'Ingresa aquí',
+                        style: TextStyle(
                           color: Styles.primaryColor,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      ' o ',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                    GestureDetector(
+                      onTap: () =>
+                          Modular.to.navigate('/inmobiliaria-register'),
+                      child: const Text(
+                        'Regístrate aquí',
+                        style: TextStyle(
+                          color: Styles.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: Styles.spacingMedium),
-                Center(
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    children: [
-                      Text(
-                        '¿Eres una empresa o agente inmobiliario? ',
-                        style: TextStyles.body.copyWith(
-                          color: Styles.textSecondary,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Modular.to.navigate('/inmobiliaria-login'),
-                        child: Text(
-                          'Ingresa aquí',
-                          style: TextStyles.body.copyWith(
-                            color: Styles.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        ' o ',
-                        style: TextStyles.body.copyWith(
-                          color: Styles.textSecondary,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () =>
-                            Modular.to.navigate('/inmobiliaria-register'),
-                        child: Text(
-                          'Regístrate aquí',
-                          style: TextStyles.body.copyWith(
-                            color: Styles.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

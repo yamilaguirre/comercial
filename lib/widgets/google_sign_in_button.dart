@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:flutter_modular/flutter_modular.dart';
+import '../providers/auth_provider.dart';
 
 class GoogleSignInButton extends StatelessWidget {
-  final AuthService _authService = AuthService();
+  final AuthService _authService = Modular.get<AuthService>();
 
   GoogleSignInButton({super.key});
 
@@ -11,7 +12,7 @@ class GoogleSignInButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: () async {
         final user = await _authService.signInWithGoogle();
-        if (user != null) {
+        if (user != null && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Bienvenido ${user.displayName}')),
           );

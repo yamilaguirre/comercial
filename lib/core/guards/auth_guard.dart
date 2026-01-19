@@ -22,6 +22,18 @@ class AuthGuard extends RouteGuard {
     if (requiredRole != 'all') {
       final userRole = authService.userRole;
 
+      // Si el rol es nulo o pendiente, forzar registro para cualquier ruta protegida
+      if (userRole == AuthService.ROLE_PENDING) {
+        Modular.to.navigate(
+          '/register-form',
+          arguments: {
+            'userType': 'cliente',
+            'prefilledUser': authService.currentUser,
+          },
+        );
+        return false;
+      }
+
       // Verificar suscripción para inmobiliaria_empresa
       if (userRole == 'inmobiliaria_empresa') {
         final hasPremium = authService.isPremium;

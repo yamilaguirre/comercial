@@ -15,19 +15,40 @@ class OnboardingGuard extends RouteGuard {
     if (authService.isAuthenticated) {
       final user = authService.currentUser;
       if (user != null) {
-        // Leer datos del usuario de Firestore
+        // Leer datos del usuario de Firestore (FORZAR SERVIDOR para evitar caché de borrado reciente)
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
-            .get();
+            .get(const GetOptions(source: Source.serverAndCache));
 
-        final role = doc.data()?['role'];
+        if (!doc.exists) {
+          print(
+            '🚀 [GUARD] No hay documento en Firestore, redirigiendo a registro',
+          );
+          Modular.to.navigate(
+            '/register-form',
+            arguments: {'userType': 'cliente', 'prefilledUser': user},
+          );
+          return false;
+        }
+
+        final data = doc.data();
+        final role = data?['role'];
+
+        if (role == null || role == AuthService.ROLE_PENDING) {
+          print('🚀 [GUARD] Rol indefinido o nulo, redirigiendo a registro');
+          Modular.to.navigate(
+            '/register-form',
+            arguments: {'userType': 'cliente', 'prefilledUser': user},
+          );
+          return false;
+        }
 
         // Si es empresa inmobiliaria, verificar suscripción
         if (role == 'inmobiliaria_empresa') {
           // Verificar si tiene suscripción premium activa
           final subscriptionStatus =
-              doc.data()?['subscriptionStatus'] as Map<String, dynamic>?;
+              data?['subscriptionStatus'] as Map<String, dynamic>?;
           final hasPremium =
               subscriptionStatus != null &&
               subscriptionStatus['status'] == 'active';
