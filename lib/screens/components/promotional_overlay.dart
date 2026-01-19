@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/banner_service.dart';
 
@@ -80,21 +81,25 @@ class _PromotionalOverlayState extends State<PromotionalOverlay> {
     });
   }
 
-  void _onBannerTap() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('YAAPS'),
-        content: const Text('App no disponible por el momento'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
-          ),
-        ],
-      ),
-    );
+  void _onBannerTap(Map<String, dynamic> bannerData) async {
+    final link =
+        bannerData['externalLink'] as String? ??
+        'https://play.google.com/store/apps/details?id=com.aplicaciones.taxia1';
+    final url = Uri.parse(link);
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo abrir el enlace')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error launching banner URL: $e');
+    }
   }
 
   @override
@@ -128,7 +133,7 @@ class _PromotionalOverlayState extends State<PromotionalOverlay> {
             color: Colors.transparent,
             child: SafeArea(
               child: InkWell(
-                onTap: _onBannerTap,
+                onTap: () => _onBannerTap(bannerData),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 500),
                   child: Container(
