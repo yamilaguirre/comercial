@@ -21,8 +21,13 @@ void main() async {
 
   // Inicializa Google Mobile Ads (AdMob)
   await MobileAds.instance.initialize();
-  // Pre-cargar un interstitial para el primer uso
-  await AdService.instance.preloadInterstitial();
+  // Pre-cargar interstitials para los diferentes flujos
+  await AdService.instance.preloadInterstitial(
+    adUnitId: AdIds.defaultInterstitialId,
+  );
+  await AdService.instance.preloadInterstitial(
+    adUnitId: AdIds.mapInterstitialId,
+  );
 
   // === CAMBIO CLAVE: Usa ModularApp como widget raíz ===
   // ModularApp inyecta el módulo principal (AppModule) y gestiona el ruteo y las dependencias.

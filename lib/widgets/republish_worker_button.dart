@@ -54,7 +54,9 @@ class _RepublishWorkerButtonState extends State<RepublishWorkerButton> {
   }
 
   Future<void> _loadTimeRemaining() async {
-    final time = await _republishService.getTimeUntilNextRepublish(widget.userId);
+    final time = await _republishService.getTimeUntilNextRepublish(
+      widget.userId,
+    );
     if (mounted) {
       setState(() {
         _timeRemaining = time;
@@ -80,18 +82,22 @@ class _RepublishWorkerButtonState extends State<RepublishWorkerButton> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('¡Tu perfil ha sido re-publicado! Ahora apareces al inicio de la lista.'),
+            content: Text(
+              '¡Tu perfil ha sido re-publicado! Ahora apareces al inicio de la lista.',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
         );
         await _loadTimeRemaining();
       } else {
-        final timeRemaining = await _republishService.getTimeUntilNextRepublish(widget.userId);
+        final timeRemaining = await _republishService.getTimeUntilNextRepublish(
+          widget.userId,
+        );
         if (timeRemaining != null && timeRemaining.inSeconds > 0) {
           final hours = timeRemaining.inHours;
           final minutes = timeRemaining.inMinutes % 60;
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -110,7 +116,7 @@ class _RepublishWorkerButtonState extends State<RepublishWorkerButton> {
     final hours = duration.inHours;
     final minutes = duration.inMinutes % 60;
     final seconds = duration.inSeconds % 60;
-    
+
     if (hours > 0) {
       return '${hours}h ${minutes}m ${seconds}s';
     } else if (minutes > 0) {
@@ -135,8 +141,8 @@ class _RepublishWorkerButtonState extends State<RepublishWorkerButton> {
         gradient: LinearGradient(
           colors: canRepublish
               ? widget.isPremium
-                  ? [const Color(0xFFFF6F00), const Color(0xFFFFC107)]
-                  : [const Color(0xFF0033CC), const Color(0xFF1565C0)]
+                    ? [const Color(0xFFFF6F00), const Color(0xFFFFC107)]
+                    : [const Color(0xFF0033CC), const Color(0xFF1565C0)]
               : [Colors.grey[400]!, Colors.grey[500]!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

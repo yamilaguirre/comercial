@@ -5,11 +5,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdIds {
-  static const String androidAppId = 'ca-app-pub-3940256099942544~3347511713';
+  // App IDs Reales
+  static const String androidAppId = 'ca-app-pub-3664941551435801~6639103457';
   static const String iosAppId = 'ca-app-pub-3940256099942544~1458002511';
 
-  static String get interstitialUnitId => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/1033173712'
+  // Unit IDs Reales (Android)
+  static const String whatsappInterstitial =
+      'ca-app-pub-3664941551435801/1310717165';
+  static const String mapInterstitial =
+      'ca-app-pub-3664941551435801/9624127935';
+
+  static String get defaultInterstitialId => Platform.isAndroid
+      ? whatsappInterstitial
+      : 'ca-app-pub-3940256099942544/4411468910';
+
+  static String get mapInterstitialId => Platform.isAndroid
+      ? mapInterstitial
       : 'ca-app-pub-3940256099942544/4411468910';
 }
 
@@ -17,102 +28,113 @@ class AdService {
   AdService._();
   static final AdService instance = AdService._();
 
-  InterstitialAd? _interstitialAd;
-  bool _isLoading = false;
-  bool _premiumChecked = false;
+  final Map<String, InterstitialAd?> _interstitialAds = {};
+  final Map<String, bool> _isLoading = {};
+
   bool _isPremiumUser = false;
-  
-  // Permite forzar/establecer el estado premium desde la UI (por ejemplo tras un Stream)
+
   void setPremiumOverride(bool isPremium) {
     _isPremiumUser = isPremium;
-    _premiumChecked = true;
   }
-  
-  // Vuelve a consultar premium en Firestore en caso de cambios sin reiniciar
+
   Future<void> refreshPremiumStatus() async {
-    _premiumChecked = false;
     await _ensurePremiumStatus();
   }
 
   Future<void> _ensurePremiumStatus() async {
-    if (_premiumChecked) return;
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         _isPremiumUser = false;
-        _premiumChecked = true;
         return;
       }
-      final doc = await FirebaseFirestore.instance
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      bool isPremiumInUserDoc = false;
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        final sub = data?['subscriptionStatus'] as Map<String, dynamic>?;
+        isPremiumInUserDoc = (sub != null && sub['status'] == 'active');
+      }
+
+      final premiumDoc = await FirebaseFirestore.instance
           .collection('premium_users')
           .doc(user.uid)
           .get();
-      if (doc.exists) {
-        final data = doc.data();
-        _isPremiumUser = (data != null && data['status'] == 'active');
-      } else {
-        _isPremiumUser = false;
+
+      bool isPremiumInPremiumColl = false;
+      if (premiumDoc.exists) {
+        final data = premiumDoc.data();
+        isPremiumInPremiumColl = (data != null && data['status'] == 'active');
       }
+
+      _isPremiumUser = isPremiumInUserDoc || isPremiumInPremiumColl;
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error checking premium status: $e');
-      }
       _isPremiumUser = false;
-    } finally {
-      _premiumChecked = true;
     }
   }
 
-  Future<void> preloadInterstitial() async {
-    if (_interstitialAd != null || _isLoading) return;
-    _isLoading = true;
+  Future<void> preloadInterstitial({String? adUnitId}) async {
+    final unitId = adUnitId ?? AdIds.defaultInterstitialId;
+
+    if (_interstitialAds[unitId] != null || (_isLoading[unitId] ?? false))
+      return;
+
+    _isLoading[unitId] = true;
     await InterstitialAd.load(
-      adUnitId: AdIds.interstitialUnitId,
+      adUnitId: unitId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          _interstitialAd = ad;
-          _isLoading = false;
+          _interstitialAds[unitId] = ad;
+          _isLoading[unitId] = false;
         },
         onAdFailedToLoad: (error) {
-          _interstitialAd = null;
-          _isLoading = false;
+          _interstitialAds[unitId] = null;
+          _isLoading[unitId] = false;
           if (kDebugMode) {
-            debugPrint('Interstitial failed to load: $error');
+            debugPrint('Interstitial failed to load ($unitId): $error');
           }
         },
       ),
     );
   }
 
-  Future<void> showInterstitialThen(Future<void> Function() action) async {
+  Future<void> showInterstitialThen(
+    Future<void> Function() action, {
+    String? adUnitId,
+  }) async {
     await _ensurePremiumStatus();
     if (_isPremiumUser) {
       await action();
       return;
     }
-    // If ad is available, show it and run action after dismissal.
-    final ad = _interstitialAd;
+
+    final unitId = adUnitId ?? AdIds.defaultInterstitialId;
+    final ad = _interstitialAds[unitId];
+
     if (ad != null) {
-      _interstitialAd = null;
+      _interstitialAds[unitId] = null;
       ad.fullScreenContentCallback = FullScreenContentCallback(
         onAdDismissedFullScreenContent: (ad) {
           ad.dispose();
-          // Preload the next one
-          preloadInterstitial();
+          preloadInterstitial(adUnitId: unitId);
           action();
         },
         onAdFailedToShowFullScreenContent: (ad, error) {
           ad.dispose();
-          preloadInterstitial();
+          preloadInterstitial(adUnitId: unitId);
           action();
         },
       );
       ad.show();
     } else {
-      // No ad ready; run action immediately and try to preload.
       await action();
-      preloadInterstitial();
+      preloadInterstitial(adUnitId: unitId);
     }
   }
 }

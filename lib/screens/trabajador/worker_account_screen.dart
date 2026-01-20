@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
+import 'package:chaski_comercial/services/ad_service.dart';
 import '../../theme/theme.dart';
 import '../property/components/account_menu_section.dart';
 import 'premium_subscription_modal.dart';
@@ -66,15 +67,18 @@ class _WorkerAccountScreenState extends State<WorkerAccountScreen> {
       final whatsappUrl = 'https://wa.me/$cleanNumber?text=$message';
 
       final uri = Uri.parse(whatsappUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se pudo abrir WhatsApp')),
-          );
+
+      await AdService.instance.showInterstitialThen(() async {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No se pudo abrir WhatsApp')),
+            );
+          }
         }
-      }
+      });
     } catch (e) {
       print('Error al abrir WhatsApp de soporte: $e');
       if (mounted) {

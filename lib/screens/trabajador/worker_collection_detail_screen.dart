@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart'
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/ad_service.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/saved_collection_model.dart';
@@ -582,7 +583,9 @@ class _WorkerCollectionDetailScreenState
         return;
       }
 
-      print('📝 [VIEWS-COLLECTION] Llamando a ProfileViewsService.registerProfileView');
+      print(
+        '📝 [VIEWS-COLLECTION] Llamando a ProfileViewsService.registerProfileView',
+      );
       await ProfileViewsService.registerProfileView(
         viewerId: currentUser.uid,
         workerId: workerId,
@@ -661,18 +664,20 @@ class _WorkerCollectionDetailScreenState
     final whatsappUrl = 'https://wa.me/$cleanPhone';
     try {
       final uri = Uri.parse(whatsappUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo abrir WhatsApp'),
-              backgroundColor: Colors.red,
-            ),
-          );
+      await AdService.instance.showInterstitialThen(() async {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo abrir WhatsApp'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-      }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

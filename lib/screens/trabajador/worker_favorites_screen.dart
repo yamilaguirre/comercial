@@ -5,6 +5,7 @@ import 'package:flutter_modular/flutter_modular.dart'
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../services/ad_service.dart';
 
 import '../../theme/theme.dart';
 import '../property/components/saved_counter.dart';
@@ -312,7 +313,8 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
                                         label: ContactFilter.all.label,
                                         count: _counts[ContactFilter.all] ?? 0,
                                         color: Styles.primaryColor,
-                                        isSelected: _selectedFilter ==
+                                        isSelected:
+                                            _selectedFilter ==
                                             ContactFilter.all,
                                         onTap: () =>
                                             _onFilterChanged(ContactFilter.all),
@@ -321,10 +323,13 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
                                       SavedCounter(
                                         icon: Icons.chat_bubble_outline,
                                         label: ContactFilter.notContacted.label,
-                                        count: _counts[ContactFilter.notContacted] ??
+                                        count:
+                                            _counts[ContactFilter
+                                                .notContacted] ??
                                             0,
                                         color: Colors.orange,
-                                        isSelected: _selectedFilter ==
+                                        isSelected:
+                                            _selectedFilter ==
                                             ContactFilter.notContacted,
                                         onTap: () => _onFilterChanged(
                                           ContactFilter.notContacted,
@@ -334,10 +339,12 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
                                       SavedCounter(
                                         icon: Icons.chat,
                                         label: ContactFilter.contacted.label,
-                                        count: _counts[ContactFilter.contacted] ??
+                                        count:
+                                            _counts[ContactFilter.contacted] ??
                                             0,
                                         color: Colors.green,
-                                        isSelected: _selectedFilter ==
+                                        isSelected:
+                                            _selectedFilter ==
                                             ContactFilter.contacted,
                                         onTap: () => _onFilterChanged(
                                           ContactFilter.contacted,
@@ -363,7 +370,10 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                children: [_buildAllSavedTab(userId), _buildCollectionsTab(userId)],
+                children: [
+                  _buildAllSavedTab(userId),
+                  _buildCollectionsTab(userId),
+                ],
               ),
             ),
           ],
@@ -952,7 +962,9 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
         return;
       }
 
-      print('📝 [VIEWS-FAVORITES] Llamando a ProfileViewsService.registerProfileView');
+      print(
+        '📝 [VIEWS-FAVORITES] Llamando a ProfileViewsService.registerProfileView',
+      );
       await ProfileViewsService.registerProfileView(
         viewerId: currentUser.uid,
         workerId: workerId,
@@ -1031,18 +1043,20 @@ class _WorkerFavoritesScreenState extends State<WorkerFavoritesScreen>
     final whatsappUrl = 'https://wa.me/$cleanPhone';
     try {
       final uri = Uri.parse(whatsappUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo abrir WhatsApp'),
-              backgroundColor: Colors.red,
-            ),
-          );
+      await AdService.instance.showInterstitialThen(() async {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo abrir WhatsApp'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-      }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1204,10 +1218,7 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
   final String userId;
   final WorkerSavedService savedService;
 
-  FavoritesSearchDelegate({
-    required this.userId,
-    required this.savedService,
-  });
+  FavoritesSearchDelegate({required this.userId, required this.savedService});
 
   @override
   String get searchFieldLabel => 'Buscar trabajador...';
@@ -1276,28 +1287,34 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
         final workers = snapshot.data!.where((data) {
           final name = (data['name'] ?? '').toString().toLowerCase();
           final profileMap = data['profile'] as Map<String, dynamic>?;
-          
-          String profession = (data['profession'] as String? ?? 
-                              profileMap?['profession'] as String? ?? '')
-                              .toString()
-                              .toLowerCase();
-          
-          final professionsData = (data['professions'] as List<dynamic>?) ??
-                                 (profileMap?['professions'] as List<dynamic>?);
-          
+
+          String profession =
+              (data['profession'] as String? ??
+                      profileMap?['profession'] as String? ??
+                      '')
+                  .toString()
+                  .toLowerCase();
+
+          final professionsData =
+              (data['professions'] as List<dynamic>?) ??
+              (profileMap?['professions'] as List<dynamic>?);
+
           if (professionsData != null && professionsData.isNotEmpty) {
             for (var prof in professionsData) {
               final profMap = prof as Map<String, dynamic>?;
-              final category = (profMap?['category'] as String? ?? '').toLowerCase();
+              final category = (profMap?['category'] as String? ?? '')
+                  .toLowerCase();
               final subcategories = profMap?['subcategories'] as List<dynamic>?;
-              
+
               if (category.contains(query.toLowerCase())) {
                 return true;
               }
-              
+
               if (subcategories != null) {
                 for (var sub in subcategories) {
-                  if (sub.toString().toLowerCase().contains(query.toLowerCase())) {
+                  if (sub.toString().toLowerCase().contains(
+                    query.toLowerCase(),
+                  )) {
                     return true;
                   }
                 }
@@ -1306,7 +1323,7 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
           }
 
           return name.contains(query.toLowerCase()) ||
-                 profession.contains(query.toLowerCase());
+              profession.contains(query.toLowerCase());
         }).toList();
 
         if (workers.isEmpty) {
@@ -1355,11 +1372,14 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
 
                 // Calcular distancia
                 String distance = '';
-                final workerLocation = data['location'] as Map<String, dynamic>?;
+                final workerLocation =
+                    data['location'] as Map<String, dynamic>?;
 
                 if (workerLocation != null && userLocation != null) {
-                  final workerLat = (workerLocation['latitude'] as num?)?.toDouble();
-                  final workerLng = (workerLocation['longitude'] as num?)?.toDouble();
+                  final workerLat = (workerLocation['latitude'] as num?)
+                      ?.toDouble();
+                  final workerLng = (workerLocation['longitude'] as num?)
+                      ?.toDouble();
 
                   if (workerLat != null && workerLng != null) {
                     final distanceInMeters = Geolocator.distanceBetween(
@@ -1380,23 +1400,26 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
 
                 // Extraer profesión
                 final profileMap = data['profile'] as Map<String, dynamic>?;
-                String profession = (data['profession'] as String? ??
-                        profileMap?['profession'] as String? ??
-                        '')
-                    .toString();
-                final professionsData = (data['professions'] as List<dynamic>?) ??
+                String profession =
+                    (data['profession'] as String? ??
+                            profileMap?['profession'] as String? ??
+                            '')
+                        .toString();
+                final professionsData =
+                    (data['professions'] as List<dynamic>?) ??
                     (profileMap?['professions'] as List<dynamic>?);
-                
+
                 if (profession.isEmpty) {
                   profession = 'Sin profesión especificada';
                 }
-                
+
                 if (professionsData != null && professionsData.isNotEmpty) {
                   final List<String> allSubcategories = [];
 
                   for (var prof in professionsData) {
                     final profMap = prof as Map<String, dynamic>?;
-                    final subcategories = profMap?['subcategories'] as List<dynamic>?;
+                    final subcategories =
+                        profMap?['subcategories'] as List<dynamic>?;
 
                     if (subcategories != null && subcategories.isNotEmpty) {
                       allSubcategories.addAll(
@@ -1423,7 +1446,8 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
                 return StreamBuilder<Map<String, dynamic>>(
                   stream: LocationService.calculateWorkerRatingStream(workerId),
                   builder: (context, ratingSnapshot) {
-                    final ratingData = ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
+                    final ratingData =
+                        ratingSnapshot.data ?? {'rating': 0.0, 'reviews': 0};
                     final rating = (ratingData['rating'] as num).toDouble();
                     final reviews = ratingData['reviews'] as int;
 
@@ -1439,7 +1463,8 @@ class FavoritesSearchDelegate extends SearchDelegate<String> {
                       phone: data['phoneNumber'] as String? ?? '',
                       latitude: workerLocation?['latitude'] as double? ?? 0.0,
                       longitude: workerLocation?['longitude'] as double? ?? 0.0,
-                      categories: professionsData
+                      categories:
+                          professionsData
                               ?.map(
                                 (p) =>
                                     (p as Map<String, dynamic>?)?['category']
@@ -1567,10 +1592,7 @@ class _SearchFavoriteCard extends StatelessWidget {
                     if (profession != 'Sin profesión especificada')
                       Text(
                         profession,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

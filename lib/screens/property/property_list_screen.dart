@@ -412,15 +412,29 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: () async {
-                                      await AdService.instance
-                                          .showInterstitialThen(() async {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const PropertyLocationSearchScreen(),
-                                              ),
-                                            );
-                                          });
+                                      final authService =
+                                          Provider.of<AuthService>(
+                                            context,
+                                            listen: false,
+                                          );
+                                      if (authService.isPremium) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const PropertyLocationSearchScreen(),
+                                          ),
+                                        );
+                                      } else {
+                                        await AdService.instance
+                                            .showInterstitialThen(() async {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const PropertyLocationSearchScreen(),
+                                                ),
+                                              );
+                                            }, adUnitId: AdIds.mapInterstitialId);
+                                      }
                                     },
                                     borderRadius: BorderRadius.circular(12),
                                     child: Padding(

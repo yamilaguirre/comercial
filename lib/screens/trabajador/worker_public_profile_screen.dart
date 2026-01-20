@@ -34,7 +34,7 @@ class _WorkerPublicProfileScreenState extends State<WorkerPublicProfileScreen> {
     final worker = widget.worker;
     final String shareText =
         '''
-¡Mira este perfil de trabajador en Job Chasky!
+¡Mira este perfil de trabajador en las publicaciones de comercial!
 Nombre: ${worker.name}
 Profesión: ${worker.profession}
 Calificación: ${worker.rating.toStringAsFixed(1)} ⭐
@@ -302,7 +302,8 @@ Descarga la app para contactarlo.
           ),
           body: SingleChildScrollView(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom +
+              bottom:
+                  MediaQuery.of(context).padding.bottom +
                   kBottomNavigationBarHeight +
                   16,
             ),
@@ -1026,7 +1027,7 @@ Descarga la app para contactarlo.
                     }
 
                     final whatsappUrl = Uri.parse(
-                      'https://wa.me/$phone?text=Hola, vi tu perfil en Job Chasky y me interesa tu servicio.',
+                      'https://wa.me/$phone?text=Hola, vi tu perfil en la aplicación de comercial y me interesa tu servicio.',
                     );
 
                     await AdService.instance.showInterstitialThen(() async {
@@ -1075,55 +1076,55 @@ Descarga la app para contactarlo.
                 ),
                 textColor: Colors.white,
                 onPressed: () async {
-                final authService = Provider.of<AuthService>(
-                  context,
-                  listen: false,
-                );
-                final currentUser = authService.currentUser;
-                if (currentUser == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Debes iniciar sesión')),
+                  final authService = Provider.of<AuthService>(
+                    context,
+                    listen: false,
                   );
-                  return;
-                }
-
-                try {
-                  final chatService = ChatService();
-                  final userIds = [currentUser.uid, widget.worker.id];
-                  String? chatId = await chatService.findExistingChat(
-                    'general',
-                    userIds,
-                  );
-
-                  if (chatId == null) {
-                    chatId = await chatService.createChat(
-                      propertyId: 'general',
-                      userIds: userIds,
-                      initialMessage:
-                          'Hola, vi tu perfil y me interesa tu servicio.',
-                      senderId: currentUser.uid,
+                  final currentUser = authService.currentUser;
+                  if (currentUser == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Debes iniciar sesión')),
                     );
+                    return;
                   }
 
-                  if (chatId != null && mounted) {
-                    Modular.to.pushNamed(
-                      '/worker/chat-detail',
-                      arguments: {
-                        'chatId': chatId,
-                        'otherUserId': widget.worker.id,
-                        'otherUserName': widget.worker.name,
-                        'otherUserPhoto': widget.worker.photoUrl,
-                      },
+                  try {
+                    final chatService = ChatService();
+                    final userIds = [currentUser.uid, widget.worker.id];
+                    String? chatId = await chatService.findExistingChat(
+                      'general',
+                      userIds,
                     );
+
+                    if (chatId == null) {
+                      chatId = await chatService.createChat(
+                        propertyId: 'general',
+                        userIds: userIds,
+                        initialMessage:
+                            'Hola, vi tu perfil y me interesa tu servicio.',
+                        senderId: currentUser.uid,
+                      );
+                    }
+
+                    if (chatId != null && mounted) {
+                      Modular.to.pushNamed(
+                        '/worker/chat-detail',
+                        arguments: {
+                          'chatId': chatId,
+                          'otherUserId': widget.worker.id,
+                          'otherUserName': widget.worker.name,
+                          'otherUserPhoto': widget.worker.photoUrl,
+                        },
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
                   }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              },
+                },
               ),
             ),
           ],
@@ -1153,7 +1154,9 @@ Descarga la app para contactarlo.
       decoration: BoxDecoration(
         color: color,
         gradient: gradient,
-        border: borderColor != null ? Border.all(color: borderColor, width: 1.5) : null,
+        border: borderColor != null
+            ? Border.all(color: borderColor, width: 1.5)
+            : null,
         borderRadius: BorderRadius.circular(12),
         boxShadow: gradient != null
             ? [
@@ -1726,20 +1729,23 @@ Descarga la app para contactarlo.
               onTap: () async {
                 Navigator.pop(modalContext);
                 final whatsappUrl = Uri.parse('https://wa.me/$workerPhone');
-                if (await canLaunchUrl(whatsappUrl)) {
-                  await launchUrl(
-                    whatsappUrl,
-                    mode: LaunchMode.externalApplication,
-                  );
-                } else {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No se pudo abrir WhatsApp'),
-                      ),
+
+                await AdService.instance.showInterstitialThen(() async {
+                  if (await canLaunchUrl(whatsappUrl)) {
+                    await launchUrl(
+                      whatsappUrl,
+                      mode: LaunchMode.externalApplication,
                     );
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No se pudo abrir WhatsApp'),
+                        ),
+                      );
+                    }
                   }
-                }
+                });
               },
             ),
             const Divider(),

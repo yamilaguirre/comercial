@@ -406,7 +406,7 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
                     builder: (context) => const WorkerLocationSearchScreen(),
                   ),
                 );
-              });
+              }, adUnitId: AdIds.mapInterstitialId);
             }
           },
           borderRadius: BorderRadius.circular(16),
@@ -1737,20 +1737,23 @@ class _HomeWorkScreenState extends State<HomeWorkScreen> {
               onTap: () async {
                 Navigator.pop(modalContext);
                 final whatsappUrl = Uri.parse('https://wa.me/$workerPhone');
-                if (await canLaunchUrl(whatsappUrl)) {
-                  await launchUrl(
-                    whatsappUrl,
-                    mode: LaunchMode.externalApplication,
-                  );
-                } else {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No se pudo abrir WhatsApp'),
-                      ),
+
+                await AdService.instance.showInterstitialThen(() async {
+                  if (await canLaunchUrl(whatsappUrl)) {
+                    await launchUrl(
+                      whatsappUrl,
+                      mode: LaunchMode.externalApplication,
                     );
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No se pudo abrir WhatsApp'),
+                        ),
+                      );
+                    }
                   }
-                }
+                });
               },
             ),
             const Divider(),

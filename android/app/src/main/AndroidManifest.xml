@@ -9,12 +9,13 @@
     <application
         android:label="Comercial"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:hardwareAccelerated="true">
 
         <!-- AdMob App ID (TEST). Reemplazar por el real para producción -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3664941551435801~7914568823" />
+            android:value="ca-app-pub-3664941551435801~6639103457" />
 
         <activity
             android:name=".MainActivity"
