@@ -141,6 +141,14 @@ class _WorkerLocationSearchScreenState
           continue;
         }
 
+        // NUEVO: Verificar que el trabajador quiera ser visto en el mapa
+        final locationSettings =
+            data['locationSettings'] as Map<String, dynamic>?;
+        final showOnMap = locationSettings?['showOnMap'] as bool? ?? true;
+        if (!showOnMap) {
+          continue;
+        }
+
         // Obtener ubicación del campo 'location'
         final location = data['location'] as Map<String, dynamic>?;
         if (location != null) {
