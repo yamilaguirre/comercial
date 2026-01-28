@@ -5,15 +5,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdIds {
-  // App IDs Reales (Android TEST / iOS TEST)
-  static const String androidAppId = 'ca-app-pub-3940256099942544~3347511713';
+  // App IDs Reales
+  static const String androidAppId = 'ca-app-pub-3664941551435801~6639103457';
   static const String iosAppId = 'ca-app-pub-3940256099942544~1458002511';
 
-  // Unit IDs Reales (Android) - USANDO TEST IDs
+  // Unit IDs Reales (Android)
   static const String whatsappInterstitial =
-      'ca-app-pub-3940256099942544/1033173712';
+      'ca-app-pub-3664941551435801/1310717165';
   static const String mapInterstitial =
-      'ca-app-pub-3940256099942544/1033173712';
+      'ca-app-pub-3664941551435801/9624127935';
 
   static String get defaultInterstitialId => Platform.isAndroid
       ? whatsappInterstitial
